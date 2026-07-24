@@ -24,6 +24,14 @@ npm run dev
 - 自动化任务暂停、恢复、删除和立即执行
 - 模拟执行状态、运行记录及结果详情
 - 浏览器本地持久化
+- 助理固定长 Session、对话内协作任务查询与占用输入器位置向上展开的 A2A 用户决策 Dock
+- A2A 确认与连续澄清共用配置驱动的 Decision Dock：选项只负责选中，非末步“继续”，澄清末步“提交”，外部动作使用受控“确认……”文案
+- A2A 派任务选人、模型输出结束后再弹、关闭暂存与 Workspace 任务文件联动
+- 普通任务与助理共用 Codex 风格 Workspace 工作台：双层导航、标签、输出物浮层、独立文件目录与响应式交互
+- 受控 HTML Browser：只运行自己生成的 HTML，支持刷新和查看源文件，不允许输入网址
+- 普通任务 Session 目录：`context.md`、`attachments/` 与生成物 `outputs/`
+- 助理目录：规则、用户偏好、长期记忆、每日工作记忆、任务文件与输出物
+- 通过自然语言从协作任务创建自动催办
 - 宽屏、窄屏和移动端适配
 
 ## 工程结构
@@ -37,4 +45,9 @@ npm run dev
 ## 项目文档
 
 - [项目概要与新会话接续说明](./PROJECT_CONTEXT.md)
+- [Workspace 工作台交互规范 PRD](./docs/PRD-Workspace工作台交互规范.md)
+- [双模式会话与统一 Workspace PRD](./docs/PRD-双模式会话与统一Workspace.md)
 - [自动化定时任务 PRD](./docs/PRD-自动化定时任务.md)
+- [助理 A2A 任务派发与催办 PRD](./docs/PRD-助理A2A任务派发与催办.md)
+- [A2A 用户决策与确认机制 PRD](./docs/PRD-A2A用户决策与确认机制.md)
+- [A2A 用户决策与确认机制完整方案（独立 HTML）](./docs/A2A用户决策与确认机制-完整方案.html)

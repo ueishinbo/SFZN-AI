@@ -1,0 +1,705 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>COMAC AI · A2A 用户决策与确认机制</title>
+  <style>
+    :root {
+      --ink: #172033;
+      --muted: #667085;
+      --soft: #8d98aa;
+      --line: #e5eaf0;
+      --line-strong: #d7dee8;
+      --paper: #ffffff;
+      --canvas: #f4f7fb;
+      --blue: #196fd1;
+      --blue-2: #0f5fb9;
+      --blue-soft: #eaf4ff;
+      --teal: #168478;
+      --teal-soft: #e6f7f4;
+      --amber: #aa6a0a;
+      --amber-soft: #fff4d9;
+      --red: #b6404e;
+      --red-soft: #fff0f1;
+      --shadow: 0 24px 70px rgba(25, 43, 72, .13), 0 4px 14px rgba(25, 43, 72, .06);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: var(--ink);
+      background: var(--canvas);
+      font-synthesis: none;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; min-width: 320px; background:
+      radial-gradient(circle at 8% -4%, rgba(112, 180, 255, .18), transparent 28%),
+      radial-gradient(circle at 96% 8%, rgba(69, 190, 172, .12), transparent 24%),
+      var(--canvas);
+    }
+    button, input, textarea { font: inherit; }
+    button { color: inherit; }
+    a { color: inherit; text-decoration: none; }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 80;
+      height: 68px;
+      padding: 0 34px;
+      border-bottom: 1px solid rgba(218, 225, 234, .84);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      background: rgba(248, 250, 253, .86);
+      backdrop-filter: blur(18px);
+    }
+    .brand { display: flex; align-items: center; gap: 11px; font-size: 14px; font-weight: 760; letter-spacing: -.01em; }
+    .brand-mark {
+      width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center;
+      color: #fff; background: linear-gradient(145deg, #1377db, #0f5aaf); box-shadow: 0 7px 16px rgba(28, 104, 185, .24);
+    }
+    .brand small { display: block; margin-top: 2px; color: var(--soft); font-size: 10px; font-weight: 600; letter-spacing: .04em; }
+    .nav { display: flex; align-items: center; gap: 5px; }
+    .nav a { padding: 9px 11px; border-radius: 10px; color: #667186; font-size: 12px; font-weight: 650; }
+    .nav a:hover { color: var(--ink); background: rgba(255,255,255,.9); }
+    .version { padding: 7px 10px; border: 1px solid var(--line); border-radius: 999px; color: #6f7b8d; background: #fff; font-size: 10px; font-weight: 700; }
+
+    main { width: min(1180px, calc(100% - 40px)); margin: 0 auto; }
+    .hero { padding: 86px 0 52px; display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(330px, .65fr); gap: 52px; align-items: center; }
+    .eyebrow { display: inline-flex; align-items: center; gap: 8px; color: var(--blue); font-size: 12px; font-weight: 780; letter-spacing: .06em; text-transform: uppercase; }
+    .eyebrow::before { content: ""; width: 24px; height: 2px; border-radius: 99px; background: var(--blue); }
+    h1 { max-width: 760px; margin: 18px 0 20px; font-size: clamp(42px, 6vw, 76px); line-height: 1.02; letter-spacing: -.055em; }
+    h1 span { display: block; color: var(--blue); }
+    .hero-copy { max-width: 700px; margin: 0; color: var(--muted); font-size: 17px; line-height: 1.9; }
+    .hero-actions { margin-top: 30px; display: flex; flex-wrap: wrap; gap: 10px; }
+    .primary, .secondary {
+      min-height: 44px; padding: 0 18px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      cursor: pointer; font-size: 12px; font-weight: 750;
+    }
+    .primary { border: 1px solid var(--blue); color: #fff; background: var(--blue); box-shadow: 0 10px 24px rgba(25, 111, 209, .22); }
+    .primary:hover { background: var(--blue-2); }
+    .secondary { border: 1px solid var(--line-strong); color: #4f5c70; background: rgba(255,255,255,.9); }
+    .secondary:hover { border-color: #b9c9da; background: #fff; }
+
+    .hero-card {
+      position: relative; min-height: 350px; padding: 28px; overflow: hidden; border: 1px solid rgba(216, 225, 235, .9);
+      border-radius: 28px; background: rgba(255,255,255,.87); box-shadow: var(--shadow); backdrop-filter: blur(14px);
+    }
+    .hero-card::before { content: ""; position: absolute; width: 210px; height: 210px; right: -60px; top: -70px; border-radius: 50%; background: radial-gradient(circle, rgba(50, 135, 226, .24), transparent 70%); }
+    .hero-card > small { color: var(--soft); font-size: 10px; font-weight: 750; letter-spacing: .08em; }
+    .hero-card h3 { margin: 12px 0 7px; font-size: 22px; letter-spacing: -.025em; }
+    .hero-card > p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
+    .rule-list { margin-top: 25px; display: grid; gap: 10px; }
+    .rule {
+      min-height: 58px; padding: 11px 13px; border: 1px solid #e5eaf0; border-radius: 14px; display: grid;
+      grid-template-columns: 34px minmax(0,1fr); align-items: center; gap: 11px; background: #fff;
+    }
+    .rule i { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; color: var(--blue); background: var(--blue-soft); font-style: normal; font-weight: 800; font-size: 11px; }
+    .rule strong { display: block; font-size: 12px; }
+    .rule span { display: block; margin-top: 3px; color: var(--soft); font-size: 10px; line-height: 1.4; }
+
+    .section { padding: 58px 0; scroll-margin-top: 74px; }
+    .section-head { max-width: 780px; margin-bottom: 30px; }
+    .section-head span { color: var(--blue); font-size: 11px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+    .section-head h2 { margin: 10px 0 12px; font-size: clamp(30px, 4vw, 45px); line-height: 1.1; letter-spacing: -.04em; }
+    .section-head p { margin: 0; color: var(--muted); line-height: 1.82; font-size: 14px; }
+
+    .principles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .principle { min-height: 180px; padding: 22px; border: 1px solid var(--line); border-radius: 20px; background: rgba(255,255,255,.83); }
+    .principle b { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: var(--blue); background: var(--blue-soft); font-size: 13px; }
+    .principle h3 { margin: 22px 0 8px; font-size: 16px; }
+    .principle p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.7; }
+
+    .gate {
+      padding: 28px; border: 1px solid var(--line); border-radius: 26px; background: var(--paper); box-shadow: 0 14px 35px rgba(31, 50, 79, .06);
+    }
+    .gate-track { display: grid; grid-template-columns: 1fr 70px 1fr 70px 1fr; align-items: center; gap: 10px; }
+    .gate-node { min-height: 136px; padding: 18px; border: 1px solid var(--line); border-radius: 18px; display: flex; flex-direction: column; justify-content: space-between; background: #fbfcfe; }
+    .gate-node.active { border-color: #bdd8f4; background: var(--blue-soft); }
+    .gate-node.wait { border-color: #f1d69c; background: var(--amber-soft); }
+    .gate-node small { color: var(--soft); font-size: 9px; font-weight: 800; letter-spacing: .09em; }
+    .gate-node strong { display: block; margin-top: 8px; font-size: 17px; }
+    .gate-node p { margin: 8px 0 0; color: var(--muted); font-size: 10px; line-height: 1.55; }
+    .gate-arrow { color: #a4afbd; text-align: center; font-size: 24px; }
+    .gate-note { margin: 18px 0 0; padding: 12px 14px; border-radius: 12px; color: #536177; background: #f5f7fa; font-size: 11px; line-height: 1.7; }
+
+    .type-layout { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 18px; }
+    .type-tabs { display: grid; gap: 8px; align-content: start; }
+    .type-tab {
+      width: 100%; min-height: 78px; padding: 13px; border: 1px solid transparent; border-radius: 16px; display: grid;
+      grid-template-columns: 38px minmax(0,1fr); align-items: center; gap: 11px; color: #657186; background: transparent; text-align: left; cursor: pointer;
+    }
+    .type-tab:hover { background: rgba(255,255,255,.75); }
+    .type-tab.active { border-color: #d7e4f2; color: var(--ink); background: #fff; box-shadow: 0 8px 20px rgba(29, 50, 79, .06); }
+    .type-tab i { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; color: var(--blue); background: var(--blue-soft); font-style: normal; font-size: 17px; }
+    .type-tab strong { display: block; font-size: 12px; }
+    .type-tab span { display: block; margin-top: 4px; color: var(--soft); font-size: 9px; }
+    .type-detail { min-height: 360px; padding: 30px; border: 1px solid var(--line); border-radius: 24px; background: #fff; box-shadow: 0 14px 34px rgba(25, 43, 72, .06); }
+    .type-detail header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+    .type-detail header span { padding: 6px 9px; border-radius: 999px; color: var(--blue); background: var(--blue-soft); font-size: 9px; font-weight: 800; }
+    .type-detail h3 { margin: 8px 0 8px; font-size: 26px; letter-spacing: -.03em; }
+    .type-detail .summary { margin: 0; max-width: 680px; color: var(--muted); line-height: 1.75; font-size: 12px; }
+    .field-grid { margin-top: 26px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .field { min-height: 76px; padding: 13px 14px; border: 1px solid #e7ebf0; border-radius: 14px; background: #fafbfd; }
+    .field small { color: var(--soft); font-size: 9px; }
+    .field strong { display: block; margin-top: 6px; color: #354155; font-size: 11px; line-height: 1.55; }
+    .action-row { margin-top: 20px; display: flex; justify-content: flex-end; gap: 8px; }
+    .mini-btn { min-height: 38px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 10px; background: #fff; cursor: pointer; font-size: 10px; font-weight: 750; }
+    .mini-btn.main { border-color: var(--blue); color: #fff; background: var(--blue); }
+
+    .workspace-map { display: grid; grid-template-columns: 1fr 90px 1fr 90px 1fr; align-items: stretch; }
+    .map-card { min-height: 220px; padding: 24px; border: 1px solid var(--line); border-radius: 22px; background: #fff; }
+    .map-card.blue { border-color: #c9def4; background: linear-gradient(155deg, #fff, #edf6ff); }
+    .map-card.teal { border-color: #c9e7e1; background: linear-gradient(155deg, #fff, #ecf9f6); }
+    .map-card i { width: 42px; height: 42px; border-radius: 13px; display: grid; place-items: center; color: var(--blue); background: var(--blue-soft); font-style: normal; font-size: 18px; }
+    .map-card.teal i { color: var(--teal); background: var(--teal-soft); }
+    .map-card h3 { margin: 22px 0 8px; font-size: 16px; }
+    .map-card p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.7; }
+    .map-card code { display: block; margin-top: 16px; padding: 9px 10px; overflow: hidden; border-radius: 9px; color: #526074; background: rgba(255,255,255,.85); text-overflow: ellipsis; white-space: nowrap; font-size: 9px; }
+    .map-arrow { display: grid; place-items: center; color: #9aa7b7; font-size: 25px; }
+
+    .demo-wrap { padding: 16px; border: 1px solid #d9e1eb; border-radius: 30px; background: #e9eef5; box-shadow: var(--shadow); }
+    .demo-toolbar { min-height: 58px; padding: 0 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .demo-toolbar > div:first-child { display: flex; align-items: center; gap: 8px; }
+    .demo-dot { width: 10px; height: 10px; border-radius: 50%; background: #bbc5d2; }
+    .demo-toolbar strong { margin-left: 7px; font-size: 12px; }
+    .scenario-buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
+    .scenario-buttons button { min-height: 34px; padding: 0 12px; border: 1px solid #d4dce7; border-radius: 10px; color: #536177; background: #fff; cursor: pointer; font-size: 9px; font-weight: 750; }
+    .scenario-buttons button:hover { border-color: #abc6e1; color: var(--blue); }
+
+    .fake-app { position: relative; height: 610px; overflow: hidden; border: 1px solid #dfe5ec; border-radius: 22px; display: grid; grid-template-columns: 210px minmax(0, 1fr); background: #fff; }
+    .fake-sidebar { padding: 18px 13px; border-right: 1px solid #e5eaf0; background: #f9fafc; }
+    .fake-logo { display: flex; align-items: center; gap: 9px; padding: 0 7px 18px; font-size: 11px; font-weight: 800; }
+    .fake-logo span { width: 27px; height: 27px; border-radius: 9px; display: grid; place-items: center; color: #fff; background: var(--blue); }
+    .fake-nav { display: grid; gap: 5px; }
+    .fake-nav button { height: 40px; padding: 0 11px; border: 0; border-radius: 10px; display: flex; align-items: center; gap: 9px; color: #647085; background: transparent; text-align: left; cursor: default; font-size: 10px; font-weight: 700; }
+    .fake-nav button.active { color: #135fae; background: #e7f2fd; }
+    .fake-nav .notify { position: relative; }
+    .fake-nav .notify::after { content: ""; position: absolute; top: 9px; right: 9px; width: 7px; height: 7px; border: 2px solid #e7f2fd; border-radius: 50%; background: #2a7dd1; opacity: 0; }
+    .fake-nav .notify.on::after { opacity: 1; }
+    .fake-sidebar small { display: block; margin: 24px 8px 9px; color: #a0a9b5; font-size: 8px; font-weight: 750; }
+    .fake-task { margin: 3px 5px; padding: 10px 8px; border-radius: 8px; color: #6f7b8d; font-size: 9px; line-height: 1.45; }
+
+    .fake-main { min-width: 0; display: flex; flex-direction: column; }
+    .fake-header { height: 66px; flex: 0 0 66px; padding: 0 20px; border-bottom: 1px solid #e8edf2; display: flex; align-items: center; justify-content: space-between; }
+    .fake-header p { margin: 0; color: #909aa7; font-size: 8px; }
+    .fake-header h4 { margin: 3px 0 0; font-size: 14px; }
+    .fake-header-actions { display: flex; gap: 6px; }
+    .fake-header-actions i { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; color: #708096; background: #f3f5f8; font-style: normal; font-size: 12px; }
+    .fake-body { min-height: 0; flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 42%; }
+    .fake-chat { position: relative; min-width: 0; display: flex; flex-direction: column; }
+    .fake-thread { flex: 1; min-height: 0; overflow: auto; padding: 20px 24px 110px; scroll-behavior: smooth; }
+    .fake-msg { max-width: 86%; margin-bottom: 16px; display: flex; gap: 8px; color: #4b596e; font-size: 10px; line-height: 1.65; }
+    .fake-msg.user { margin-left: auto; justify-content: flex-end; }
+    .fake-msg .avatar { width: 25px; height: 25px; flex: 0 0 25px; border-radius: 8px; display: grid; place-items: center; color: #fff; background: var(--blue); font-size: 9px; font-weight: 800; }
+    .fake-msg .bubble { padding: 10px 12px; border-radius: 12px; background: #f4f6f9; }
+    .fake-msg.user .bubble { color: #fff; background: #2575c8; }
+    .typing::after { content: ""; display: inline-block; width: 20px; height: 8px; margin-left: 6px; background: radial-gradient(circle, #78889b 2px, transparent 3px) 0 50%/7px 8px repeat-x; animation: blink 1s infinite; }
+    @keyframes blink { 50% { opacity: .3; } }
+    .fake-composer { position: absolute; left: 18px; right: 18px; bottom: 15px; height: 76px; padding: 10px 11px; border: 1px solid #dce3eb; border-radius: 16px; background: #fff; box-shadow: 0 12px 30px rgba(26, 45, 72, .12); }
+    .fake-composer textarea { width: 100%; height: 34px; padding: 0; border: 0; outline: 0; resize: none; color: #445166; background: transparent; font-size: 9px; }
+    .fake-composer footer { display: flex; justify-content: space-between; color: #8e99a8; font-size: 8px; }
+    .fake-composer button { width: 25px; height: 25px; border: 0; border-radius: 8px; color: #fff; background: var(--blue); cursor: pointer; }
+
+    .fake-workspace { min-width: 0; border-left: 1px solid #e4e9ef; display: flex; flex-direction: column; background: #fbfcfd; }
+    .fake-tabs { height: 49px; padding: 0 10px; border-bottom: 1px solid #e7ebf0; display: flex; align-items: center; justify-content: space-between; }
+    .fake-tab { padding: 9px 12px; border-radius: 10px; color: #49566a; background: #f0f2f5; font-size: 9px; font-weight: 750; }
+    .fake-path { height: 40px; padding: 0 12px; border-bottom: 1px solid #e8edf2; display: flex; align-items: center; color: #7e8998; background: #fff; font-size: 8px; }
+    .fake-file { flex: 1; overflow: auto; padding: 22px; }
+    .fake-file h5 { margin: 0 0 10px; font-size: 17px; }
+    .fake-file > p { color: var(--muted); font-size: 9px; line-height: 1.7; }
+    .file-fields { margin-top: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .file-fields div { padding: 10px; border: 1px solid #e7ebf0; border-radius: 10px; background: #fff; }
+    .file-fields small { color: #9ba5b1; font-size: 7px; }
+    .file-fields strong { display: block; margin-top: 4px; color: #536075; font-size: 8px; }
+    .event-log { margin-top: 20px; }
+    .event-log b { font-size: 9px; }
+    .event-item { margin-top: 9px; padding-left: 12px; border-left: 2px solid #d8e2ec; color: #6d7889; font-size: 8px; line-height: 1.6; }
+
+    .decision-scrim { position: absolute; inset: 0; z-index: 30; display: none; align-items: flex-end; padding: 16px; background: rgba(244, 247, 251, .30); backdrop-filter: blur(1.5px); }
+    .decision-scrim.show { display: flex; }
+    .decision-panel { width: min(930px, calc(100% - 18px)); max-height: 88%; margin: 0 auto; overflow: auto; padding: 21px; border: 1px solid #dce3eb; border-radius: 22px; background: #fff; box-shadow: 0 30px 90px rgba(17, 34, 59, .24); animation: panel-up .22s cubic-bezier(.2,.8,.3,1); }
+    @keyframes panel-up { from { opacity: 0; transform: translateY(18px) scale(.99); } to { opacity: 1; transform: none; } }
+    .decision-head { display: flex; justify-content: space-between; gap: 18px; }
+    .decision-head small { color: var(--blue); font-size: 8px; font-weight: 850; letter-spacing: .08em; }
+    .decision-head h4 { margin: 7px 0 5px; font-size: 18px; letter-spacing: -.025em; }
+    .decision-head p { margin: 0; color: var(--muted); font-size: 9px; line-height: 1.6; }
+    .decision-close { width: 34px; height: 34px; flex: 0 0 34px; border: 0; border-radius: 10px; color: #6d7888; background: #f2f4f7; cursor: pointer; font-size: 17px; }
+    .decision-body { margin-top: 17px; }
+    .people { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .person { padding: 11px; border: 1px solid #e2e7ed; border-radius: 12px; display: grid; grid-template-columns: 34px minmax(0,1fr); gap: 9px; align-items: center; background: #fff; text-align: left; cursor: pointer; }
+    .person.selected { border-color: #92bee8; background: #edf6ff; box-shadow: inset 0 0 0 1px #bdd8f2; }
+    .person i { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; color: #fff; background: linear-gradient(145deg,#4d88c8,#2866a7); font-style: normal; font-size: 10px; font-weight: 800; }
+    .person strong { display: block; font-size: 9px; }
+    .person span { display: block; margin-top: 3px; color: var(--soft); font-size: 7px; }
+    .decision-fields { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .decision-field { padding: 10px 11px; border: 1px solid #e6eaf0; border-radius: 11px; background: #fafbfd; }
+    .decision-field small { color: #98a3b1; font-size: 7px; }
+    .decision-field strong { display: block; margin-top: 4px; color: #455266; font-size: 9px; line-height: 1.5; }
+    .reply-options { display: grid; gap: 7px; }
+    .reply-option { min-height: 42px; padding: 0 12px; border: 1px solid #e3e7ed; border-radius: 11px; display: flex; align-items: center; gap: 9px; color: #566276; background: #fff; cursor: pointer; font-size: 9px; text-align: left; }
+    .reply-option.selected { border-color: #9bc3e8; color: #164f86; background: #edf6ff; }
+    .reply-option i { width: 21px; height: 21px; border-radius: 7px; display: grid; place-items: center; color: #6c7a8f; background: #f0f3f6; font-style: normal; font-size: 8px; }
+    .decision-actions { margin-top: 17px; display: flex; justify-content: flex-end; gap: 8px; }
+    .decision-actions button { min-height: 38px; padding: 0 14px; border: 1px solid #d9e0e8; border-radius: 10px; color: #59667a; background: #fff; cursor: pointer; font-size: 9px; font-weight: 780; }
+    .decision-actions .confirm { border-color: var(--blue); color: #fff; background: var(--blue); }
+    .decision-status { position: absolute; top: 82px; left: 50%; z-index: 26; transform: translateX(-50%); padding: 7px 11px; border: 1px solid #dce4ed; border-radius: 999px; color: #536176; background: rgba(255,255,255,.95); box-shadow: 0 8px 20px rgba(25,43,72,.1); font-size: 8px; opacity: 0; transition: opacity .2s; }
+    .decision-status.on { opacity: 1; }
+
+    .delivery { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .delivery-card { padding: 22px; border: 1px solid var(--line); border-radius: 18px; background: #fff; }
+    .delivery-card small { color: var(--blue); font-size: 9px; font-weight: 800; }
+    .delivery-card h3 { margin: 12px 0 8px; font-size: 16px; }
+    .delivery-card p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.7; }
+    .delivery-card ul { margin: 15px 0 0; padding-left: 17px; color: #5e6b7d; font-size: 9px; line-height: 1.85; }
+
+    .footer { margin-top: 50px; padding: 38px 0 55px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 20px; color: #8b96a6; font-size: 10px; }
+    .footer strong { color: #48566a; }
+
+    @media (max-width: 960px) {
+      .nav { display: none; }
+      .hero { grid-template-columns: 1fr; }
+      .hero-card { min-height: 0; }
+      .principles { grid-template-columns: 1fr 1fr; }
+      .type-layout { grid-template-columns: 1fr; }
+      .type-tabs { grid-template-columns: 1fr 1fr; }
+      .gate-track { grid-template-columns: 1fr; }
+      .gate-arrow { transform: rotate(90deg); }
+      .workspace-map { grid-template-columns: 1fr; gap: 10px; }
+      .map-arrow { transform: rotate(90deg); }
+      .fake-app { grid-template-columns: 150px minmax(0, 1fr); }
+      .fake-body { grid-template-columns: 1fr; }
+      .fake-workspace { display: none; }
+    }
+
+    @media (max-width: 640px) {
+      .topbar { height: 60px; padding: 0 16px; }
+      main { width: min(100% - 24px, 1180px); }
+      .hero { padding: 56px 0 34px; gap: 28px; }
+      h1 { font-size: 44px; }
+      .hero-copy { font-size: 14px; }
+      .section { padding: 42px 0; }
+      .principles, .type-tabs, .field-grid, .delivery { grid-template-columns: 1fr; }
+      .gate { padding: 15px; }
+      .type-detail { padding: 20px; }
+      .demo-toolbar { align-items: flex-start; flex-direction: column; }
+      .scenario-buttons { justify-content: flex-start; }
+      .fake-app { height: 630px; grid-template-columns: 1fr; }
+      .fake-sidebar { display: none; }
+      .fake-thread { padding-inline: 15px; }
+      .decision-scrim { padding: 8px; }
+      .decision-panel { width: 100%; padding: 17px; border-radius: 19px; }
+      .people, .decision-fields { grid-template-columns: 1fr; }
+      .footer { flex-direction: column; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#overview">
+      <span class="brand-mark">CA</span>
+      <span>COMAC AI<small>A2A PRODUCT SOLUTION</small></span>
+    </a>
+    <nav class="nav" aria-label="方案章节">
+      <a href="#overview">总体判断</a>
+      <a href="#interrupt">打断机制</a>
+      <a href="#types">四类决策</a>
+      <a href="#workspace">Workspace</a>
+      <a href="#demo">场景演示</a>
+      <a href="#delivery">交付边界</a>
+    </nav>
+    <span class="version">方案 V1.0 · 2026.07.23</span>
+  </header>
+
+  <main>
+    <section class="hero" id="overview">
+      <div>
+        <span class="eyebrow">Agent to Agent · User Decision</span>
+        <h1>不是一张卡片，<span>是一套用户决策机制。</span></h1>
+        <p class="hero-copy">用户只与自己的数字分身对话。数字分身之间可以交换任务、催办和进展，但任何需要用户本人承担责任的选择，都必须回到助理模式，由底部决策面板完成。</p>
+        <div class="hero-actions">
+          <a class="primary" href="#demo">体验两个场景 <span>→</span></a>
+          <a class="secondary" href="#interrupt">查看打断规则</a>
+        </div>
+      </div>
+      <aside class="hero-card">
+        <small>CONFIRMED PRODUCT BASELINE</small>
+        <h3>一期只做必要复杂度</h3>
+        <p>显式界面保持简单；并发、幂等和版本控制留在系统内部。</p>
+        <div class="rule-list">
+          <div class="rule"><i>01</i><div><strong>模型输出不打断</strong><span>当前可见文本结束后立即弹出。</span></div></div>
+          <div class="rule"><i>02</i><div><strong>其他状态立即打断</strong><span>草稿和 Workspace 现场全部保留。</span></div></div>
+          <div class="rule"><i>03</i><div><strong>X 表示暂存</strong><span>不是拒绝，也不发送任何回复。</span></div></div>
+          <div class="rule"><i>04</i><div><strong>普通模式不承载 A2A</strong><span>新事项只在助理入口显示轻量圆点。</span></div></div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <span>01 · Product principles</span>
+        <h2>强曝光，不建设第二个待办中心</h2>
+        <p>面板负责当前决定，Workspace 负责完整上下文，对话负责自然语言。用户可以暂存，但系统不能把外部正式动作藏成一条普通消息。</p>
+      </div>
+      <div class="principles">
+        <article class="principle"><b>A</b><h3>单一交互对象</h3><p>同一时刻只展示一个决策。不提供上一项、下一项、页码和显式队列。</p></article>
+        <article class="principle"><b>B</b><h3>内部 FIFO</h3><p>新事项不替换当前面板。确认或暂存后，后台等待的下一项立即出现。</p></article>
+        <article class="principle"><b>C</b><h3>现场可恢复</h3><p>输入草稿、光标、聊天滚动、Workspace 标签和目录状态都不能被销毁。</p></article>
+        <article class="principle"><b>D</b><h3>任务服务为准</h3><p>决策和任务文件都是交互与投影，不成为另一套权威任务数据库。</p></article>
+      </div>
+    </section>
+
+    <section class="section" id="interrupt">
+      <div class="section-head">
+        <span>02 · Interruption gate</span>
+        <h2>只有模型输出拥有短暂的“不可打断区”</h2>
+        <p>A2A 事件先经过前台输出门控。用户输入、查看聊天或 Workspace 都不是阻塞条件；这些现场会被冻结并在面板关闭后恢复。</p>
+      </div>
+      <div class="gate">
+        <div class="gate-track">
+          <article class="gate-node active"><div><small>EVENT</small><strong>A2A 决策到达</strong><p>来自用户当前意图，或来自其他人的数字分身。</p></div></article>
+          <div class="gate-arrow">→</div>
+          <article class="gate-node wait"><div><small>ONLY GATE</small><strong>模型是否输出中？</strong><p>是：内部等待。否：无需判断草稿或 Workspace，直接弹出。</p></div></article>
+          <div class="gate-arrow">→</div>
+          <article class="gate-node active"><div><small>SURFACE</small><strong>底部决策面板</strong><p>处理、确认，或点击 X 暂存。完成后恢复原现场。</p></div></article>
+        </div>
+        <p class="gate-note"><strong>边界：</strong>输出异常结束也视为可见输出结束；后台任务不需要全部完成。已有决策显示时，新事项只进入内部 FIFO，不抢占当前内容。</p>
+      </div>
+    </section>
+
+    <section class="section" id="types">
+      <div class="section-head">
+        <span>03 · Decision types</span>
+        <h2>四类决策，共用一个底部交互协议</h2>
+        <p>面板结构统一，但字段和主操作按业务动作变化。普通状态同步、已读和完成通知不生成面板。</p>
+      </div>
+      <div class="type-layout">
+        <div class="type-tabs" role="tablist" aria-label="决策类型">
+          <button class="type-tab active" type="button" data-type="dispatch"><i>↗</i><span><strong>派任务前确认</strong><span>选择唯一执行人并授权派发</span></span></button>
+          <button class="type-tab" type="button" data-type="reminder"><i>!</i><span><strong>发起催办前确认</strong><span>引用原任务并核对催办内容</span></span></button>
+          <button class="type-tab" type="button" data-type="receipt"><i>✓</i><span><strong>收到任务</strong><span>确认收到、申请调整或补充说明</span></span></button>
+          <button class="type-tab" type="button" data-type="progress"><i>…</i><span><strong>收到催办</strong><span>选择进展并回复对方数字分身</span></span></button>
+        </div>
+        <article class="type-detail" id="type-detail" aria-live="polite"></article>
+      </div>
+    </section>
+
+    <section class="section" id="workspace">
+      <div class="section-head">
+        <span>04 · Workspace integration</span>
+        <h2>面板做决定，文件保存上下文</h2>
+        <p>没有“查看详情”按钮。面板直接提供当前决定所需的最小信息；完整任务、事件和暂存状态始终沉淀到 Assistant Workspace。</p>
+      </div>
+      <div class="workspace-map">
+        <article class="map-card blue"><i>⌁</i><h3>底部决策面板</h3><p>选择、补充、确认或暂存。只承载当前要做出的决定。</p><code>activeDecision</code></article>
+        <div class="map-arrow">→</div>
+        <article class="map-card"><i>◎</i><h3>协作任务服务</h3><p>保存任务、版本、权限、决策状态、幂等键和事件记录。</p><code>CollaborationTask + DecisionRequest</code></article>
+        <div class="map-arrow">→</div>
+        <article class="map-card teal"><i>▤</i><h3>Assistant Workspace</h3><p>提供可读任务投影，让助理以后通过自然语言重新定位和处理。</p><code>/Assistant/collaboration/tasks/{id}.json</code></article>
+      </div>
+    </section>
+
+    <section class="section" id="demo">
+      <div class="section-head">
+        <span>05 · Interactive demo</span>
+        <h2>两个假剧本，验证关键交互</h2>
+        <p>剧本一覆盖派任务选人和最终确认；剧本二模拟模型正在输出时收到催办，输出结束后面板才出现。所有内容均为前端 Mock。</p>
+      </div>
+      <div class="demo-wrap">
+        <div class="demo-toolbar">
+          <div><i class="demo-dot"></i><i class="demo-dot"></i><i class="demo-dot"></i><strong>助理模式交互原型</strong></div>
+          <div class="scenario-buttons">
+            <button type="button" id="run-dispatch">剧本一：派任务选人</button>
+            <button type="button" id="run-interrupt">剧本二：输出时收到催办</button>
+            <button type="button" id="reset-demo">重置</button>
+          </div>
+        </div>
+
+        <div class="fake-app">
+          <aside class="fake-sidebar">
+            <div class="fake-logo"><span>CA</span>COMAC AI</div>
+            <nav class="fake-nav">
+              <button type="button">＋ 新建任务</button>
+              <button class="active notify" id="assistant-nav" type="button">◇ 助理</button>
+              <button type="button">▣ 专家</button>
+              <button type="button">◷ 自动化</button>
+            </nav>
+            <small>最近协作</small>
+            <div class="fake-task">发动机风险评审材料整理</div>
+            <div class="fake-task">航电接口测试问题复核</div>
+          </aside>
+
+          <section class="fake-main">
+            <header class="fake-header">
+              <div><p>个人数字分身 · 固定长 Session</p><h4>我的助理</h4></div>
+              <div class="fake-header-actions"><i>≡</i><i>▣</i></div>
+            </header>
+            <div class="fake-body">
+              <section class="fake-chat">
+                <div class="fake-thread" id="fake-thread">
+                  <div class="fake-msg"><span class="avatar">AI</span><div class="bubble">早上好。你可以让我查询协作任务、派任务或催办已有任务。</div></div>
+                </div>
+                <div class="fake-composer">
+                  <textarea id="fake-draft" aria-label="Demo 输入草稿" placeholder="这里可以保留一段未发送草稿…"></textarea>
+                  <footer><span>商飞大模型 L1-S1</span><button type="button" aria-label="发送">↑</button></footer>
+                </div>
+              </section>
+
+              <aside class="fake-workspace">
+                <div class="fake-tabs"><span class="fake-tab">collab-engine-review.json</span><span>⌕</span></div>
+                <div class="fake-path">/ Assistant / collaboration / tasks / collab-engine-review.json</div>
+                <div class="fake-file">
+                  <h5>发动机风险评审材料整理</h5>
+                  <p>任务文件是权威协作任务的可读投影。底部决策出现时，Workspace 标签和滚动位置不会被关闭。</p>
+                  <div class="file-fields">
+                    <div><small>派发人</small><strong>王工 · 总体技术部</strong></div>
+                    <div><small>执行人</small><strong>我</strong></div>
+                    <div><small>截止时间</small><strong>7月24日 18:00</strong></div>
+                    <div><small>决策状态</small><strong id="file-decision-state">none</strong></div>
+                  </div>
+                  <div class="event-log"><b>事件记录</b><div class="event-item" id="file-event">09:18 · 任务已由王工派发并送达</div></div>
+                </div>
+              </aside>
+            </div>
+          </section>
+
+          <div class="decision-status" id="decision-status">A2A 事项已到达，等待当前模型输出结束</div>
+          <div class="decision-scrim" id="decision-scrim" role="dialog" aria-modal="true" aria-label="A2A 用户决策">
+            <section class="decision-panel" id="decision-panel"></section>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="delivery">
+      <div class="section-head">
+        <span>06 · Delivery boundary</span>
+        <h2>方案、PRD 与 Demo 分开交付</h2>
+        <p>产品真相不受前端 Mock 限制；Demo 只验证体验路径，不代表组织、权限、A2A 或任务服务已经接入。</p>
+      </div>
+      <div class="delivery">
+        <article class="delivery-card"><small>01 · SOLUTION</small><h3>完整方案 HTML</h3><p>用于讨论和汇报，解释场景、打断机制、四类决策与 Workspace 分工。</p><ul><li>可独立打开</li><li>可交互剧本</li><li>响应式展示</li></ul></article>
+        <article class="delivery-card"><small>02 · PRODUCT TRUTH</small><h3>独立功能 PRD</h3><p>定义正式产品状态、队列、暂存、接口、并发、异常和验收标准。</p><ul><li>不写 Demo 假逻辑</li><li>服务端状态为准</li><li>包含 Mermaid 状态图</li></ul></article>
+        <article class="delivery-card"><small>03 · VALIDATION</small><h3>助理 Demo</h3><p>实现一到两个假剧本，验证底部决策层是否自然、是否会破坏工作现场。</p><ul><li>派任务选人</li><li>模型输出门控</li><li>Workspace 状态同步</li></ul></article>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span><strong>COMAC AI</strong> · A2A 用户决策与确认机制完整方案</span>
+      <span>正式产品基线以独立 PRD 为准 · Demo 内容均为 Mock</span>
+    </footer>
+  </main>
+
+  <script>
+    const typeContent = {
+      dispatch: {
+        tag: "发出型决策",
+        title: "派任务前确认",
+        summary: "用户先选择唯一执行人，再核对任务要求、截止时间和写入渠道。确认前不得创建正式任务。",
+        fields: [["执行人", "唯一身份、组织、岗位和数字分身可达状态"], ["任务", "标题、要求和交付标准"], ["时间", "截止时间或明确无固定期限"], ["执行结果", "权威任务写入 + A2A 送达 + 文件投影"]],
+        actions: ["返回修改", "确认派发"]
+      },
+      reminder: {
+        tag: "发出型决策",
+        title: "发起催办前确认",
+        summary: "催办始终引用原任务，不创建新任务，也不自动改变任务状态。",
+        fields: [["原任务", "任务 ID、标题和当前状态"], ["催办对象", "唯一执行人及其数字分身"], ["必要上下文", "最近进展、截止时间、上次催办"], ["本次内容", "将发送给对方的催办文案和频控提示"]],
+        actions: ["修改内容", "确认发送"]
+      },
+      receipt: {
+        tag: "收到型决策",
+        title: "收到任务",
+        summary: "接收用户确认的是本人态度和必要补充，不把“确认收到”误解成任务已经完成。",
+        fields: [["派发人", "姓名、组织和权威来源"], ["任务要求", "交付标准和必要附件摘要"], ["计划", "截止时间、优先级和风险"], ["可选动作", "确认收到、申请调整、补充说明、无权时拒绝"]],
+        actions: ["申请调整", "确认收到"]
+      },
+      progress: {
+        tag: "收到型决策",
+        title: "收到催办",
+        summary: "用户选择当前进展并补充说明，确认后写回权威任务并通知对方数字分身。",
+        fields: [["催办人", "对方身份和催办原因"], ["原任务", "当前状态和截止时间"], ["最近进展", "上一次已经提交的正式内容"], ["本次回复", "按期、存在风险、尚未开始、已完成或自定义"]],
+        actions: ["补充说明", "确认回复"]
+      }
+    };
+
+    const detail = document.getElementById("type-detail");
+    const renderType = (key) => {
+      const data = typeContent[key];
+      detail.innerHTML = `
+        <header><div><span>${data.tag}</span><h3>${data.title}</h3><p class="summary">${data.summary}</p></div></header>
+        <div class="field-grid">${data.fields.map(([label, value]) => `<div class="field"><small>${label}</small><strong>${value}</strong></div>`).join("")}</div>
+        <div class="action-row"><button class="mini-btn" type="button">${data.actions[0]}</button><button class="mini-btn main" type="button">${data.actions[1]}</button></div>
+      `;
+    };
+    renderType("dispatch");
+    document.querySelectorAll(".type-tab").forEach((tab) => tab.addEventListener("click", () => {
+      document.querySelectorAll(".type-tab").forEach((item) => item.classList.remove("active"));
+      tab.classList.add("active");
+      renderType(tab.dataset.type);
+    }));
+
+    const thread = document.getElementById("fake-thread");
+    const scrim = document.getElementById("decision-scrim");
+    const panel = document.getElementById("decision-panel");
+    const status = document.getElementById("decision-status");
+    const draft = document.getElementById("fake-draft");
+    const fileState = document.getElementById("file-decision-state");
+    const fileEvent = document.getElementById("file-event");
+    const assistantNav = document.getElementById("assistant-nav");
+    let selectedPerson = "zhang";
+    let selectedReply = "按期完成";
+    let timers = [];
+
+    const addMessage = (role, text, typing = false) => {
+      const item = document.createElement("div");
+      item.className = `fake-msg ${role}`;
+      item.innerHTML = role === "user"
+        ? `<div class="bubble">${text}</div>`
+        : `<span class="avatar">AI</span><div class="bubble ${typing ? "typing" : ""}">${text}</div>`;
+      thread.appendChild(item);
+      thread.scrollTop = thread.scrollHeight;
+      return item;
+    };
+
+    const closePanel = (deferred = true) => {
+      scrim.classList.remove("show");
+      if (deferred) {
+        fileState.textContent = "deferred_by_user";
+        fileEvent.textContent = "刚刚 · 用户暂不处理，事项已保留到任务文件";
+      }
+      window.setTimeout(() => draft.focus(), 40);
+    };
+
+    const bindClose = () => {
+      panel.querySelector(".decision-close").addEventListener("click", () => closePanel(true));
+    };
+
+    const showDispatchStepOne = () => {
+      scrim.classList.add("show");
+      panel.innerHTML = `
+        <div class="decision-head"><div><small>派任务前确认 · 选择执行人</small><h4>谁负责发动机风险评审材料整理？</h4><p>一期只允许一个主执行人。组织身份用于消除同名歧义。</p></div><button class="decision-close" type="button" aria-label="暂不处理">×</button></div>
+        <div class="decision-body"><div class="people">
+          <button class="person selected" type="button" data-person="zhang"><i>张</i><span><strong>张三</strong><span>总体技术部 · 结构工程师</span></span></button>
+          <button class="person" type="button" data-person="li"><i>李</i><span><strong>李静</strong><span>动力装置部 · 项目主管</span></span></button>
+          <button class="person" type="button" data-person="wang"><i>王</i><span><strong>王磊</strong><span>试飞中心 · 质量工程师</span></span></button>
+        </div></div>
+        <div class="decision-actions"><button class="confirm" id="dispatch-next" type="button">继续核对任务 →</button></div>
+      `;
+      bindClose();
+      panel.querySelectorAll(".person").forEach((person) => person.addEventListener("click", () => {
+        panel.querySelectorAll(".person").forEach((item) => item.classList.remove("selected"));
+        person.classList.add("selected");
+        selectedPerson = person.dataset.person;
+      }));
+      document.getElementById("dispatch-next").addEventListener("click", showDispatchReview);
+    };
+
+    const showDispatchReview = () => {
+      const names = {zhang: "张三 · 总体技术部", li: "李静 · 动力装置部", wang: "王磊 · 试飞中心"};
+      panel.innerHTML = `
+        <div class="decision-head"><div><small>派任务前确认 · 最终授权</small><h4>确认派发“发动机风险评审材料整理”</h4><p>确认后将写入型号项目管理平台，并通知执行人的数字分身。</p></div><button class="decision-close" type="button" aria-label="暂不处理">×</button></div>
+        <div class="decision-body"><div class="decision-fields">
+          <div class="decision-field"><small>唯一执行人</small><strong>${names[selectedPerson]}</strong></div>
+          <div class="decision-field"><small>截止时间</small><strong>7月24日 18:00</strong></div>
+          <div class="decision-field"><small>任务要求</small><strong>整理风险项、影响范围、措施和责任计划，形成评审清单。</strong></div>
+          <div class="decision-field"><small>正式动作</small><strong>创建权威任务并发送 A2A task_created 事件</strong></div>
+        </div></div>
+        <div class="decision-actions"><button id="dispatch-back" type="button">返回修改</button><button class="confirm" id="dispatch-confirm" type="button">确认派发</button></div>
+      `;
+      bindClose();
+      document.getElementById("dispatch-back").addEventListener("click", showDispatchStepOne);
+      document.getElementById("dispatch-confirm").addEventListener("click", () => {
+        closePanel(false);
+        fileState.textContent = "resolved";
+        fileEvent.textContent = "刚刚 · 任务已创建并送达执行人的数字分身";
+        addMessage("assistant", `任务已派发给${names[selectedPerson].split(" · ")[0]}。业务任务已写入，A2A 事件已送达，Workspace 投影已更新。`);
+      });
+    };
+
+    const showProgressDecision = () => {
+      status.classList.remove("on");
+      scrim.classList.add("show");
+      fileState.textContent = "surfaced";
+      panel.innerHTML = `
+        <div class="decision-head"><div><small>收到催办 · 需要本人回复</small><h4>王工在询问发动机风险评审的当前进展</h4><p>任务将在 7月24日 18:00 截止。选择最符合当前情况的回复。</p></div><button class="decision-close" type="button" aria-label="暂不处理">×</button></div>
+        <div class="decision-body"><div class="reply-options">
+          <button class="reply-option selected" type="button" data-reply="按期完成"><i>1</i>已经开始，预计按期完成</button>
+          <button class="reply-option" type="button" data-reply="存在风险"><i>2</i>存在风险，需要协调资源</button>
+          <button class="reply-option" type="button" data-reply="尚未开始"><i>3</i>尚未开始，补充预计启动时间</button>
+          <button class="reply-option" type="button" data-reply="已经完成"><i>4</i>已经完成，准备提交结果</button>
+        </div></div>
+        <div class="decision-actions"><button class="confirm" id="progress-confirm" type="button">确认回复</button></div>
+      `;
+      bindClose();
+      panel.querySelectorAll(".reply-option").forEach((option) => option.addEventListener("click", () => {
+        panel.querySelectorAll(".reply-option").forEach((item) => item.classList.remove("selected"));
+        option.classList.add("selected");
+        selectedReply = option.dataset.reply;
+      }));
+      document.getElementById("progress-confirm").addEventListener("click", () => {
+        closePanel(false);
+        fileState.textContent = "resolved";
+        fileEvent.textContent = `刚刚 · 已向王工回复进展：${selectedReply}`;
+        addMessage("assistant", `进展已经写回任务服务，并同步给王工的数字分身：${selectedReply}。`);
+      });
+    };
+
+    const clearTimers = () => {
+      timers.forEach(window.clearTimeout);
+      timers = [];
+    };
+
+    const resetDemo = () => {
+      clearTimers();
+      scrim.classList.remove("show");
+      status.classList.remove("on");
+      assistantNav.classList.remove("on");
+      selectedPerson = "zhang";
+      selectedReply = "按期完成";
+      fileState.textContent = "none";
+      fileEvent.textContent = "09:18 · 任务已由王工派发并送达";
+      draft.value = "";
+      thread.innerHTML = `<div class="fake-msg"><span class="avatar">AI</span><div class="bubble">早上好。你可以让我查询协作任务、派任务或催办已有任务。</div></div>`;
+    };
+
+    document.getElementById("run-dispatch").addEventListener("click", () => {
+      resetDemo();
+      draft.value = "帮我把发动机风险评审材料整理派出去，周四下班前完成。";
+      addMessage("user", draft.value);
+      draft.value = "";
+      const thinking = addMessage("assistant", "我已整理任务信息，现在需要你选择唯一执行人。", true);
+      timers.push(window.setTimeout(() => {
+        thinking.querySelector(".bubble").classList.remove("typing");
+        showDispatchStepOne();
+      }, 900));
+    });
+
+    document.getElementById("run-interrupt").addEventListener("click", () => {
+      resetDemo();
+      draft.value = "另外帮我记一下，明天例会要先讲供应商风险。";
+      addMessage("user", "帮我总结一下今天的协作进展。");
+      const streaming = addMessage("assistant", "今天已经完成两项材料整理，还有一项发动机风险评审正在推进", true);
+      timers.push(window.setTimeout(() => {
+        status.classList.add("on");
+        assistantNav.classList.add("on");
+        fileState.textContent = "queued";
+        fileEvent.textContent = "刚刚 · 收到王工催办，等待当前模型输出结束";
+      }, 500));
+      timers.push(window.setTimeout(() => {
+        streaming.querySelector(".bubble").classList.remove("typing");
+        streaming.querySelector(".bubble").textContent = "今天已经完成两项材料整理，还有一项发动机风险评审正在推进。我已经把关键进展汇总好了。";
+        assistantNav.classList.remove("on");
+        showProgressDecision();
+      }, 2100));
+    });
+
+    document.getElementById("reset-demo").addEventListener("click", resetDemo);
+  </script>
+</body>
+</html>

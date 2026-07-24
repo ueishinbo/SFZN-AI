@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import {
+  ArrowLeft,
+  ArrowRight,
   Bot,
   BriefcaseBusiness,
   ChevronDown,
@@ -14,23 +16,28 @@ import {
   Folder,
   LayoutPanelLeft,
   Layers3,
-  Check,
-  Menu,
+  Maximize2,
   Mic,
+  Minimize2,
   Paperclip,
-  PanelRightOpen,
   Plus,
   Presentation,
+  RefreshCw,
   Search,
   Send,
   Sparkles,
   Trash2,
   WandSparkles,
-  X,
 } from 'lucide-react'
 import './App.css'
 import AutomationWorkspace from './automation/AutomationWorkspace'
+import AssistantWorkspace from './assistant/AssistantWorkspace'
+import type { CollaborationItem } from './assistant/mockCollaboration'
+import WorkspaceWorkbench, { WorkspaceHeaderControls, type WorkspaceOutputItem } from './workspace/WorkspaceWorkbench'
+import { useWorkspaceWorkbench, type WorkspaceTab } from './workspace/useWorkspaceWorkbench'
+import type { WorkspaceTreeNode } from './workspace/workspaceTypes'
 import {
+  calculateNextRun,
   formatHistoryTime,
   loadStoredList,
   RUNS_STORAGE_KEY,
@@ -64,8 +71,6 @@ type ChatMessage = {
   content: string
   artifact?: Artifact
 }
-
-type RightPanelMode = 'workspace' | 'browser' | 'artifact' | 'changes'
 
 const recentTasks: Task[] = [
   { id: 1, title: '客户支援问题跟进与分析', time: '3小时前' },
@@ -142,51 +147,63 @@ function artifactTypeLabel(type: ArtifactType) {
   return type
 }
 
-function panelModeLabel(mode: RightPanelMode) {
-  switch (mode) {
-    case 'workspace':
-      return '工作空间预览'
-    case 'browser':
-      return '浏览器'
-    case 'changes':
-      return '变更'
-    case 'artifact':
-      return '输出物'
-    default:
-      return '工作空间预览'
-  }
+const generatedHtmlSource = `<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Hello COMAC AI</title>
+  </head>
+  <body>
+    <main class="hero-card">
+      <span>⚡</span>
+      <h1>Hello World</h1>
+      <p>这是一个由 COMAC AI 生成的 HTML 页面。</p>
+      <time>2026.07.22</time>
+    </main>
+  </body>
+</html>`
+
+const generatedHtmlDocument = `<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:Inter,"PingFang SC",sans-serif;background:radial-gradient(circle at 20% 20%,#dff1ff 0,transparent 34%),linear-gradient(135deg,#eef8ff,#f8f2ff)}
+.card{width:min(520px,calc(100% - 48px));padding:58px 44px;border:1px solid rgba(255,255,255,.9);border-radius:30px;background:rgba(255,255,255,.78);box-shadow:0 30px 80px rgba(57,87,125,.18);text-align:center;backdrop-filter:blur(18px)}
+.icon{width:58px;height:58px;margin:0 auto 20px;border-radius:18px;display:grid;place-items:center;color:white;background:linear-gradient(135deg,#2e87e7,#765dde);font-size:28px;box-shadow:0 15px 30px rgba(76,103,210,.28)}
+h1{margin:0;color:#182334;font-size:46px;letter-spacing:-1.5px}p{margin:14px 0 28px;color:#647187;font-size:15px;line-height:1.7}time{color:#98a4b4;font-size:12px;letter-spacing:2px}
+</style></head><body><main class="card"><div class="icon">⚡</div><h1>Hello World</h1><p>这是一个简单的 HTML 页面，由 COMAC AI 为你生成。</p><time>2026.07.22</time></main></body></html>`
+
+function HtmlBrowserPreview({ artifact, onOpenSource }: { artifact: Artifact; onOpenSource: () => void }) {
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [expanded, setExpanded] = useState(false)
+  useEffect(() => {
+    if (!expanded) return undefined
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setExpanded(false)
+    }
+    document.addEventListener('keydown', closeOnEscape)
+    return () => document.removeEventListener('keydown', closeOnEscape)
+  }, [expanded])
+  return (
+    <div className={`workspace-browser-view ${expanded ? 'workspace-browser-view--expanded' : ''}`}>
+      <div className="workspace-browser-toolbar">
+        <button type="button" aria-label="后退" title="后退" disabled><ArrowLeft size={17} /></button>
+        <button type="button" aria-label="前进" title="前进" disabled><ArrowRight size={17} /></button>
+        <div className="workspace-browser-address"><FileCode2 size={16} /><span>comac://workspace/outputs/{artifact.name}</span></div>
+        <button type="button" aria-label="刷新" title="刷新" onClick={() => setRefreshKey((value) => value + 1)}><RefreshCw size={17} /></button>
+        <button className="workspace-browser-source" type="button" title="查看源文件" onClick={onOpenSource}><FileCode2 size={17} /><span>源文件</span></button>
+        <button type="button" aria-label={expanded ? '退出全屏预览' : '全屏预览'} title={expanded ? '退出全屏预览' : '全屏预览'} onClick={() => setExpanded((value) => !value)}>{expanded ? <Minimize2 size={17} /> : <Maximize2 size={17} />}</button>
+      </div>
+      <iframe key={refreshKey} sandbox="" title={`${artifact.name} 运行预览`} srcDoc={generatedHtmlDocument} />
+    </div>
+  )
 }
 
-function ArtifactPreview({ artifact, onDownload }: { artifact: Artifact; onDownload: () => void }) {
+function ArtifactPreview({ artifact }: { artifact: Artifact }) {
   if (artifact.type === 'HTML') {
-    return (
-      <div className="preview-html">
-        <div className="html-browser-bar">
-          <button type="button" aria-label="后退">←</button>
-          <button type="button" aria-label="前进">→</button>
-          <div className="html-address">
-            <FileCode2 size={17} />
-            <span>file:///COMAC-AI/workspace/index.html</span>
-          </div>
-          <button type="button" aria-label="刷新">↻</button>
-          <button type="button" aria-label="下载" onClick={onDownload}><Download size={19} /></button>
-        </div>
-        <div className="html-stage">
-          <div className="html-hero-card">
-            <span className="hero-lightning">⚡</span>
-            <h1>Hello World</h1>
-            <p>这是一个简单的 HTML 页面，由 COMAC AI 为你生成。</p>
-            <time>2026.07.08</time>
-          </div>
-        </div>
-      </div>
-    )
+    return <pre className="unified-workspace-source workspace-html-source">{generatedHtmlSource}</pre>
   }
 
   if (artifact.type === 'PPT') {
     return (
       <div className="artifact-preview-shell">
-        <ArtifactPreviewToolbar artifact={artifact} onDownload={onDownload} />
         <div className="artifact-preview-content">
           <div className="preview-ppt">
             <aside className="slide-nav" aria-label="幻灯片缩略图">
@@ -217,7 +234,6 @@ function ArtifactPreview({ artifact, onDownload }: { artifact: Artifact; onDownl
   if (artifact.type === 'WORD') {
     return (
       <div className="artifact-preview-shell">
-        <ArtifactPreviewToolbar artifact={artifact} onDownload={onDownload} />
         <div className="artifact-preview-content">
           <div className="preview-word">
             <div className="word-page-viewport">
@@ -283,7 +299,6 @@ function ArtifactPreview({ artifact, onDownload }: { artifact: Artifact; onDownl
 
   return (
     <div className="artifact-preview-shell">
-      <ArtifactPreviewToolbar artifact={artifact} onDownload={onDownload} />
       <div className="artifact-preview-content">
         <div className="preview-markdown">
           <article className="markdown-page">
@@ -310,89 +325,11 @@ function ArtifactPreview({ artifact, onDownload }: { artifact: Artifact; onDownl
               </tbody>
             </table>
             <h2>后续说明</h2>
-            <p>Markdown 预览以阅读为主，内容区保留纵向滚动；拖拽右侧抽屉时，正文阅读宽度保持稳定，避免不断重排影响阅读。</p>
+            <p>Markdown 预览以阅读为主，内容区保留纵向滚动；调整 Workspace 宽度时，正文阅读宽度保持稳定，避免不断重排影响阅读。</p>
             <p>正式产品中可以继续补充目录、锚点、代码高亮和链接安全策略。</p>
           </article>
         </div>
       </div>
-    </div>
-  )
-}
-
-function ArtifactPreviewToolbar({ artifact, onDownload }: { artifact: Artifact; onDownload: () => void }) {
-  return (
-    <div className="artifact-preview-toolbar">
-      <strong>{artifact.name}</strong>
-      <button type="button" title="下载" onClick={onDownload}>
-        <Download size={21} />
-      </button>
-    </div>
-  )
-}
-
-function RightPanelEmpty({ mode, artifacts, onOpenArtifact }: { mode: RightPanelMode; artifacts: Artifact[]; onOpenArtifact: (artifact: Artifact) => void }) {
-  if (mode === 'workspace') {
-    return (
-      <div className="right-panel-list">
-        <div className="right-panel-list-header">
-          <h3>工作空间文件</h3>
-          <p>当前 Demo 中，智能体生成的文件会进入这里。</p>
-        </div>
-        <div className="workspace-file-list">
-          {artifacts.length > 0 ? (
-            artifacts.map((artifact) => (
-              <button key={artifact.id} className="workspace-file-row" type="button" onClick={() => onOpenArtifact(artifact)}>
-                <span className={`workspace-file-icon workspace-file-icon--${artifact.type.toLowerCase()}`}>{artifactIcon(artifact.type)}</span>
-                <span>
-                  <strong>{artifact.name}</strong>
-                  <em>{artifactTypeLabel(artifact.type)} · {artifact.size}</em>
-                </span>
-              </button>
-            ))
-          ) : (
-            <p className="workspace-file-empty">暂无文件</p>
-          )}
-        </div>
-      </div>
-    )
-  }
-
-  if (mode === 'browser') {
-    return (
-      <div className="browser-empty-page">
-        <div className="html-browser-bar">
-          <button type="button" aria-label="后退">←</button>
-          <button type="button" aria-label="前进">→</button>
-          <div className="html-address">
-            <Search size={17} />
-            <span>输入网址或选择 HTML 输出物</span>
-          </div>
-          <button type="button" aria-label="刷新">↻</button>
-        </div>
-        <div className="browser-empty-content">
-          <FileCode2 size={44} />
-          <h3>浏览器</h3>
-          <p>打开 HTML 输出物后，这里会以浏览器方式预览页面。</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (mode === 'changes') {
-    return (
-      <div className="artifact-empty">
-        <FileText size={42} />
-        <p>变更</p>
-        <span>本期原型先占位，后续可展示文件修改记录和版本差异。</span>
-      </div>
-    )
-  }
-
-  return (
-    <div className="artifact-empty">
-      <FileText size={42} />
-      <p>输出物</p>
-      <span>暂无内容。生成 HTML、PPT、Word 或 Markdown 后，文件会出现在这里。</span>
     </div>
   )
 }
@@ -421,16 +358,18 @@ function App() {
   const [prompt, setPrompt] = useState('')
   const [openedTask, setOpenedTask] = useState<Task | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [artifactTabs, setArtifactTabs] = useState<Artifact[]>([])
-  const [activeArtifactId, setActiveArtifactId] = useState<string | null>(null)
-  const [artifactDrawerOpen, setArtifactDrawerOpen] = useState(false)
-  const [artifactDrawerWidth, setArtifactDrawerWidth] = useState(640)
+  const [selectedWorkspaceNodeId, setSelectedWorkspaceNodeId] = useState('task-context')
+  const [artifactDrawerWidth, setArtifactDrawerWidth] = useState(560)
   const [isResizingArtifactDrawer, setIsResizingArtifactDrawer] = useState(false)
-  const [rightPanelMode, setRightPanelMode] = useState<RightPanelMode>('workspace')
-  const [rightPanelMenuOpen, setRightPanelMenuOpen] = useState(false)
   const [downloadToast, setDownloadToast] = useState('')
   const [automationTasks, setAutomationTasks] = useState<AutomationTask[]>(() => loadStoredList(TASKS_STORAGE_KEY, seedTasks))
   const [automationRuns, setAutomationRuns] = useState<AutomationRun[]>(() => loadStoredList(RUNS_STORAGE_KEY, seedRuns))
+  const taskWorkbench = useWorkspaceWorkbench()
+
+  useEffect(() => {
+    const activeTab = taskWorkbench.tabs.find((tab) => tab.id === taskWorkbench.activeTabId)
+    if (activeTab) setSelectedWorkspaceNodeId(activeTab.nodeId)
+  }, [taskWorkbench.activeTabId, taskWorkbench.tabs])
 
   useEffect(() => window.localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(automationTasks)), [automationTasks])
   useEffect(() => window.localStorage.setItem(RUNS_STORAGE_KEY, JSON.stringify(automationRuns)), [automationRuns])
@@ -485,14 +424,10 @@ function App() {
     setOpenedTask((current) => current?.automationRunId === task.automationRunId ? null : current)
   }
 
-  const addArtifactTab = (artifact: Artifact) => {
-    setArtifactTabs((items) => {
-      if (items.some((item) => item.id === artifact.id)) return items
-      return [...items, artifact]
-    })
-    setActiveArtifactId(artifact.id)
-    setRightPanelMode(artifact.type === 'HTML' ? 'browser' : 'artifact')
-    setArtifactDrawerOpen(true)
+  const openTask = (task: Task) => {
+    setOpenedTask(task)
+    setSelectedWorkspaceNodeId('task-context')
+    taskWorkbench.resetWorkbench()
   }
 
   const submitPrompt = () => {
@@ -504,7 +439,7 @@ function App() {
       ? {
           id: `assistant-${Date.now()}`,
           role: 'assistant',
-          content: `搞定，${artifactTypeLabel(artifact.type)} 输出物已生成。${artifact.summary}你可以点击卡片预览，也可以在右侧抽屉里模拟下载。`,
+          content: `搞定，${artifactTypeLabel(artifact.type)} 输出物已生成。${artifact.summary}你可以点击卡片预览，也可以在 Workspace 中模拟下载。`,
           artifact,
         }
       : {
@@ -513,28 +448,21 @@ function App() {
           content: '我先收到了。当前 Demo 已接入四个固定剧本：输入“生成HTML”“生成PPT”“生成WORD”或“生成Markdown”即可生成对应输出物卡片。',
         }
     setMessages((items) => [...items, userMessage, assistantMessage])
-    setOpenedTask({ id: Date.now(), title: artifact ? artifact.name : value, time: '刚刚' })
+    setOpenedTask((current) => current ?? { id: Date.now(), title: value, time: '刚刚' })
     setPrompt('')
   }
 
   const openArtifact = (artifact: Artifact) => {
-    addArtifactTab(artifact)
-  }
-
-  const closeArtifactTab = (artifactId: string) => {
-    setArtifactTabs((items) => {
-      const nextItems = items.filter((item) => item.id !== artifactId)
-      if (activeArtifactId === artifactId) {
-        const removedIndex = items.findIndex((item) => item.id === artifactId)
-        const nextActive = nextItems[Math.max(0, removedIndex - 1)] ?? nextItems[0] ?? null
-        if (rightPanelMode === 'artifact' || rightPanelMode === 'browser') {
-          setActiveArtifactId(nextActive?.id ?? null)
-          setRightPanelMode(nextActive ? (nextActive.type === 'HTML' ? 'browser' : 'artifact') : 'workspace')
-        } else {
-          setActiveArtifactId(nextActive?.id ?? null)
-        }
-      }
-      return nextItems
+    const nodeId = `task-artifact-${artifact.id}`
+    setSelectedWorkspaceNodeId(nodeId)
+    taskWorkbench.setOutputsOpen(false)
+    taskWorkbench.openTab({
+      id: `${artifact.type === 'HTML' ? 'browser' : 'file'}:${nodeId}`,
+      title: artifact.name,
+      mode: artifact.type === 'HTML' ? 'browser' : 'file',
+      nodeId,
+      kind: artifact.type === 'HTML' ? 'html' : artifact.type === 'PPT' ? 'ppt' : artifact.type === 'WORD' ? 'word' : 'markdown',
+      objectId: artifact.id,
     })
   }
 
@@ -543,30 +471,111 @@ function App() {
     messages.forEach((message) => {
       if (message.artifact) artifactMap.set(message.artifact.id, message.artifact)
     })
-    artifactTabs.forEach((artifact) => artifactMap.set(artifact.id, artifact))
     return Array.from(artifactMap.values()).reverse()
-  }, [artifactTabs, messages])
+  }, [messages])
 
-  const activeArtifact = useMemo(() => {
-    return artifactTabs.find((artifact) => artifact.id === activeArtifactId) ?? null
-  }, [activeArtifactId, artifactTabs])
+  const taskWorkspaceNodes = useMemo<WorkspaceTreeNode[]>(() => {
+    const sessionTitle = openedTask?.title ?? '新建任务'
+    const sessionId = openedTask?.id ?? 'new-task'
+    const sessionPath = `/Workspace/Tasks/2026-07-22/${sessionId}-${sessionTitle}`
+    return [{
+      id: 'task-root',
+      name: sessionTitle,
+      path: sessionPath,
+      kind: 'folder',
+      children: [
+        {
+          id: 'task-context',
+          name: 'context.md',
+          path: `${sessionPath}/context.md`,
+          kind: 'markdown',
+          size: '1.4 KB',
+          updatedAt: '刚刚',
+          content: `# ${sessionTitle}\n\n## Session 信息\n\n- 模式：普通任务\n- 创建日期：2026-07-22\n- 最近活跃：刚刚\n\n## 当前上下文\n\n${messages.length > 0 ? '当前任务已产生对话和输出物。完整消息由会话服务保存，本文件只展示压缩后的任务上下文。' : '这是一个新建普通任务 Session。开始对话后，目标、约束和关键决策会沉淀到这里。'}`,
+        },
+        {
+          id: 'task-attachments',
+          name: 'attachments',
+          path: `${sessionPath}/attachments`,
+          kind: 'folder',
+          children: [],
+        },
+        {
+          id: 'task-outputs',
+          name: 'outputs',
+          path: `${sessionPath}/outputs`,
+          kind: 'folder',
+          children: allArtifacts.map((artifact) => ({
+            id: `task-artifact-${artifact.id}`,
+            name: artifact.name,
+            path: `${sessionPath}/outputs/${artifact.name}`,
+            kind: artifact.type === 'HTML' ? 'html' : artifact.type === 'PPT' ? 'ppt' : artifact.type === 'WORD' ? 'word' : 'markdown',
+            size: artifact.size,
+            updatedAt: '刚刚',
+            objectId: artifact.id,
+          })),
+        },
+      ],
+    }]
+  }, [allArtifacts, messages.length, openedTask])
 
-  const toggleArtifactDrawer = () => {
-    if (artifactDrawerOpen) {
-      setArtifactDrawerOpen(false)
-      return
+  const taskWorkspaceOutputs = useMemo<WorkspaceOutputItem[]>(() => allArtifacts.map((artifact) => ({
+    id: artifact.id,
+    name: artifact.name,
+    kind: artifact.type === 'HTML' ? 'html' : artifact.type === 'PPT' ? 'ppt' : artifact.type === 'WORD' ? 'word' : 'markdown',
+    meta: `${artifactTypeLabel(artifact.type)} · ${artifact.size}`,
+    nodeId: `task-artifact-${artifact.id}`,
+    objectId: artifact.id,
+  })), [allArtifacts])
+
+  const openWorkspaceNode = (node: WorkspaceTreeNode) => {
+    if (node.kind === 'folder') return
+    setSelectedWorkspaceNodeId(node.id)
+    taskWorkbench.openTab({
+      id: `file:${node.id}`,
+      title: node.name,
+      mode: 'file',
+      nodeId: node.id,
+      kind: node.kind,
+      objectId: node.objectId,
+    })
+  }
+
+  const toggleTaskNavigator = () => {
+    taskWorkbench.setNavigatorOpen(!taskWorkbench.navigatorOpen)
+  }
+
+  const openTaskOutput = (output: WorkspaceOutputItem) => {
+    const artifact = allArtifacts.find((candidate) => candidate.id === output.objectId)
+    if (artifact) openArtifact(artifact)
+  }
+
+  const openLatestHtml = () => {
+    const htmlArtifact = allArtifacts.find((artifact) => artifact.type === 'HTML')
+    if (htmlArtifact) openArtifact(htmlArtifact)
+  }
+
+  const simulateDownload = (artifact?: Artifact) => {
+    setDownloadToast(artifact ? `已模拟下载 ${artifact.name}` : '当前没有可下载的输出物')
+  }
+
+  const createReminderAutomation = (item: CollaborationItem) => {
+    const automationId = `task-collaboration-reminder-${item.id}`
+    if (automationTasks.some((task) => task.id === automationId)) return false
+    const schedule = { mode: 'periodic' as const, frequency: 'daily' as const, time: '09:00', weekdays: [1], dayOfMonth: 1 }
+    const task: AutomationTask = {
+      id: automationId,
+      name: `${item.title} 自动催办`,
+      prompt: `每天检查“${item.title}”（项目：${item.project}，执行人：${item.assignee}）的状态。若任务未完成，则向执行人的数字分身发送进展催办；任务完成后停止发送。`,
+      status: 'active',
+      schedule,
+      model: '商飞大模型 L1-S1',
+      skill: '项目任务催办',
+      nextRunAt: calculateNextRun(schedule),
+      updatedAt: new Date().toISOString(),
     }
-    setRightPanelMode('workspace')
-    setArtifactDrawerOpen(true)
-  }
-
-  const simulateDownload = () => {
-    setDownloadToast(activeArtifact ? `已模拟下载 ${activeArtifact.name}` : '当前没有可下载的输出物')
-  }
-
-  const selectPanelMode = (mode: RightPanelMode) => {
-    setRightPanelMode(mode)
-    setRightPanelMenuOpen(false)
+    setAutomationTasks((current) => [task, ...current])
+    return true
   }
 
   const resizeArtifactDrawer = (clientX: number) => {
@@ -626,7 +635,13 @@ function App() {
                 type="button"
                 onClick={() => {
                   setActiveNav(label)
-                  if (label === '新建任务') setOpenedTask(null)
+                  if (label === '新建任务') {
+                    setOpenedTask(null)
+                    setMessages([])
+                    setPrompt('')
+                    setSelectedWorkspaceNodeId('task-context')
+                    taskWorkbench.resetWorkbench()
+                  }
                 }}
               >
                 <Icon size={20} strokeWidth={1.9} />
@@ -643,7 +658,7 @@ function App() {
               </div>
               <div className="task-list">
                 {recentTasks.map((task) => (
-                  <TaskRow key={task.id} task={task} onOpen={setOpenedTask} />
+                  <TaskRow key={task.id} task={task} onOpen={openTask} />
                 ))}
               </div>
             </section>
@@ -667,7 +682,7 @@ function App() {
                       {isOpen && (
                         <div className="nested-tasks">
                           {runs.map((runTask) => (
-                            <TaskRow key={runTask.id} task={runTask} onOpen={setOpenedTask} onDelete={deleteAutomationRunFromSidebar} />
+                            <TaskRow key={runTask.id} task={runTask} onOpen={openTask} onDelete={deleteAutomationRunFromSidebar} />
                           ))}
                         </div>
                       )}
@@ -690,11 +705,16 @@ function App() {
           </button>
         )}
 
-        <main className={`workspace ${activeNav === '自动化' ? 'workspace--automation' : ''}`}>
+        <main className={`workspace ${activeNav === '自动化' ? 'workspace--automation' : ''} ${activeNav === '助理' ? 'workspace--assistant' : ''}`}>
           {activeNav === '自动化' ? (
             <AutomationWorkspace tasks={automationTasks} runs={automationRuns} setTasks={setAutomationTasks} setRuns={setAutomationRuns} />
+          ) : activeNav === '助理' ? (
+            <AssistantWorkspace
+              onCreateReminderAutomation={createReminderAutomation}
+              onOpenAutomation={() => setActiveNav('自动化')}
+            />
           ) : (
-            <div className={`chat-workbench ${artifactDrawerOpen ? 'chat-workbench--with-drawer' : ''} ${isResizingArtifactDrawer ? 'chat-workbench--resizing' : ''}`} style={chatWorkbenchStyle}>
+            <div className={`chat-workbench ${taskWorkbench.workspaceVisible ? 'chat-workbench--with-drawer' : ''} ${isResizingArtifactDrawer ? 'chat-workbench--resizing' : ''}`} style={chatWorkbenchStyle}>
               <section className="chat-pane">
                 <header className="chat-header">
                   <div>
@@ -702,14 +722,17 @@ function App() {
                     <h2>{openedTask ? openedTask.title : '新建任务'}</h2>
                   </div>
                   <div className="chat-header-actions">
-                    <button
-                      className={`header-icon-button ${artifactDrawerOpen ? 'header-icon-button--active' : ''}`}
-                      type="button"
-                      title={artifactDrawerOpen ? '收起输出物预览' : '打开输出物预览'}
-                      onClick={toggleArtifactDrawer}
-                    >
-                      <PanelRightOpen size={21} />
-                    </button>
+                    {!taskWorkbench.workspaceVisible && (
+                      <WorkspaceHeaderControls
+                        outputs={taskWorkspaceOutputs}
+                        outputsOpen={taskWorkbench.outputsOpen}
+                        workspaceVisible={taskWorkbench.workspaceVisible}
+                        onToggleOutputs={() => taskWorkbench.setOutputsOpen(!taskWorkbench.outputsOpen)}
+                        onCloseOutputs={() => taskWorkbench.setOutputsOpen(false)}
+                        onToggleWorkspace={taskWorkbench.toggleWorkspace}
+                        onOpenOutput={openTaskOutput}
+                      />
+                    )}
                   </div>
                 </header>
 
@@ -787,101 +810,58 @@ function App() {
                 </section>
               </section>
 
-              {artifactDrawerOpen && (
-                <aside className="artifact-drawer" aria-label="输出物预览">
-                  <button
-                    className="artifact-resize-handle"
-                    type="button"
-                    title="拖拽调整预览宽度"
-                    onPointerDown={startArtifactDrawerResize}
-                    onPointerMove={moveArtifactDrawerResize}
-                    onPointerUp={stopArtifactDrawerResize}
-                    onPointerCancel={stopArtifactDrawerResize}
-                  >
-                    <span />
-                  </button>
-                  <div className="right-workspace-header">
-                    <div className="right-workspace-menu-wrap">
-                      <button className="drawer-menu-button" type="button" title="切换右侧工作区" onClick={() => setRightPanelMenuOpen((value) => !value)}>
-                        <Menu size={22} />
-                      </button>
-                      {rightPanelMenuOpen && (
-                        <div className="right-workspace-menu">
-                          {([
-                            ['workspace', '工作空间文件', Folder],
-                            ['browser', '浏览器', FileCode2],
-                            ['changes', '变更', Layers3],
-                          ] as const).map(([mode, label, Icon]) => (
-                            <button key={mode} className={rightPanelMode === mode ? 'active' : ''} type="button" onClick={() => selectPanelMode(mode)}>
-                              <Icon size={20} />
-                              <span>{label}</span>
-                              {rightPanelMode === mode && <Check size={18} />}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div className="artifact-tabs" role="tablist" aria-label="右侧工作区页签">
-                      {artifactTabs.length > 0 ? (
-                        artifactTabs.map((artifact) => (
-                          <button
-                            key={artifact.id}
-                            className={`artifact-tab ${
-                              activeArtifactId === artifact.id
-                              && ((artifact.type === 'HTML' && rightPanelMode === 'browser') || (artifact.type !== 'HTML' && rightPanelMode === 'artifact'))
-                                ? 'active'
-                                : ''
-                            }`}
-                            type="button"
-                            role="tab"
-                            aria-selected={
-                              activeArtifactId === artifact.id
-                              && ((artifact.type === 'HTML' && rightPanelMode === 'browser') || (artifact.type !== 'HTML' && rightPanelMode === 'artifact'))
-                            }
-                            onClick={() => {
-                              setActiveArtifactId(artifact.id)
-                              setRightPanelMode(artifact.type === 'HTML' ? 'browser' : 'artifact')
-                            }}
-                          >
-                            <span className={`artifact-tab-icon artifact-tab-icon--${artifact.type.toLowerCase()}`}>{artifactIcon(artifact.type)}</span>
-                            <span>{artifact.name}</span>
-                            <i
-                              role="button"
-                              tabIndex={0}
-                              aria-label={`关闭 ${artifact.name}`}
-                              onClick={(event) => {
-                                event.stopPropagation()
-                                closeArtifactTab(artifact.id)
-                              }}
-                              onKeyDown={(event) => {
-                                if (event.key === 'Enter' || event.key === ' ') {
-                                  event.preventDefault()
-                                  event.stopPropagation()
-                                  closeArtifactTab(artifact.id)
-                                }
-                              }}
-                            >
-                              <X size={17} />
-                            </i>
-                          </button>
-                        ))
-                      ) : (
-                        <div className="right-workspace-empty-tab">
-                          <span>{panelModeLabel(rightPanelMode)}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="artifact-drawer-body">
-                    {rightPanelMode === 'workspace' || rightPanelMode === 'changes' || (rightPanelMode === 'browser' && activeArtifact?.type !== 'HTML') ? (
-                      <RightPanelEmpty mode={rightPanelMode} artifacts={allArtifacts} onOpenArtifact={openArtifact} />
-                    ) : activeArtifact && (rightPanelMode === 'artifact' || rightPanelMode === 'browser') ? (
-                      <ArtifactPreview artifact={activeArtifact} onDownload={simulateDownload} />
-                    ) : (
-                      <RightPanelEmpty mode={rightPanelMode} artifacts={allArtifacts} onOpenArtifact={openArtifact} />
-                    )}
-                  </div>
-                </aside>
+              {taskWorkbench.workspaceVisible && (
+                <WorkspaceWorkbench
+                  className="task-workspace-panel"
+                  style={{ width: artifactDrawerWidth, flexBasis: artifactDrawerWidth, flexShrink: 0 }}
+                  tabs={taskWorkbench.tabs}
+                  activeTabId={taskWorkbench.activeTabId}
+                  nodes={taskWorkspaceNodes}
+                  selectedNodeId={selectedWorkspaceNodeId}
+                  defaultExpandedIds={['task-root', 'task-attachments', 'task-outputs']}
+                  outputs={taskWorkspaceOutputs}
+                  outputsOpen={taskWorkbench.outputsOpen}
+                  workspaceVisible={taskWorkbench.workspaceVisible}
+                  navigatorOpen={taskWorkbench.navigatorOpen}
+                  launcherOpen={taskWorkbench.launcherOpen}
+                  onActivateTab={taskWorkbench.setActiveTabId}
+                  onCloseTab={taskWorkbench.closeTab}
+                  onToggleOutputs={() => taskWorkbench.setOutputsOpen(!taskWorkbench.outputsOpen)}
+                  onCloseOutputs={() => taskWorkbench.setOutputsOpen(false)}
+                  onToggleWorkspace={taskWorkbench.toggleWorkspace}
+                  onToggleNavigator={toggleTaskNavigator}
+                  onOpenOutput={openTaskOutput}
+                  onToggleLauncher={() => taskWorkbench.setLauncherOpen(!taskWorkbench.launcherOpen)}
+                  onCloseLauncher={() => taskWorkbench.setLauncherOpen(false)}
+                  onOpenFileLauncher={() => {
+                    taskWorkbench.setLauncherOpen(false)
+                    taskWorkbench.setOutputsOpen(false)
+                    taskWorkbench.setNavigatorOpen(true)
+                  }}
+                  onOpenBrowserLauncher={openLatestHtml}
+                  onSelectNode={openWorkspaceNode}
+                  resizeHandlers={{
+                    onPointerDown: startArtifactDrawerResize,
+                    onPointerMove: moveArtifactDrawerResize,
+                    onPointerUp: stopArtifactDrawerResize,
+                    onPointerCancel: stopArtifactDrawerResize,
+                  }}
+                  renderActions={(_tab, node) => {
+                    const artifact = node?.objectId ? allArtifacts.find((candidate) => candidate.id === node.objectId) : undefined
+                    return artifact ? <button type="button" title="下载" onClick={() => simulateDownload(artifact)}><Download size={18} /></button> : null
+                  }}
+                  renderTab={(tab: WorkspaceTab, node) => {
+                    const artifact = tab.objectId ? allArtifacts.find((candidate) => candidate.id === tab.objectId) : undefined
+                    if (tab.mode === 'browser' && artifact) {
+                      return <HtmlBrowserPreview artifact={artifact} onOpenSource={() => {
+                        if (node) openWorkspaceNode(node)
+                      }} />
+                    }
+                    return artifact
+                      ? <ArtifactPreview artifact={artifact} />
+                      : <pre className="unified-workspace-source">{node?.content}</pre>
+                  }}
+                />
               )}
 
               {downloadToast && <div className="download-toast">{downloadToast}</div>}
