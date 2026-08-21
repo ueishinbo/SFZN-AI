@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowLeft,
   ArrowRight,
@@ -12,13 +12,14 @@ import {
   type AssistantDecision,
   type DecisionAnswer,
   type DecisionAnswers,
+  type DecisionCardStatus,
   type DecisionFlowSpec,
   type DecisionFlowStep,
   type DecisionNotes,
   type DecisionResolution,
 } from './assistantDecisionFlow'
 
-export type { AssistantDecision, DecisionResolution } from './assistantDecisionFlow'
+export type { AssistantDecision, DecisionCardStatus, DecisionResolution } from './assistantDecisionFlow'
 
 function initialAnswers(flow: DecisionFlowSpec): DecisionAnswers {
   return Object.fromEntries(flow.steps.flatMap((step) => {
@@ -35,64 +36,68 @@ function initialAnswers(flow: DecisionFlowSpec): DecisionAnswers {
   }))
 }
 
+function initialFieldValues(flow: DecisionFlowSpec) {
+  return Object.fromEntries(flow.steps.flatMap((step) => (
+    step.control.type === 'schema_form'
+      ? step.control.fields.map((field) => [field.key, field.value])
+      : []
+  )))
+}
+
 function resolveCopy(copy: DecisionFlowStep['title'] | DecisionFlowStep['description'], answers: DecisionAnswers) {
   return typeof copy === 'function' ? copy(answers) : copy
 }
 
-function DeferButton({ onDefer }: { onDefer: () => void }) {
+function DeferButton({ label, onDefer }: { label: string; onDefer: () => void }) {
   return (
     <button className="assistant-decision-defer" type="button" onClick={onDefer}>
-      稍后处理 <kbd>ESC</kbd>
+      {label}
     </button>
   )
 }
 
 export default function AssistantDecisionPanel({
   decision,
+  status,
   onDefer,
   onResolve,
+  onSupplementReply,
 }: {
   decision: AssistantDecision
+  status: DecisionCardStatus
   onDefer: () => void
   onResolve: (resolution: DecisionResolution) => void
+  onSupplementReply?: (message: string) => void
 }) {
   const flow = useMemo(() => buildDecisionFlow(decision), [decision])
-  const panelRef = useRef<HTMLElement>(null)
   const [stepIndex, setStepIndex] = useState(0)
   const [answers, setAnswers] = useState<DecisionAnswers>(() => initialAnswers(flow))
   const [notes, setNotes] = useState<DecisionNotes>({})
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>(() => initialFieldValues(flow))
   const [personSearchOpen, setPersonSearchOpen] = useState(false)
   const [personQuery, setPersonQuery] = useState('')
   const [customStepId, setCustomStepId] = useState<string | null>(null)
   const [customValues, setCustomValues] = useState<Record<string, string>>({})
+  const [supplementReply, setSupplementReply] = useState('')
 
   useEffect(() => {
     setStepIndex(0)
     setAnswers(initialAnswers(flow))
     setNotes({})
+    setFieldValues(initialFieldValues(flow))
     setPersonSearchOpen(false)
     setPersonQuery('')
     setCustomStepId(null)
     setCustomValues({})
+    setSupplementReply('')
   }, [flow])
-
-  useEffect(() => {
-    const focusTarget = panelRef.current?.querySelector<HTMLElement>('button, input, textarea')
-    focusTarget?.focus()
-  }, [])
-
-  useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onDefer()
-    }
-    document.addEventListener('keydown', closeOnEscape)
-    return () => document.removeEventListener('keydown', closeOnEscape)
-  }, [onDefer])
 
   const step = flow.steps[stepIndex]
   const isLastStep = stepIndex === flow.steps.length - 1
   const answer = answers[step.id]
-  const canContinue = !step.required || Boolean(answer?.value.trim())
+  const canContinue = step.control.type === 'schema_form'
+    ? step.control.fields.every((field) => !field.required || Boolean(fieldValues[field.key]?.trim()))
+    : !step.required || Boolean(answer?.value.trim())
 
   const chooseAnswer = (nextAnswer: DecisionAnswer) => {
     setAnswers((current) => ({ ...current, [step.id]: nextAnswer }))
@@ -252,6 +257,80 @@ export default function AssistantDecisionPanel({
     )
   }
 
+  const renderSchemaForm = () => {
+    if (step.control.type !== 'schema_form') return null
+    const control = step.control
+
+    return (
+      <>
+        <div className="assistant-decision-schema-form">
+          {control.fields.map((field) => (
+            <label
+              className={[
+                field.control === 'textarea' || field.key === 'title' ? 'assistant-schema-field--wide' : '',
+                field.control === 'readonly' ? 'assistant-schema-field--readonly' : '',
+              ].filter(Boolean).join(' ')}
+              key={field.key}
+            >
+              <span>{field.label}{field.required && <em>必填</em>}</span>
+              {field.control === 'readonly' ? (
+                <div className="assistant-schema-readonly">{fieldValues[field.key] ?? ''}</div>
+              ) : field.control === 'textarea' ? (
+                <textarea
+                  value={fieldValues[field.key] ?? ''}
+                  onChange={(event) => setFieldValues((current) => ({
+                    ...current,
+                    [field.key]: event.target.value,
+                  }))}
+                />
+              ) : field.control === 'person' ? (
+                <select
+                  value={fieldValues[field.key] ?? ''}
+                  onChange={(event) => setFieldValues((current) => ({
+                    ...current,
+                    [field.key]: event.target.value,
+                  }))}
+                >
+                  {(field.options ?? []).map((option) => (
+                    <option value={option.value} key={option.value}>
+                      {option.label}{option.description ? ` · ${option.description}` : ''}
+                    </option>
+                  ))}
+                </select>
+              ) : field.control === 'duration' ? (
+                <div className="assistant-schema-duration">
+                  <input
+                    inputMode="decimal"
+                    value={fieldValues[field.key] ?? ''}
+                    onChange={(event) => setFieldValues((current) => ({
+                      ...current,
+                      [field.key]: event.target.value,
+                    }))}
+                  />
+                  <span>小时</span>
+                </div>
+              ) : (
+                <input
+                  value={fieldValues[field.key] ?? ''}
+                  onChange={(event) => setFieldValues((current) => ({
+                    ...current,
+                    [field.key]: event.target.value,
+                  }))}
+                />
+              )}
+            </label>
+          ))}
+        </div>
+        {control.callout && (
+          <div className="assistant-decision-callout">
+            <BellRing size={17} />
+            <span>{control.callout}</span>
+          </div>
+        )}
+      </>
+    )
+  }
+
   const handlePrimary = () => {
     if (!canContinue) return
     if (!isLastStep) {
@@ -259,7 +338,7 @@ export default function AssistantDecisionPanel({
       setCustomStepId(null)
       return
     }
-    onResolve(flow.resolve(answers, notes))
+    onResolve(flow.resolve(answers, notes, fieldValues))
   }
 
   const primaryLabel = isLastStep ? flow.finalAction.label : '继续'
@@ -268,18 +347,48 @@ export default function AssistantDecisionPanel({
     : ArrowRight
   const title = resolveCopy(step.title, answers)
   const description = resolveCopy(step.description, answers)
+  const resolvedCopy = decision.kind === 'dispatch'
+    ? '已完成'
+    : decision.kind === 'reminder'
+      ? '已发送'
+      : decision.kind === 'task_receipt'
+        ? '已处理'
+        : decision.kind === 'progress_reply' || decision.kind === 'reminder_receipt'
+          ? '已回复'
+          : '已提交'
+  const stateCopy: Record<Exclude<DecisionCardStatus, 'pending_confirmation'>, string> = {
+    superseded: '已由新草稿替代',
+    resolved: resolvedCopy,
+    deferred: '已暂不处理',
+    cancelled: '草稿已取消',
+  }
+  const isPassiveInboundCard = decision.kind === 'reminder_receipt'
+    || (decision.kind === 'task_receipt' && decision.recordMode === 'c_project_bound')
+
+  if (status !== 'pending_confirmation' && !isPassiveInboundCard) {
+    return (
+      <section
+        className={`assistant-decision-panel assistant-decision-panel--compact assistant-decision-panel--${status}`}
+        role="status"
+        aria-label={stateCopy[status]}
+      >
+        <div className="assistant-decision-card-summary">
+          <strong>{resolveCopy(flow.steps[0].title, initialAnswers(flow))}</strong>
+          <em>{stateCopy[status]}</em>
+        </div>
+      </section>
+    )
+  }
 
   return (
     <section
       className={`assistant-decision-panel assistant-decision-panel--${flow.purpose}`}
-      ref={panelRef}
-      role="dialog"
-      aria-modal="false"
-      aria-label="用户决策"
+      role="region"
+      aria-label={`${flow.contextLabel}，${isPassiveInboundCard ? '已接收' : '待确认'}`}
     >
       <header className="assistant-decision-header">
         <div className="assistant-decision-header-main">
-          <span>{flow.contextLabel}</span>
+          {flow.badgeLabel && <span className="assistant-decision-badge">{flow.badgeLabel}</span>}
           <h3>{title}</h3>
           {description && <p>{description}</p>}
         </div>
@@ -305,28 +414,53 @@ export default function AssistantDecisionPanel({
         {renderSingleSelect()}
         {renderPersonSelect()}
         {renderReview()}
+        {renderSchemaForm()}
       </div>
 
-      <footer className="assistant-decision-actions">
-        <DeferButton onDefer={onDefer} />
-        {isLastStep && flow.secondaryAction && (
+      {!isPassiveInboundCard && (
+        <footer className="assistant-decision-actions">
+          {flow.purpose === 'respond' && <DeferButton label="暂不处理" onDefer={onDefer} />}
+          {isLastStep && flow.secondaryAction && (
+            <button
+              className="assistant-decision-secondary"
+              type="button"
+              onClick={() => onResolve(flow.secondaryAction!.resolve)}
+            >
+              {flow.secondaryAction.label}
+            </button>
+          )}
           <button
-            className="assistant-decision-secondary"
+            className="assistant-decision-primary"
             type="button"
-            onClick={() => onResolve(flow.secondaryAction!.resolve)}
+            disabled={!canContinue}
+            onClick={handlePrimary}
           >
-            {flow.secondaryAction.label}
+            {primaryLabel}<PrimaryIcon size={17} />
           </button>
-        )}
-        <button
-          className="assistant-decision-primary"
-          type="button"
-          disabled={!canContinue}
-          onClick={handlePrimary}
+        </footer>
+      )}
+      {onSupplementReply && (
+        <form
+          className="assistant-decision-supplement"
+          onSubmit={(event) => {
+            event.preventDefault()
+            const message = supplementReply.trim()
+            if (!message) return
+            onSupplementReply(message)
+            setSupplementReply('')
+          }}
         >
-          {primaryLabel}<PrimaryIcon size={17} />
-        </button>
-      </footer>
+          <input
+            aria-label="补充回复"
+            value={supplementReply}
+            onChange={(event) => setSupplementReply(event.target.value)}
+            placeholder="补充回复"
+          />
+          <button type="submit" aria-label="发送补充回复" disabled={!supplementReply.trim()}>
+            <Send size={14} />
+          </button>
+        </form>
+      )}
     </section>
   )
 }

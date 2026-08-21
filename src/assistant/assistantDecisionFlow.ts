@@ -1,5 +1,32 @@
 import type { CollaborationItem } from './mockCollaboration'
 
+export type DecisionCardStatus =
+  | 'pending_confirmation'
+  | 'superseded'
+  | 'resolved'
+  | 'deferred'
+  | 'cancelled'
+
+export type DecisionSchemaField = {
+  key: string
+  label: string
+  required: boolean
+  value: string
+  control?: 'text' | 'person' | 'datetime' | 'duration' | 'textarea' | 'readonly'
+  options?: Array<{
+    value: string
+    label: string
+    description?: string
+  }>
+}
+
+export type DecisionSchemaSnapshot = {
+  schemaId: string
+  schemaVersion: string
+  targetSystem: string
+  fields: DecisionSchemaField[]
+}
+
 export type AssistantDecision =
   | {
       id: string
@@ -9,6 +36,8 @@ export type AssistantDecision =
       dueAt: string
       priority: CollaborationItem['priority']
       sourceSystem: string
+      recordMode: 'c_project_bound' | 'assistant_local'
+      schema: DecisionSchemaSnapshot
     }
   | {
       id: string
@@ -18,8 +47,16 @@ export type AssistantDecision =
     }
   | {
       id: string
+      kind: 'reminder_receipt'
+      item: CollaborationItem
+      reminderText: string
+    }
+  | {
+      id: string
       kind: 'task_receipt'
       item: CollaborationItem
+      schema: DecisionSchemaSnapshot
+      recordMode: 'c_project_bound' | 'assistant_local'
     }
   | {
       id: string
@@ -37,7 +74,9 @@ export type DecisionResolution = {
   action: 'dispatch' | 'send_reminder' | 'confirm_receipt' | 'request_adjustment' | 'reply_progress' | 'complete_workflow'
   assignee?: string
   progress?: string
+  reminderText?: string
   workflowSummary?: string
+  fieldValues?: Record<string, string>
 }
 
 export type DecisionFieldSource =
@@ -104,6 +143,11 @@ export type DecisionControl =
       rows: DecisionReviewRow[] | ((answers: DecisionAnswers) => DecisionReviewRow[])
       callout?: string
     }
+  | {
+      type: 'schema_form'
+      fields: DecisionSchemaField[]
+      callout?: string
+    }
 
 export type DecisionFlowStep = {
   id: string
@@ -119,6 +163,7 @@ export type DecisionFlowSpec = {
   id: string
   purpose: 'clarify' | 'authorize' | 'respond'
   contextLabel: string
+  badgeLabel?: string
   steps: DecisionFlowStep[]
   finalAction: {
     label: string
@@ -129,16 +174,12 @@ export type DecisionFlowSpec = {
     label: string
     resolve: DecisionResolution
   }
-  resolve: (answers: DecisionAnswers, notes: DecisionNotes) => DecisionResolution
+  resolve: (
+    answers: DecisionAnswers,
+    notes: DecisionNotes,
+    fieldValues: Record<string, string>,
+  ) => DecisionResolution
 }
-
-const people: DecisionPerson[] = [
-  { id: 'li-jing', name: '李静', department: '动力装置部', role: '项目主管', recommended: true, source: 'organization_service' },
-  { id: 'zhang-san', name: '张三', department: '总体技术部', role: '结构工程师', recommended: true, source: 'organization_service' },
-  { id: 'wang-lei', name: '王磊', department: '试飞中心', role: '质量工程师', recommended: true, source: 'organization_service' },
-  { id: 'chen-chen', name: '陈晨', department: '项目管理部', role: '计划主管', source: 'organization_service' },
-  { id: 'liu-yang', name: '刘洋', department: '动力装置部', role: '系统工程师', source: 'organization_service' },
-]
 
 const progressOptions: DecisionOption[] = [
   { id: 'on-track', label: '已经开始，预计按期完成', value: '已经开始，预计按期完成', source: 'workflow_schema' },
@@ -198,101 +239,111 @@ const riskReviewSteps: DecisionFlowStep[] = [
   },
 ]
 
-function selectedPerson(answers: DecisionAnswers) {
-  const selectedId = answers.assignee?.optionId
-  return people.find((person) => person.id === selectedId) ?? people[0]
-}
-
 function answerValue(answers: DecisionAnswers, stepId: string) {
   return answers[stepId]?.value ?? ''
 }
 
 export function buildDecisionFlow(decision: AssistantDecision): DecisionFlowSpec {
   if (decision.kind === 'dispatch') {
+    const writesCProject = decision.recordMode === 'c_project_bound'
     return {
       id: decision.id,
       purpose: 'authorize',
       contextLabel: '派任务前确认',
-      steps: [
-        {
-          id: 'assignee',
-          title: `谁负责${decision.title}？`,
-          description: '助理根据任务专业和近期协作推荐了以下人员，一期只允许一个主执行人。',
-          control: { type: 'person_select', candidates: people, allowSearch: true },
-          required: true,
-          defaultOptionId: 'li-jing',
-          source: 'organization_service',
-        },
-        {
-          id: 'dispatch-review',
-          title: (answers) => `确认派发给${selectedPerson(answers).name}`,
-          description: '确认后将创建权威任务，并通知执行人的数字分身。',
+      badgeLabel: writesCProject ? 'C项目管理任务' : undefined,
+      steps: [{
+          id: 'dispatch-form',
+          title: `确认派发：${decision.title}`,
+          description: '请核对任务信息，确认后将任务发送给负责人。',
           control: {
-            type: 'review',
-            rows: (answers) => {
-              const person = selectedPerson(answers)
-              return [
-                { label: '唯一执行人', value: `${person.name} · ${person.department}`, source: 'organization_service' },
-                { label: '任务标题', value: decision.title, source: 'decision_request' },
-                { label: '截止时间', value: decision.dueAt, source: 'decision_request' },
-                { label: '优先级', value: decision.priority, source: 'decision_request' },
-                { label: '任务要求', value: decision.description, source: 'decision_request' },
-                { label: '正式动作', value: `写入${decision.sourceSystem}并发送 A2A 任务事件`, source: 'computed' },
-              ]
-            },
+            type: 'schema_form',
+            fields: decision.schema.fields,
           },
           source: 'computed',
-        },
-      ],
+        }],
       finalAction: { label: '确认派发', icon: 'send', source: 'client_action_map' },
-      resolve: (answers) => ({ action: 'dispatch', assignee: selectedPerson(answers).name }),
+      resolve: (_answers, _notes, fieldValues) => ({
+        action: 'dispatch',
+        assignee: fieldValues.assignee,
+        fieldValues,
+      }),
     }
   }
 
   if (decision.kind === 'reminder') {
+    const reminderPeople = [...new Set([decision.item.assignee, '李静', '张三', '王磊'])]
     return {
       id: decision.id,
       purpose: 'authorize',
       contextLabel: '发起催办前确认',
       steps: [{
-        id: 'reminder-review',
+        id: 'reminder-form',
         title: `催办：${decision.item.title}`,
-        description: '本次催办引用原任务，不会创建新任务或改变任务状态。',
+        description: '请核对催办信息，发送后会通知对方。',
         control: {
-          type: 'review',
-          rows: [
-            { label: '原任务 ID', value: decision.item.id, source: 'task_service' },
-            { label: '催办对象', value: decision.item.assignee, source: 'task_service' },
-            { label: '当前状态', value: decision.item.progress, source: 'task_service' },
-            { label: '截止时间', value: decision.item.dueAt, source: 'task_service' },
-            { label: '催办内容', value: decision.reminderText, source: 'decision_request' },
+          type: 'schema_form',
+          fields: [
+            { key: 'taskTitle', label: '任务名称', required: true, value: decision.item.title, control: 'text' },
+            {
+              key: 'assignee',
+              label: '催办对象',
+              required: true,
+              value: decision.item.assignee,
+              control: 'person',
+              options: reminderPeople.map((name) => ({ value: name, label: name })),
+            },
+            { key: 'reminderText', label: '催办内容', required: true, value: decision.reminderText, control: 'textarea' },
           ],
-          callout: '上次催办：尚无记录。本次发送符合当前频控策略。',
         },
         source: 'task_service',
       }],
       finalAction: { label: '确认发送', icon: 'send', source: 'client_action_map' },
-      resolve: () => ({ action: 'send_reminder' }),
+      resolve: (_answers, _notes, fieldValues) => ({
+        action: 'send_reminder',
+        assignee: fieldValues.assignee,
+        reminderText: fieldValues.reminderText,
+        fieldValues,
+      }),
+    }
+  }
+
+  if (decision.kind === 'reminder_receipt') {
+    return {
+      id: decision.id,
+      purpose: 'respond',
+      contextLabel: '收到催办',
+      steps: [{
+        id: 'reminder-receipt',
+        title: `${decision.item.assigner}催办：${decision.item.title}`,
+        control: {
+          type: 'schema_form',
+          fields: [],
+        },
+        source: 'task_service',
+      }],
+      finalAction: { label: '发送', icon: 'send', source: 'client_action_map' },
+      resolve: () => ({
+        action: 'reply_progress',
+      }),
     }
   }
 
   if (decision.kind === 'task_receipt') {
+    const writesCProject = decision.recordMode === 'c_project_bound'
     return {
       id: decision.id,
       purpose: 'respond',
       contextLabel: '收到任务 · 需要本人处理',
+      badgeLabel: writesCProject ? 'C项目管理任务' : undefined,
       steps: [{
         id: 'task-receipt-review',
         title: decision.item.title,
-        description: `${decision.item.assigner}通过数字分身派发了这项任务。确认收到不等于任务完成。`,
+        description: writesCProject
+          ? `${decision.item.assigner}向你派发了这项任务，任务已自动接收。`
+          : `${decision.item.assigner}向你派发了这项任务。确认收到不等于任务完成。`,
         control: {
-          type: 'review',
-          rows: [
-            { label: '派发人', value: decision.item.assigner, source: 'task_service' },
-            { label: '截止时间', value: decision.item.dueAt, source: 'task_service' },
-            { label: '任务要求', value: decision.item.description, source: 'task_service' },
-            { label: '业务来源', value: decision.item.sourceSystem, source: 'task_service' },
-          ],
+          type: 'schema_form',
+          fields: decision.schema.fields.map((field) => ({ ...field, control: 'readonly' as const })),
         },
         source: 'task_service',
       }],

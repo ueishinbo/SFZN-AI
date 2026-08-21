@@ -27,6 +27,10 @@ export type CollaborationItem = {
   progress: string
   updatedAt: string
   sourceSystem: string
+  recordMode?: 'c_project_bound' | 'assistant_local'
+  plannedStartAt?: string
+  plannedEndAt?: string
+  estimatedHours?: string
   decisionState?: CollaborationDecisionState
   timeline: CollaborationTimelineItem[]
 }
@@ -176,6 +180,10 @@ export const dispatchDraft: CollaborationItem = {
   progress: '等待张三处理',
   updatedAt: '刚刚',
   sourceSystem: 'C项目管理平台',
+  recordMode: 'c_project_bound',
+  plannedStartAt: '7月23日 09:00',
+  plannedEndAt: '7月24日 18:00',
+  estimatedHours: '16',
   decisionState: 'none',
   timeline: [],
 }

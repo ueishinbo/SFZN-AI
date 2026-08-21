@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  ArrowLeftRight,
   Bot,
   ChevronRight,
   ClipboardCheck,
@@ -16,6 +17,7 @@ import { useWorkspaceWorkbench, type WorkspaceTab } from '../workspace/useWorksp
 import type { WorkspaceTreeNode } from '../workspace/workspaceTypes'
 import AssistantDecisionPanel, {
   type AssistantDecision,
+  type DecisionCardStatus,
   type DecisionResolution,
 } from './AssistantDecisionPanel'
 import {
@@ -25,9 +27,30 @@ import {
   type CollaborationItem,
   type CollaborationStatus,
 } from './mockCollaboration'
+import {
+  createIncomingReminderNotification,
+  notificationKindLabel,
+  type AssistantNotification,
+} from './mockNotifications'
+import SubagentCollaboration from './SubagentCollaboration'
+import {
+  applySubagentScheduleEvent,
+  createSubagentRun,
+  createSubagentSchedule,
+  finishSubagentRun,
+  type SubagentRun,
+} from './mockSubagents'
 import './assistant.css'
 
 type TaskListScope = 'attention' | 'all' | 'incoming' | 'outgoing'
+type DemoPerspective = 'sender' | 'receiver'
+
+type AssistantActionCard = {
+  decision: AssistantDecision
+  status: DecisionCardStatus
+  version: number
+  supersededByVersion?: number
+}
 
 type AssistantMessage = {
   id: string
@@ -35,18 +58,92 @@ type AssistantMessage = {
   content: string
   taskList?: TaskListScope
   streaming?: boolean
+  actionCard?: AssistantActionCard
+  notification?: AssistantNotification
+  retrySubagent?: boolean
 }
 
 type AssistantWorkspaceProps = {
   onCreateReminderAutomation: (item: CollaborationItem) => boolean
   onOpenAutomation: () => void
+  notificationToProcess: AssistantNotification | null
+  onNotificationAccepted: (notificationId: string) => void
+  onNotificationHandled: (notificationId: string) => void
+  onNotificationReceived: (notification: AssistantNotification) => void
+  onBusyChange: (busy: boolean) => void
 }
 
 const initialMessages: AssistantMessage[] = [
   {
     id: 'assistant-briefing',
     role: 'assistant',
-    content: '早上好。助理长会话会持续记住必要上下文。你可以直接问我待办、派发任务、催办已有任务，或者让我梳理当前协作进展。',
+    content: '早上好。助理长会话会持续记住必要上下文。你可以派发 C 项目任务，也可以明确创建“仅 A2A”的协作任务；催办和回复仍会在执行前请你确认。',
+  },
+]
+
+const receiverDemoTask: CollaborationItem = {
+  id: 'collab-receiver-demo',
+  kind: 'assignment',
+  direction: 'incoming',
+  title: '发动机风险评审材料整理',
+  project: 'C929 总体方案项目',
+  projectCode: 'C929-PMO-2026',
+  assigner: '张嘉浩',
+  assignee: '李静',
+  dueAt: '7月29日 18:00',
+  status: 'pending',
+  priority: '重要',
+  description: '整理发动机风险评审材料，形成可供专项评审使用的清单。',
+  progress: '任务已送达并自动接收',
+  updatedAt: '刚刚',
+  sourceSystem: 'C项目管理平台',
+  recordMode: 'c_project_bound',
+  plannedStartAt: '7月28日 09:00',
+  plannedEndAt: '7月29日 18:00',
+  estimatedHours: '12',
+  decisionState: 'resolved',
+  timeline: [{
+    id: 'timeline-receiver-demo-created',
+    title: '张嘉浩派发任务',
+    detail: '任务已写入 C 项目管理平台，并通过 A2A 送达李静的数字分身。',
+    time: '刚刚',
+  }],
+}
+
+const receiverDemoSchema = {
+  schemaId: 'c-project.task.receipt',
+  schemaVersion: 'v2026.07.3',
+  targetSystem: 'C项目管理平台',
+  fields: [
+    { key: 'title', label: '名称', required: true, value: receiverDemoTask.title, control: 'readonly' as const },
+    { key: 'assignee', label: '负责人', required: true, value: receiverDemoTask.assignee, control: 'readonly' as const },
+    { key: 'plannedStartAt', label: '计划开始时间', required: true, value: receiverDemoTask.plannedStartAt ?? '', control: 'readonly' as const },
+    { key: 'plannedEndAt', label: '计划完成时间', required: true, value: receiverDemoTask.plannedEndAt ?? '', control: 'readonly' as const },
+    { key: 'estimatedHours', label: '预估工时', required: true, value: `${receiverDemoTask.estimatedHours} 小时`, control: 'readonly' as const },
+  ],
+}
+
+const initialReceiverMessages: AssistantMessage[] = [
+  {
+    id: 'receiver-briefing',
+    role: 'assistant',
+    content: '这里是李静的助理长会话。刚刚收到张嘉浩数字分身派发的一项 C 项目任务，任务已自动接收。',
+  },
+  {
+    id: 'receiver-task-receipt',
+    role: 'assistant',
+    content: '任务已完成身份、字段和来源校验。你可以查看任务信息，或在卡片底部补充回复。',
+    actionCard: {
+      decision: {
+        id: 'decision-receiver-task-receipt',
+        kind: 'task_receipt',
+        item: receiverDemoTask,
+        schema: receiverDemoSchema,
+        recordMode: 'c_project_bound',
+      },
+      status: 'resolved',
+      version: 1,
+    },
   },
 ]
 
@@ -252,11 +349,13 @@ function TaskFilePreview({ item }: { item: CollaborationItem }) {
       <p>{item.description}</p>
       <dl>
         <div><dt>方向</dt><dd>{item.direction === 'incoming' ? '待我处理' : '我发起的'}</dd></div>
-        <div><dt>业务来源</dt><dd>{item.sourceSystem}</dd></div>
+        <div><dt>记录模式</dt><dd>{item.recordMode === 'assistant_local' ? '仅 A2A 协作' : 'C 项目任务'}</dd></div>
         <div><dt>派发人</dt><dd>{item.assigner}</dd></div>
         <div><dt>执行人</dt><dd>{item.assignee}</dd></div>
-        <div><dt>截止时间</dt><dd>{item.dueAt}</dd></div>
-        <div><dt>优先级</dt><dd>{item.priority}</dd></div>
+        <div><dt>计划开始</dt><dd>{item.plannedStartAt ?? '未提供'}</dd></div>
+        <div><dt>计划完成</dt><dd>{item.plannedEndAt ?? item.dueAt}</dd></div>
+        <div><dt>预估工时</dt><dd>{item.estimatedHours ? `${item.estimatedHours} 小时` : '未提供'}</dd></div>
+        <div><dt>业务来源</dt><dd>{item.sourceSystem}</dd></div>
         <div><dt>决策状态</dt><dd>{item.decisionState ?? 'none'}</dd></div>
       </dl>
       <section><span>当前进展 · {item.updatedAt}</span><p>{item.progress}</p></section>
@@ -266,23 +365,41 @@ function TaskFilePreview({ item }: { item: CollaborationItem }) {
           <div key={entry.id}><i /><div><strong>{entry.title}</strong><p>{entry.detail}</p><span>{entry.time}</span></div></div>
         ))}
       </div>
-      <footer>此文件是任务服务在个人助理 Workspace 中的只读投影。正式操作通过用户决策面板确认后写入权威业务系统。</footer>
+      <footer>此文件是任务服务在个人助理 Workspace 中的可追溯投影。自然语言可以更新草稿；只有点击对话内行动卡的确认按钮，系统才会执行正式写入。</footer>
     </article>
   )
 }
 
-export default function AssistantWorkspace({ onCreateReminderAutomation, onOpenAutomation }: AssistantWorkspaceProps) {
+export default function AssistantWorkspace({
+  onCreateReminderAutomation,
+  onOpenAutomation,
+  notificationToProcess,
+  onNotificationAccepted,
+  onNotificationHandled,
+  onNotificationReceived,
+  onBusyChange,
+}: AssistantWorkspaceProps) {
   const threadRef = useRef<HTMLElement>(null)
   const composerRef = useRef<HTMLTextAreaElement>(null)
   const timersRef = useRef<number[]>([])
-  const [items, setItems] = useState<CollaborationItem[]>(collaborationSeeds)
-  const [messages, setMessages] = useState<AssistantMessage[]>(initialMessages)
+  const subagentTimersRef = useRef<number[]>([])
+  const acceptedNotificationIdsRef = useRef(new Set<string>())
+  const [perspective, setPerspective] = useState<DemoPerspective>('sender')
+  const [senderItems, setSenderItems] = useState<CollaborationItem[]>(collaborationSeeds)
+  const [receiverItems, setReceiverItems] = useState<CollaborationItem[]>([receiverDemoTask])
+  const [senderMessages, setSenderMessages] = useState<AssistantMessage[]>(initialMessages)
+  const [receiverMessages, setReceiverMessages] = useState<AssistantMessage[]>(initialReceiverMessages)
+  const [receiverUserName, setReceiverUserName] = useState('李静')
   const [prompt, setPrompt] = useState('')
   const [selectedFileId, setSelectedFileId] = useState('assistant-memory-main')
   const [selectedItemId, setSelectedItemId] = useState('collab-engine-review')
   const [isModelResponding, setIsModelResponding] = useState(false)
-  const [activeDecision, setActiveDecision] = useState<AssistantDecision | null>(null)
-  const [decisionQueue, setDecisionQueue] = useState<AssistantDecision[]>([])
+  const [subagentRun, setSubagentRun] = useState<SubagentRun | null>(null)
+  const [activeSubagentId, setActiveSubagentId] = useState<string | null>(null)
+  const items = perspective === 'sender' ? senderItems : receiverItems
+  const setItems = perspective === 'sender' ? setSenderItems : setReceiverItems
+  const messages = perspective === 'sender' ? senderMessages : receiverMessages
+  const setMessages = perspective === 'sender' ? setSenderMessages : setReceiverMessages
   const assistantWorkbench = useWorkspaceWorkbench({
     initialTabs: [{
       id: 'file:assistant-memory-main',
@@ -293,30 +410,17 @@ export default function AssistantWorkspace({ onCreateReminderAutomation, onOpenA
     }],
     initialNavigatorOpen: true,
   })
-  const setAssistantOutputsOpen = assistantWorkbench.setOutputsOpen
-  const setAssistantLauncherOpen = assistantWorkbench.setLauncherOpen
 
   useEffect(() => () => {
     timersRef.current.forEach((timer) => window.clearTimeout(timer))
+    subagentTimersRef.current.forEach((timer) => window.clearTimeout(timer))
   }, [])
 
-  useEffect(() => {
-    if (isModelResponding || activeDecision || decisionQueue.length === 0) return
-    const [nextDecision, ...remaining] = decisionQueue
-    setDecisionQueue(remaining)
-    setActiveDecision(nextDecision)
-  }, [activeDecision, decisionQueue, isModelResponding])
+  useEffect(() => () => onBusyChange(false), [onBusyChange])
 
   useEffect(() => {
-    if (!activeDecision) return
-    setAssistantOutputsOpen(false)
-    setAssistantLauncherOpen(false)
-    if ('item' in activeDecision) {
-      setItems((current) => current.map((item) => item.id === activeDecision.item.id
-        ? { ...item, decisionState: 'surfaced', updatedAt: '刚刚' }
-        : item))
-    }
-  }, [activeDecision, setAssistantLauncherOpen, setAssistantOutputsOpen])
+    onBusyChange(isModelResponding)
+  }, [isModelResponding, onBusyChange])
 
   useEffect(() => {
     const activeTab = assistantWorkbench.tabs.find((tab) => tab.id === assistantWorkbench.activeTabId)
@@ -348,33 +452,178 @@ export default function AssistantWorkspace({ onCreateReminderAutomation, onOpenA
     const thread = threadRef.current
     if (!thread) return
     thread.scrollTo({ top: thread.scrollHeight, behavior: 'smooth' })
-  }, [messages.length])
+  }, [messages])
 
-  const appendMessage = (message: Omit<AssistantMessage, 'id'>) => {
+  const appendMessage = useCallback((message: Omit<AssistantMessage, 'id'>) => {
     const id = `assistant-message-${Date.now()}-${Math.random().toString(16).slice(2)}`
     setMessages((current) => [...current, { ...message, id }])
     return id
-  }
+  }, [setMessages])
 
-  const queueDecision = (decision: AssistantDecision) => {
-    setDecisionQueue((current) => current.some((item) => item.id === decision.id) || activeDecision?.id === decision.id
-      ? current
-      : [...current, decision])
-  }
+  const markDecisionSurfaced = useCallback((decision: AssistantDecision) => {
+    if (!('item' in decision)) return
+    setItems((current) => current.map((item) => item.id === decision.item.id
+      ? { ...item, decisionState: 'surfaced', updatedAt: '刚刚' }
+      : item))
+  }, [setItems])
 
-  const finishModelResponse = (messageId: string, content: string) => {
-    setMessages((current) => current.map((message) => message.id === messageId ? { ...message, content, streaming: false } : message))
+  const finishModelResponse = useCallback((
+    messageId: string,
+    content: string,
+    actionCard?: AssistantActionCard,
+  ) => {
+    setMessages((current) => current.map((message) => message.id === messageId
+      ? { ...message, content, streaming: false, actionCard }
+      : message))
+    if (actionCard) markDecisionSurfaced(actionCard.decision)
     setIsModelResponding(false)
-  }
+  }, [markDecisionSurfaced, setMessages])
 
-  const startDecisionTurn = (content: string, decision: AssistantDecision, delay = 1050) => {
+  const startDecisionTurn = (
+    content: string,
+    decision: AssistantDecision,
+    delay = 1050,
+    version = 1,
+  ) => {
     setIsModelResponding(true)
     const messageId = appendMessage({ role: 'assistant', content, streaming: true })
-    queueDecision(decision)
     const timer = window.setTimeout(() => {
-      finishModelResponse(messageId, content)
+      finishModelResponse(messageId, content, {
+        decision,
+        status: 'pending_confirmation',
+        version,
+      })
     }, delay)
     timersRef.current.push(timer)
+  }
+
+  const clearSubagentTimers = () => {
+    subagentTimersRef.current.forEach((timer) => window.clearTimeout(timer))
+    subagentTimersRef.current = []
+  }
+
+  const runSubagentDemo = (
+    userMessage: string,
+    options: { retry?: boolean; shouldFail?: boolean } = {},
+  ) => {
+    const shouldFail = options.shouldFail ?? false
+    clearSubagentTimers()
+    assistantWorkbench.hideWorkspace()
+    setActiveSubagentId(null)
+    setIsModelResponding(true)
+
+    if (options.retry) {
+      setMessages((current) => current.map((message) => message.retrySubagent
+        ? { ...message, retrySubagent: false }
+        : message))
+      appendMessage({ role: 'user', content: '重新执行' })
+    } else {
+      appendMessage({ role: 'user', content: userMessage })
+    }
+
+    const nextRun = createSubagentRun(userMessage)
+    setSubagentRun(nextRun)
+    const progressMessageId = appendMessage({
+      role: 'assistant',
+      content: options.retry
+        ? '我正在重新执行本轮任务，已再次并行启动 3 个子智能体。'
+        : '这个任务包含数据、问题与方案三个部分，我已并行启动 3 个子智能体。你可以点击输入框上方的胶囊查看各自执行过程。',
+      streaming: true,
+    })
+
+    const schedule = createSubagentSchedule(shouldFail)
+    schedule.forEach((event) => {
+      const timer = window.setTimeout(() => {
+        setSubagentRun((current) => current
+          ? applySubagentScheduleEvent(current, event, shouldFail)
+          : current)
+      }, event.at)
+      subagentTimersRef.current.push(timer)
+    })
+
+    const finalDelay = Math.max(...schedule.map((event) => event.at)) + 450
+    const finishTimer = window.setTimeout(() => {
+      setSubagentRun((current) => current ? finishSubagentRun(current, shouldFail) : current)
+      finishModelResponse(
+        progressMessageId,
+        shouldFail
+          ? '3 个子智能体已结束执行，其中 1 个因服务超时失败。我已基于现有结果完成部分汇总。'
+          : '3 个子智能体已全部完成，我已汇总它们的结果并形成建议。',
+      )
+      appendMessage({
+        role: 'assistant',
+        content: shouldFail
+          ? '数据分析和问题洞察已经完成；改进建议因知识服务超时未能产出。目前可以确认：首次响应效率有所改善，但航材保障和远程诊断知识复用仍是主要瓶颈。你可以先使用这些结论，也可以重新执行本轮任务。'
+          : '综合来看，客户支援效率整体有所改善，但航材保障和远程诊断知识复用仍是主要瓶颈。建议优先建立重点问题快速响应机制、沉淀诊断模板，并对高频短缺航材建立预测性保障清单。',
+        retrySubagent: shouldFail,
+      })
+    }, finalDelay)
+    subagentTimersRef.current.push(finishTimer)
+  }
+
+  const retrySubagentRun = (messageId: string) => {
+    if (isModelResponding || !subagentRun) return
+    setMessages((current) => current.map((message) => message.id === messageId && message.retrySubagent
+      ? { ...message, retrySubagent: false }
+      : message))
+    runSubagentDemo(subagentRun.prompt, { retry: true, shouldFail: false })
+  }
+
+  useEffect(() => {
+    if (
+      !notificationToProcess
+      || isModelResponding
+      || acceptedNotificationIdsRef.current.has(notificationToProcess.id)
+    ) return
+
+    const notification = notificationToProcess
+    acceptedNotificationIdsRef.current.add(notification.id)
+    onNotificationAccepted(notification.id)
+    assistantWorkbench.hideWorkspace()
+    appendMessage({
+      role: 'user',
+      content: notification.summary,
+      notification,
+    })
+    setIsModelResponding(true)
+    const messageId = appendMessage({
+      role: 'assistant',
+      content: `我已从消息通知中心接收这条${notificationKindLabel(notification.kind)}，正在结合长会话上下文处理…`,
+      streaming: true,
+    })
+    const timer = window.setTimeout(() => {
+      const result = notification.kind === 'a2a'
+        ? `这条消息已经处理：${notification.summary}我已结合当前会话梳理出回复要点，下一步可以继续生成正式回复或更新关联任务。`
+        : `这项定时任务结果已经处理：${notification.summary}我已把结果带入长会话，接下来可以继续追问明细或安排后续动作。`
+      finishModelResponse(messageId, result)
+      onNotificationHandled(notification.id)
+    }, 2200)
+    timersRef.current.push(timer)
+  }, [
+    assistantWorkbench,
+    appendMessage,
+    finishModelResponse,
+    isModelResponding,
+    notificationToProcess,
+    onNotificationAccepted,
+    onNotificationHandled,
+  ])
+
+  const updateActionCardStatus = (
+    messageId: string,
+    status: DecisionCardStatus,
+    supersededByVersion?: number,
+  ) => {
+    setMessages((current) => current.map((message) => message.id === messageId && message.actionCard
+      ? {
+          ...message,
+          actionCard: {
+            ...message.actionCard,
+            status,
+            supersededByVersion,
+          },
+        }
+      : message))
   }
 
   const openTaskFile = (item: CollaborationItem) => {
@@ -427,21 +676,94 @@ export default function AssistantWorkspace({ onCreateReminderAutomation, onOpenA
     openWorkspaceNode(node)
   }
 
-  const dispatchDecision = (): AssistantDecision => ({
-    id: `decision-dispatch-${Date.now()}`,
-    kind: 'dispatch',
-    title: dispatchDraft.title,
-    description: dispatchDraft.description,
-    dueAt: dispatchDraft.dueAt,
-    priority: dispatchDraft.priority,
-    sourceSystem: dispatchDraft.sourceSystem,
-  })
+  const dispatchDecision = (
+    recordMode: 'c_project_bound' | 'assistant_local' = 'c_project_bound',
+  ): AssistantDecision => {
+    const writesCProject = recordMode === 'c_project_bound'
+    const sourceSystem = writesCProject ? 'C项目管理平台' : 'A2A协作任务服务'
+    const decision: AssistantDecision = {
+      id: `decision-dispatch-${Date.now()}`,
+      kind: 'dispatch',
+      title: dispatchDraft.title,
+      description: dispatchDraft.description,
+      dueAt: dispatchDraft.dueAt,
+      priority: dispatchDraft.priority,
+      sourceSystem,
+      recordMode,
+      schema: {
+        schemaId: writesCProject ? 'c-project.task.create' : 'a2a.task.create',
+        schemaVersion: writesCProject ? 'v2026.07.3' : 'A2A-v1',
+        targetSystem: sourceSystem,
+        fields: [
+          { key: 'title', label: '名称', required: true, value: dispatchDraft.title, control: 'text' },
+          {
+            key: 'assignee',
+            label: '负责人',
+            required: true,
+            value: '李静',
+            control: 'person',
+            options: [
+              { value: '李静', label: '李静', description: '动力装置部 · 项目主管' },
+              { value: '张三', label: '张三', description: '总体技术部 · 结构工程师' },
+              { value: '王磊', label: '王磊', description: '试飞中心 · 质量工程师' },
+            ],
+          },
+          { key: 'plannedStartAt', label: '计划开始时间', required: true, value: '7月28日 09:00', control: 'datetime' },
+          { key: 'plannedEndAt', label: '计划完成时间', required: true, value: '7月29日 18:00', control: 'datetime' },
+          { key: 'estimatedHours', label: '预估工时', required: true, value: '12', control: 'duration' },
+        ],
+      },
+    }
+    return decision
+  }
+
+  const reviseDispatchDecision = (
+    decision: Extract<AssistantDecision, { kind: 'dispatch' }>,
+    userMessage: string,
+  ): Extract<AssistantDecision, { kind: 'dispatch' }> => {
+    const updatesCompletion = userMessage.includes('截止') || userMessage.includes('完成时间')
+    const revisedTime = userMessage.includes('今天')
+      ? updatesCompletion ? '今天 18:00' : '今天 14:00'
+      : userMessage.includes('明天')
+        ? updatesCompletion ? '明天 18:00' : '明天 09:00'
+        : ''
+    const plannedEndAt = updatesCompletion && revisedTime
+      ? revisedTime
+      : decision.schema.fields.find((field) => field.key === 'plannedEndAt')?.value ?? decision.dueAt
+    const plannedStartAt = !updatesCompletion && revisedTime
+      ? revisedTime
+      : decision.schema.fields.find((field) => field.key === 'plannedStartAt')?.value ?? ''
+
+    return {
+      ...decision,
+      id: `decision-dispatch-${Date.now()}`,
+      dueAt: plannedEndAt,
+      schema: {
+        ...decision.schema,
+        fields: decision.schema.fields.map((field) => {
+          if (field.key === 'plannedStartAt') return { ...field, value: plannedStartAt }
+          if (field.key === 'plannedEndAt') return { ...field, value: plannedEndAt }
+          return field
+        }),
+      },
+    }
+  }
 
   const reminderDecision = (item: CollaborationItem): AssistantDecision => ({
     id: `decision-reminder-${item.id}-${Date.now()}`,
     kind: 'reminder',
     item,
     reminderText: `请同步“${item.title}”的当前进展，如存在延期风险请一并说明。`,
+  })
+
+  const reminderReceiptDecision = (
+    item: CollaborationItem,
+    reminderText: string,
+  ): AssistantDecision => ({
+    id: `decision-reminder-receipt-${item.id}-${Date.now()}`,
+    kind: 'reminder_receipt',
+    item,
+    reminderText,
   })
 
   const progressReplyDecision = (item: CollaborationItem): AssistantDecision => ({
@@ -451,16 +773,43 @@ export default function AssistantWorkspace({ onCreateReminderAutomation, onOpenA
     reminderText: `请在${item.dueAt}前同步当前进展，如存在风险请直接说明。`,
   })
 
+  const taskReceiptDecision = (item: CollaborationItem): AssistantDecision => {
+    const recordMode = item.recordMode ?? 'assistant_local'
+    const writesCProject = recordMode === 'c_project_bound'
+    return {
+      id: `decision-receipt-${item.id}-${Date.now()}`,
+      kind: 'task_receipt',
+      item,
+      recordMode,
+      schema: {
+        schemaId: writesCProject ? 'c-project.task.receipt' : 'a2a.task.receipt',
+        schemaVersion: writesCProject ? 'v2026.07.3' : 'A2A-v1',
+        targetSystem: item.sourceSystem,
+        fields: [
+          { key: 'title', label: '名称', required: true, value: item.title, control: 'readonly' },
+          { key: 'assignee', label: '负责人', required: true, value: item.assignee, control: 'readonly' },
+          { key: 'plannedStartAt', label: '计划开始时间', required: true, value: item.plannedStartAt ?? '待确认', control: 'readonly' },
+          { key: 'plannedEndAt', label: '计划完成时间', required: true, value: item.plannedEndAt ?? item.dueAt, control: 'readonly' },
+          { key: 'estimatedHours', label: '预估工时', required: true, value: `${item.estimatedHours ?? '待确认'} 小时`, control: 'readonly' },
+        ],
+      },
+    }
+  }
+
   const workflowQuestionsDecision = (): AssistantDecision => ({
     id: `decision-workflow-risk-review-${Date.now()}`,
     kind: 'workflow_questions',
     workflow: 'risk_review_planning',
   })
 
-  const handleDecisionDefer = () => {
-    if (!activeDecision) return
-    if ('item' in activeDecision) {
-      const decisionItem = activeDecision.item
+  const handleDecisionDefer = (messageId: string, decision: AssistantDecision) => {
+    const isInboundDecision = decision.kind === 'progress_reply' || decision.kind === 'task_receipt'
+    updateActionCardStatus(
+      messageId,
+      isInboundDecision ? 'deferred' : 'cancelled',
+    )
+    if (isInboundDecision && 'item' in decision) {
+      const decisionItem = decision.item
       setItems((current) => current.map((item) => item.id === decisionItem.id ? {
         ...item,
         decisionState: 'deferred_by_user',
@@ -474,58 +823,183 @@ export default function AssistantWorkspace({ onCreateReminderAutomation, onOpenA
         }],
       } : item))
     }
-    if (activeDecision.kind === 'workflow_questions') {
+    if (decision.kind === 'workflow_questions') {
       appendMessage({
         role: 'assistant',
-        content: '这次方案澄清已暂存，没有安排人员或执行任何外部动作。需要时可以继续告诉我评审范围、时间和准备方式。',
+        content: '这次方案澄清草稿已取消，没有安排人员或执行任何外部动作。需要时可以重新告诉我评审范围、时间和准备方式。',
       })
     }
-    setActiveDecision(null)
     window.setTimeout(() => composerRef.current?.focus(), 40)
   }
 
-  const handleDecisionResolve = (resolution: DecisionResolution) => {
-    if (!activeDecision) return
+  const handleSupplementReply = (decision: AssistantDecision, message: string) => {
+    if (!('item' in decision)) return
+    const decisionItem = decision.item
+    const eventId = Date.now()
 
-    if (activeDecision.kind === 'dispatch' && resolution.action === 'dispatch') {
+    setReceiverItems((current) => current.map((item) => item.id === decisionItem.id ? {
+      ...item,
+      updatedAt: '刚刚',
+      timeline: [...item.timeline, {
+        id: `timeline-supplement-reply-${eventId}`,
+        title: '你发送了补充回复',
+        detail: message,
+        time: '刚刚',
+      }],
+    } : item))
+    setSenderItems((current) => current.map((item) => item.id === decisionItem.id ? {
+      ...item,
+      updatedAt: '刚刚',
+      timeline: [...item.timeline, {
+        id: `timeline-supplement-received-${eventId}`,
+        title: `${decisionItem.assignee}补充回复`,
+        detail: message,
+        time: '刚刚',
+      }],
+    } : item))
+    setReceiverMessages((current) => [...current, {
+      id: `receiver-supplement-confirm-${eventId}`,
+      role: 'assistant',
+      content: decision.kind === 'progress_reply'
+        || (decision.kind === 'task_receipt' && decision.recordMode === 'assistant_local')
+        ? `补充回复已发送给${decisionItem.assigner}的数字分身。待确认卡仍保持原状态。`
+        : `补充回复已发送给${decisionItem.assigner}的数字分身，任务状态未改变。`,
+    }])
+    setSenderMessages((current) => [...current, {
+      id: `sender-supplement-received-${eventId}`,
+      role: 'assistant',
+      content: `${decisionItem.assignee}对“${decisionItem.title}”补充回复：${message}`,
+    }])
+  }
+
+  const handleDecisionResolve = (
+    messageId: string,
+    decision: AssistantDecision,
+    resolution: DecisionResolution,
+  ) => {
+    updateActionCardStatus(messageId, 'resolved')
+
+    if (decision.kind === 'dispatch' && resolution.action === 'dispatch') {
       const assignee = resolution.assignee ?? '张三'
+      const confirmedFields = resolution.fieldValues ?? {}
+      const writesCProject = decision.recordMode === 'c_project_bound'
       const nextItem: CollaborationItem = {
         ...dispatchDraft,
         id: `collab-dispatched-${Date.now()}`,
+        title: confirmedFields.title || decision.title,
+        dueAt: confirmedFields.plannedEndAt || decision.dueAt,
+        plannedStartAt: confirmedFields.plannedStartAt,
+        plannedEndAt: confirmedFields.plannedEndAt,
+        estimatedHours: confirmedFields.estimatedHours,
+        recordMode: decision.recordMode,
+        sourceSystem: decision.sourceSystem,
         assignee,
         decisionState: 'resolved',
         timeline: [{
           id: `timeline-dispatched-${Date.now()}`,
           title: `任务已派发给${assignee}`,
-          detail: `任务已写入${dispatchDraft.sourceSystem}，并送达${assignee}的数字分身。`,
+          detail: writesCProject
+            ? `任务已按 ${decision.schema.schemaVersion} 校验并写入 C 项目管理平台，同时送达${assignee}的数字分身。`
+            : `任务已保存到 A2A 协作任务服务和历史记录，并送达${assignee}的数字分身。`,
           time: '刚刚',
           tone: 'success',
         }],
       }
       setItems((current) => [nextItem, ...current])
       setSelectedItemId(nextItem.id)
-      appendMessage({ role: 'assistant', content: `任务已经派发给${assignee}。业务写入成功，A2A 事件已送达，Assistant Workspace 的任务文件也已更新。` })
+      appendMessage({
+        role: 'assistant',
+        content: writesCProject
+          ? `任务已经派发给${assignee}。C 项目管理平台写入成功，A2A 事件已送达，Workspace 投影也已更新。`
+          : `任务已经派发给${assignee}。本次未写入 C 项目管理平台，A2A 原生任务、协作历史和 Workspace 投影均已创建。`,
+      })
+
+      const receiverItem: CollaborationItem = {
+        ...nextItem,
+        direction: 'incoming',
+        assigner: '张嘉浩',
+        assignee,
+        status: 'pending',
+        progress: writesCProject ? '任务已送达并自动接收' : '等待确认收到',
+        decisionState: writesCProject ? 'resolved' : 'surfaced',
+      }
+      const receiptDecision = taskReceiptDecision(receiverItem)
+      setReceiverUserName(assignee)
+      setReceiverItems((current) => [receiverItem, ...current.filter((item) => item.id !== receiverItem.id)])
+      setReceiverMessages((current) => [...current, {
+        id: `receiver-dispatched-message-${Date.now()}`,
+        role: 'assistant',
+        content: `刚刚收到张嘉浩数字分身派发的新任务。${writesCProject ? '该任务来自 C 项目管理平台。' : '该任务仅保存在 A2A 协作域。'}`,
+        actionCard: {
+          decision: receiptDecision,
+          status: writesCProject ? 'resolved' : 'pending_confirmation',
+          version: 1,
+        },
+      }])
     }
 
-    if (activeDecision.kind === 'reminder' && resolution.action === 'send_reminder') {
-      const decisionItem = activeDecision.item
+    if (decision.kind === 'reminder' && resolution.action === 'send_reminder') {
+      const decisionItem = decision.item
+      const taskTitle = resolution.fieldValues?.taskTitle?.trim() || decisionItem.title
+      const assignee = resolution.assignee?.trim() || decisionItem.assignee
+      const reminderText = resolution.reminderText ?? decision.reminderText
+      const reminderEventId = Date.now()
       setItems((current) => current.map((item) => item.id === decisionItem.id ? {
         ...item,
         decisionState: 'resolved',
         updatedAt: '刚刚',
         timeline: [...item.timeline, {
           id: `timeline-reminder-${Date.now()}`,
-          title: '你发起了催办',
-          detail: '催办已送达执行人的数字分身，等待对方回复。',
+          title: `你向${assignee}发起了催办`,
+          detail: reminderText,
           time: '刚刚',
           tone: 'warning',
         }],
       } : item))
-      appendMessage({ role: 'assistant', content: `催办已发送给${decisionItem.assignee}的数字分身。催办引用原任务，不会创建新任务或改变任务状态。` })
+      appendMessage({ role: 'assistant', content: `“${taskTitle}”的催办已发送给${assignee}。` })
+
+      const receiverReminderItem: CollaborationItem = {
+        ...decisionItem,
+        id: `collab-reminder-received-${reminderEventId}`,
+        kind: 'reminder',
+        direction: 'incoming',
+        title: taskTitle,
+        assigner: '张嘉浩',
+        assignee,
+        description: reminderText,
+        progress: '已收到催办，可补充回复',
+        updatedAt: '刚刚',
+        sourceSystem: 'A2A协作历史',
+        recordMode: 'assistant_local',
+        decisionState: 'resolved',
+        timeline: [{
+          id: `timeline-reminder-received-${reminderEventId}`,
+          title: '收到催办',
+          detail: reminderText,
+          time: '刚刚',
+          tone: 'warning',
+        }],
+      }
+      const inboundReminderDecision = reminderReceiptDecision(receiverReminderItem, reminderText)
+      setReceiverUserName(assignee)
+      setReceiverItems((current) => [
+        receiverReminderItem,
+        ...current.filter((item) => item.id !== receiverReminderItem.id),
+      ])
+      setReceiverMessages((current) => [...current, {
+        id: `receiver-reminder-message-${reminderEventId}`,
+        role: 'assistant',
+        content: `张嘉浩正在催办“${taskTitle}”：${reminderText}`,
+        actionCard: {
+          decision: inboundReminderDecision,
+          status: 'resolved',
+          version: 1,
+        },
+      }])
     }
 
-    if (activeDecision.kind === 'progress_reply' && resolution.action === 'reply_progress') {
-      const decisionItem = activeDecision.item
+    if (decision.kind === 'progress_reply' && resolution.action === 'reply_progress') {
+      const decisionItem = decision.item
       const progress = resolution.progress ?? '已经开始，预计按期完成'
       setItems((current) => current.map((item) => item.id === decisionItem.id ? {
         ...item,
@@ -542,10 +1016,23 @@ export default function AssistantWorkspace({ onCreateReminderAutomation, onOpenA
         }],
       } : item))
       appendMessage({ role: 'assistant', content: `进展已经写回${decisionItem.sourceSystem}，并同步给${decisionItem.assigner}的数字分身：${progress}` })
+      if (perspective === 'receiver') {
+        setSenderItems((current) => current.map((item) => item.id === decisionItem.id ? {
+          ...item,
+          status: 'in_progress',
+          progress,
+          updatedAt: '刚刚',
+        } : item))
+        setSenderMessages((current) => [...current, {
+          id: `sender-progress-feedback-${Date.now()}`,
+          role: 'assistant',
+          content: `${decisionItem.assignee}回复了“${decisionItem.title}”的进展：${progress}`,
+        }])
+      }
     }
 
-    if (activeDecision.kind === 'task_receipt') {
-      const decisionItem = activeDecision.item
+    if (decision.kind === 'task_receipt') {
+      const decisionItem = decision.item
       const requestedAdjustment = resolution.action === 'request_adjustment'
       setItems((current) => current.map((item) => item.id === decisionItem.id ? {
         ...item,
@@ -559,16 +1046,34 @@ export default function AssistantWorkspace({ onCreateReminderAutomation, onOpenA
         }],
       } : item))
       appendMessage({ role: 'assistant', content: requestedAdjustment ? '调整申请已发送给派发人的数字分身。' : '已确认收到任务，并同步给派发人的数字分身。' })
+      setSenderItems((current) => current.map((item) => item.id === decisionItem.id ? {
+        ...item,
+        progress: requestedAdjustment ? '接收方申请调整计划' : `${decisionItem.assignee}已确认收到`,
+        updatedAt: '刚刚',
+        timeline: [...item.timeline, {
+          id: `timeline-receiver-feedback-${Date.now()}`,
+          title: requestedAdjustment ? `${decisionItem.assignee}申请调整` : `${decisionItem.assignee}确认收到`,
+          detail: requestedAdjustment ? '调整申请已通过 A2A 回传，等待发起方处理。' : '确认收到不等于任务已经开始。',
+          time: '刚刚',
+          tone: requestedAdjustment ? 'warning' : 'success',
+        }],
+      } : item))
+      setSenderMessages((current) => [...current, {
+        id: `sender-receiver-feedback-${Date.now()}`,
+        role: 'assistant',
+        content: requestedAdjustment
+          ? `${decisionItem.assignee}已通过数字分身申请调整“${decisionItem.title}”的计划，后续需要发起方重新确认。`
+          : `${decisionItem.assignee}已确认收到“${decisionItem.title}”。这只表示任务已被接收，不代表已经开始或完成。`,
+      }])
     }
 
-    if (activeDecision.kind === 'workflow_questions' && resolution.action === 'complete_workflow') {
+    if (decision.kind === 'workflow_questions' && resolution.action === 'complete_workflow') {
       appendMessage({
         role: 'assistant',
         content: `专项评审方案已经整理完成：${resolution.workflowSummary}。这些回答只用于形成方案，我还没有派发任务；真正安排负责人时仍会单独请求你的最终确认。`,
       })
     }
 
-    setActiveDecision(null)
     window.setTimeout(() => composerRef.current?.focus(), 40)
   }
 
@@ -587,15 +1092,25 @@ export default function AssistantWorkspace({ onCreateReminderAutomation, onOpenA
   }
 
   const runDispatchFlow = (userMessage: string) => {
+    const recordMode = ['不写入C', '不进C', '仅A2A', '只存A2A', 'A2A原生']
+      .some((keyword) => userMessage.replace(/\s/g, '').includes(keyword))
+      ? 'assistant_local'
+      : 'c_project_bound'
     appendMessage({ role: 'user', content: userMessage })
-    startDecisionTurn('任务信息已经整理完成。派发会影响其他人的工作安排，现在需要你选择唯一执行人并最终确认。', dispatchDecision(), 1050)
+    startDecisionTurn(
+      recordMode === 'c_project_bound'
+        ? '我已经按 C 项目任务整理成一张完整草稿。请在同一张卡里核对负责人和计划信息，确认后才会正式写入并发送。'
+        : '我已经整理成一张 A2A 原生任务草稿。它不会写入 C 项目管理平台，请核对全部信息后确认发送。',
+      dispatchDecision(recordMode),
+      1050,
+    )
   }
 
   const runIncomingReminderDuringResponse = (userMessage: string) => {
     const target = items.find((item) => item.id === 'collab-engine-review') ?? items[0]
     appendMessage({ role: 'user', content: userMessage })
     setIsModelResponding(true)
-    const messageId = appendMessage({ role: 'assistant', content: '今天已经完成两项材料整理，还有一项发动机风险评审正在推进…', streaming: true })
+    const messageId = appendMessage({ role: 'assistant', content: '我正在汇总长会话中的协作记录、任务文件和最新进展，这会持续一小段时间…', streaming: true })
 
     const incomingTimer = window.setTimeout(() => {
       setItems((current) => current.map((item) => item.id === target.id ? {
@@ -610,20 +1125,75 @@ export default function AssistantWorkspace({ onCreateReminderAutomation, onOpenA
           tone: 'warning',
         }],
       } : item))
-      queueDecision(progressReplyDecision(target))
-    }, 520)
+      onNotificationReceived(createIncomingReminderNotification())
+    }, 900)
 
     const finishTimer = window.setTimeout(() => {
-      finishModelResponse(messageId, '今天已经完成两项材料整理，还有一项发动机风险评审正在推进。我已经把关键进展汇总好了。')
-    }, 2100)
+      finishModelResponse(messageId, '汇总完成：今天已经完成两项材料整理，还有一项发动机风险评审正在推进。我已经把关键进展整理到当前长会话中。')
+    }, 8500)
 
     timersRef.current.push(incomingTimer, finishTimer)
   }
 
   const submitPrompt = () => {
+    if (isModelResponding) return
     const value = prompt.trim()
     if (!value) return
     setPrompt('')
+    if (subagentRun) {
+      clearSubagentTimers()
+      setSubagentRun(null)
+      setActiveSubagentId(null)
+    }
+
+    const latestPendingDispatchMessage = [...messages].reverse().find((message) => (
+      message.actionCard?.status === 'pending_confirmation'
+      && message.actionCard.decision.kind === 'dispatch'
+    ))
+    const pendingDispatchCard = latestPendingDispatchMessage?.actionCard
+    const changesPendingDispatch = pendingDispatchCard?.decision.kind === 'dispatch'
+      && ['今天', '明天', '推进', '截止', '改成', '调整', '换成'].some((keyword) => value.includes(keyword))
+
+    if (latestPendingDispatchMessage && pendingDispatchCard?.decision.kind === 'dispatch' && changesPendingDispatch) {
+      appendMessage({ role: 'user', content: value })
+      const nextVersion = pendingDispatchCard.version + 1
+      const revisedDecision = reviseDispatchDecision(pendingDispatchCard.decision, value)
+      updateActionCardStatus(latestPendingDispatchMessage.id, 'superseded', nextVersion)
+      startDecisionTurn(
+        `我已经按你的补充更新任务草稿，生成第 ${nextVersion} 版。它仍未正式下发，请检查后点击卡片中的确认按钮。`,
+        revisedDecision,
+        760,
+        nextVersion,
+      )
+      return
+    }
+
+    if (
+      latestPendingDispatchMessage
+      && ['确认下发', '下发吧', '就按这个下发', '直接下发'].some((keyword) => value.includes(keyword))
+    ) {
+      appendMessage({ role: 'user', content: value })
+      appendMessage({
+        role: 'assistant',
+        content: pendingDispatchCard?.decision.kind === 'dispatch' && pendingDispatchCard.decision.recordMode === 'assistant_local'
+          ? '这句话不会触发正式下发。任务仍是待确认草稿；请点击行动卡中的“确认派发”，系统才会创建 A2A 原生任务并通知负责人。'
+          : '这句话不会触发正式下发。任务仍是待确认草稿；请点击行动卡中的“确认派发”，系统才会写入 C 项目管理平台并发送 A2A 事件。',
+      })
+      return
+    }
+
+    if (
+      value.includes('子智能体')
+      || value.includes('SubAgent')
+      || value.toLowerCase().includes('subagent')
+      || value.includes('并行分析')
+      || (value.includes('分析') && value.includes('客户支援'))
+    ) {
+      runSubagentDemo(value, {
+        shouldFail: value.includes('模拟失败') || value.includes('超时场景'),
+      })
+      return
+    }
 
     const selectedItem = items.find((item) => item.id === selectedItemId) ?? items[0]
     if (value.startsWith('回复')) {
@@ -652,11 +1222,17 @@ export default function AssistantWorkspace({ onCreateReminderAutomation, onOpenA
       )
       return
     }
-    if (value.includes('派') || value.includes('张三')) {
+    if (
+      value.includes('派')
+      || value.includes('张三')
+      || (value.includes('创建') && value.toUpperCase().includes('A2A'))
+    ) {
       runDispatchFlow(value)
       return
     }
     if (
+      value.includes('模拟长任务')
+      ||
       ['总结', '梳理', '汇总'].some((keyword) => value.includes(keyword))
       && ['协作进展', '项目进展', '当前进展'].some((keyword) => value.includes(keyword))
     ) {
@@ -670,22 +1246,57 @@ export default function AssistantWorkspace({ onCreateReminderAutomation, onOpenA
     }
 
     appendMessage({ role: 'user', content: value })
-    appendMessage({ role: 'assistant', content: '你可以直接问我有哪些待办、派发任务、催办已有任务或回复处理进展。需要查看记忆和输出物时，打开右侧 Workspace 即可。' })
+    appendMessage({
+      role: 'assistant',
+      content: perspective === 'sender'
+        ? '你可以直接派发 C 项目任务、创建仅 A2A 协作任务、催办已有任务或查询进展。正式动作仍需点击行动卡确认。'
+        : '你可以查看收到的任务、补充回复或回复任务进展。相关事项会一直保留在 A2A 协作记录和 Workspace 中。',
+    })
+  }
+
+  const switchPerspective = () => {
+    const nextPerspective: DemoPerspective = perspective === 'sender' ? 'receiver' : 'sender'
+    setPerspective(nextPerspective)
+    setPrompt('')
+    clearSubagentTimers()
+    setSubagentRun(null)
+    setActiveSubagentId(null)
+    setSelectedItemId(nextPerspective === 'sender'
+      ? senderItems[0]?.id ?? 'collab-engine-review'
+      : receiverItems[0]?.id ?? receiverDemoTask.id)
+    assistantWorkbench.hideWorkspace()
+    window.setTimeout(() => {
+      const thread = threadRef.current
+      if (thread) thread.scrollTop = thread.scrollHeight
+      composerRef.current?.focus()
+    }, 40)
   }
 
   return (
     <div className={[
       'assistant-workbench',
       assistantWorkbench.workspaceVisible ? 'assistant-workbench--with-workspace' : '',
-      activeDecision ? 'assistant-workbench--decision-active' : '',
     ].filter(Boolean).join(' ')}>
       <section className="assistant-chat-pane">
         <header className="assistant-header">
           <div className="assistant-identity">
             <span className="assistant-identity-avatar"><Bot size={23} /></span>
-            <div><p>个人数字分身 · 固定长 Session</p><h2>我的助理</h2></div>
+            <div>
+              <p>个人数字分身 · {perspective === 'sender' ? '发起方视角' : '接收方视角'}</p>
+              <h2>{perspective === 'sender' ? '我的助理' : `${receiverUserName}的助理`}</h2>
+            </div>
           </div>
           <div className="assistant-header-actions">
+            <button
+              className="assistant-perspective-switch"
+              type="button"
+              disabled={isModelResponding}
+              onClick={switchPerspective}
+              title={perspective === 'sender' ? '查看任务接收方的助理对话' : '返回任务发起方的助理对话'}
+            >
+              <ArrowLeftRight size={17} />
+              <span>{perspective === 'sender' ? '切换接收方' : '返回发起方'}</span>
+            </button>
             <button className="assistant-automation-link" type="button" onClick={onOpenAutomation}><Clock3 size={18} /><span>自动化</span></button>
             {!assistantWorkbench.workspaceVisible && (
               <WorkspaceHeaderControls
@@ -701,49 +1312,102 @@ export default function AssistantWorkspace({ onCreateReminderAutomation, onOpenA
           </div>
         </header>
 
-        <section className={`assistant-thread ${activeDecision && !assistantWorkbench.workspaceVisible ? 'assistant-thread--with-decision' : ''}`} aria-label="助理对话" ref={threadRef}>
+        <section className="assistant-thread" aria-label="助理对话" ref={threadRef}>
           <div className="assistant-thread-date"><span>今天</span></div>
           {messages.map((message) => (
-            <article className={`assistant-message assistant-message--${message.role}`} key={message.id}>
+            <article
+              className={[
+                'assistant-message',
+                `assistant-message--${message.role}`,
+                message.actionCard ? 'assistant-message--with-action' : '',
+              ].filter(Boolean).join(' ')}
+              key={message.id}
+            >
               {message.role === 'assistant' && <div className="assistant-message-avatar"><Bot size={18} /></div>}
               <div className="assistant-message-body">
                 {message.role === 'assistant' && <strong className="assistant-message-name">COMAC AI</strong>}
-                <p className={message.streaming ? 'assistant-message-streaming' : ''}>
-                  {message.content}
-                  {message.streaming && <span><LoaderCircle size={15} />模型输出中</span>}
-                </p>
+                {message.notification ? (
+                  <div className="assistant-inserted-notification">
+                    <span>{notificationKindLabel(message.notification.kind)} · 来自消息通知</span>
+                    <strong>{message.notification.title}</strong>
+                    <p>{message.notification.summary}</p>
+                    <small>{message.notification.source}{message.notification.project ? ` · ${message.notification.project}` : ''}</small>
+                  </div>
+                ) : (
+                  <p className={message.streaming ? 'assistant-message-streaming' : ''}>
+                    {message.content}
+                    {message.streaming && <span><LoaderCircle size={15} />模型输出中</span>}
+                  </p>
+                )}
                 {message.taskList && <TaskQueryResult items={items} scope={message.taskList} onOpen={openTaskFile} />}
+                {message.actionCard && (
+                  <AssistantDecisionPanel
+                    key={message.actionCard.decision.id}
+                    decision={message.actionCard.decision}
+                    status={message.actionCard.status}
+                    onDefer={() => handleDecisionDefer(message.id, message.actionCard!.decision)}
+                    onResolve={(resolution) => handleDecisionResolve(message.id, message.actionCard!.decision, resolution)}
+                    onSupplementReply={perspective === 'receiver'
+                      && ['task_receipt', 'progress_reply', 'reminder_receipt'].includes(message.actionCard.decision.kind)
+                      ? (reply) => handleSupplementReply(message.actionCard!.decision, reply)
+                      : undefined}
+                  />
+                )}
+                {message.retrySubagent && (
+                  <button className="subagent-retry-link" type="button" onClick={() => retrySubagentRun(message.id)}>
+                    重新执行
+                  </button>
+                )}
               </div>
             </article>
           ))}
         </section>
 
-        <section className={`assistant-composer ${activeDecision ? 'assistant-composer--blocked' : ''}`} aria-label="助理输入器">
-          <textarea
-            ref={composerRef}
-            value={prompt}
-            disabled={Boolean(activeDecision)}
-            onChange={(event) => setPrompt(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault()
-                submitPrompt()
-              }
-            }}
-            placeholder="直接问我待办、派发、催办，或让我处理文件…"
+        {subagentRun && (
+          <SubagentCollaboration
+            run={subagentRun}
+            activeAgentId={activeSubagentId}
+            onSelectAgent={setActiveSubagentId}
           />
+        )}
+
+        <section className={`assistant-composer ${isModelResponding ? 'assistant-composer--blocked' : ''}`} aria-label="助理输入器">
+          {isModelResponding ? (
+            <div className="assistant-composer-blocked-message">
+              <span><LoaderCircle size={20} /></span>
+              <div>
+                <strong>{subagentRun ? '正在等待子智能体完成' : '助理正在处理当前任务'}</strong>
+                <small>{subagentRun ? '点击上方子智能体，可查看实时执行过程' : '当前回复结束后可以继续发送消息'}</small>
+              </div>
+            </div>
+          ) : (
+            <textarea
+              ref={composerRef}
+              value={prompt}
+              onChange={(event) => setPrompt(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault()
+                  submitPrompt()
+                }
+              }}
+              placeholder={perspective === 'sender'
+                ? '直接问我待办、派发、催办，或输入“用子智能体分析客户支援”体验协同…'
+                : '可以继续聊天，或回复收到的任务与催办…'}
+            />
+          )}
           <div className="assistant-composer-toolbar">
             <div>
-              <button type="button" disabled={Boolean(activeDecision)}><Layers3 size={17} /><span>商飞大模型 L1-S1</span></button>
-              <button type="button" disabled={Boolean(activeDecision)}><WandSparkles size={17} /><span>技能</span></button>
+              <button type="button" disabled={isModelResponding}><Layers3 size={17} /><span>商飞大模型 L1-S1</span></button>
+              <button type="button" disabled={isModelResponding}><WandSparkles size={17} /><span>技能</span></button>
             </div>
             <div>
-              <button className="assistant-composer-icon" type="button" disabled={Boolean(activeDecision)} aria-label="添加附件"><Paperclip size={19} /></button>
-              <button className="assistant-composer-icon assistant-composer-sparkle" type="button" disabled={Boolean(activeDecision)} aria-label="智能增强"><Sparkles size={19} /></button>
+              <button className="assistant-composer-icon" type="button" disabled={isModelResponding} aria-label="添加附件"><Paperclip size={19} /></button>
+              <button className="assistant-composer-icon assistant-composer-sparkle" type="button" disabled={isModelResponding} aria-label="智能增强"><Sparkles size={19} /></button>
               <button
                 className={`assistant-send-button ${prompt.trim() && !isModelResponding ? 'ready' : ''}`}
                 type="button"
-                disabled={isModelResponding || Boolean(activeDecision)}
+                disabled={isModelResponding}
                 onClick={submitPrompt}
                 aria-label={isModelResponding ? '模型输出结束后可发送' : '发送'}
               >
@@ -795,17 +1459,6 @@ export default function AssistantWorkspace({ onCreateReminderAutomation, onOpenA
             return selectedTask ? <TaskFilePreview item={selectedTask} /> : <pre className="unified-workspace-source">{node?.content}</pre>
           }}
         />
-      )}
-
-      {activeDecision && (
-        <div className="assistant-decision-dock">
-          <AssistantDecisionPanel
-            key={activeDecision.id}
-            decision={activeDecision}
-            onDefer={handleDecisionDefer}
-            onResolve={handleDecisionResolve}
-          />
-        </div>
       )}
     </div>
   )

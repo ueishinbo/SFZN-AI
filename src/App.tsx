@@ -2,18 +2,21 @@ import { useEffect, useMemo, useState, type CSSProperties, type PointerEvent as 
 import {
   ArrowLeft,
   ArrowRight,
+  Bell,
   Bot,
   BriefcaseBusiness,
   ChevronDown,
   ChevronRight,
   Clock3,
   Download,
+  Ellipsis,
   ExternalLink,
   File,
   FileCode2,
   FileType,
   FileText,
   Folder,
+  Globe2,
   LayoutPanelLeft,
   Layers3,
   Maximize2,
@@ -33,7 +36,14 @@ import './App.css'
 import AutomationWorkspace from './automation/AutomationWorkspace'
 import AssistantWorkspace from './assistant/AssistantWorkspace'
 import type { CollaborationItem } from './assistant/mockCollaboration'
+import NotificationCenter from './assistant/NotificationCenter'
+import NotificationDetailView from './assistant/NotificationDetailView'
+import {
+  createSeedNotifications,
+  type AssistantNotification,
+} from './assistant/mockNotifications'
 import WorkspaceWorkbench, { WorkspaceHeaderControls, type WorkspaceOutputItem } from './workspace/WorkspaceWorkbench'
+import ExternalAgentWorkspace from './external-agent/ExternalAgentWorkspace'
 import { useWorkspaceWorkbench, type WorkspaceTab } from './workspace/useWorkspaceWorkbench'
 import type { WorkspaceTreeNode } from './workspace/workspaceTypes'
 import {
@@ -353,7 +363,9 @@ function TaskRow({ task, onOpen, onDelete }: { task: Task; onOpen: (task: Task) 
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarMode, setSidebarMode] = useState<'default' | 'notifications'>('default')
   const [activeNav, setActiveNav] = useState('新建任务')
+  const [moreNavOpen, setMoreNavOpen] = useState(false)
   const [openAutomationFolders, setOpenAutomationFolders] = useState<Record<string, boolean>>({})
   const [prompt, setPrompt] = useState('')
   const [openedTask, setOpenedTask] = useState<Task | null>(null)
@@ -362,9 +374,56 @@ function App() {
   const [artifactDrawerWidth, setArtifactDrawerWidth] = useState(560)
   const [isResizingArtifactDrawer, setIsResizingArtifactDrawer] = useState(false)
   const [downloadToast, setDownloadToast] = useState('')
+  const [assistantBusy, setAssistantBusy] = useState(false)
+  const [notifications, setNotifications] = useState<AssistantNotification[]>(createSeedNotifications)
+  const [selectedNotificationId, setSelectedNotificationId] = useState<string | null>(null)
+  const [notificationToProcess, setNotificationToProcess] = useState<AssistantNotification | null>(null)
+  const [notificationFeedback, setNotificationFeedback] = useState('')
   const [automationTasks, setAutomationTasks] = useState<AutomationTask[]>(() => loadStoredList(TASKS_STORAGE_KEY, seedTasks))
   const [automationRuns, setAutomationRuns] = useState<AutomationRun[]>(() => loadStoredList(RUNS_STORAGE_KEY, seedRuns))
   const taskWorkbench = useWorkspaceWorkbench()
+
+  const unreadNotificationCount = notifications.filter((notification) => notification.status === 'unread').length
+  const selectedNotification = notifications.find((notification) => notification.id === selectedNotificationId) ?? null
+
+  const receiveNotification = (notification: AssistantNotification) => {
+    setNotifications((current) => [notification, ...current.filter((item) => item.id !== notification.id)])
+    setNotificationFeedback('收到一条新消息，已暂存到通知中心。')
+  }
+
+  const markNotificationRead = (notificationId: string) => {
+    setNotifications((current) => current.map((notification) => (
+      notification.id === notificationId && notification.status === 'unread'
+        ? { ...notification, status: 'read' }
+        : notification
+    )))
+  }
+
+  const selectNotification = (notification: AssistantNotification) => {
+    setSelectedNotificationId(notification.id)
+    markNotificationRead(notification.id)
+  }
+
+  const processNotification = (notification: AssistantNotification) => {
+    if (assistantBusy) {
+      setNotificationFeedback('助理仍在输出，当前消息没有插入长会话。')
+      return
+    }
+    if (notification.status === 'handled' || notification.status === 'processing') return
+    setNotifications((current) => current.map((item) => (
+      item.id === notification.id ? { ...item, status: 'processing' } : item
+    )))
+    setNotificationFeedback('')
+    setActiveNav('助理')
+    setSidebarMode('default')
+    setNotificationToProcess(notification)
+  }
+
+  const finishNotificationProcessing = (notificationId: string) => {
+    setNotifications((current) => current.map((notification) => (
+      notification.id === notificationId ? { ...notification, status: 'handled' } : notification
+    )))
+  }
 
   useEffect(() => {
     const activeTab = taskWorkbench.tabs.find((tab) => tab.id === taskWorkbench.activeTabId)
@@ -615,8 +674,21 @@ function App() {
           <div className="sidebar-top">
             <label className="search-box">
               <Search size={19} strokeWidth={2} />
-              <input aria-label="搜索任务" placeholder="搜索任务" />
+              <input
+                aria-label={sidebarMode === 'notifications' ? '搜索消息' : '搜索任务'}
+                placeholder={sidebarMode === 'notifications' ? '搜索消息' : '搜索任务'}
+              />
             </label>
+            <button
+              className={`icon-button notification-toggle ${sidebarMode === 'notifications' ? 'active' : ''}`}
+              type="button"
+              title={sidebarMode === 'notifications' ? '关闭消息通知' : '打开消息通知'}
+              aria-label={sidebarMode === 'notifications' ? '关闭消息通知' : '打开消息通知'}
+              onClick={() => setSidebarMode((mode) => mode === 'notifications' ? 'default' : 'notifications')}
+            >
+              <Bell size={20} strokeWidth={1.8} />
+              {unreadNotificationCount > 0 && <span className="notification-toggle-badge">{unreadNotificationCount}</span>}
+            </button>
             <button
               className="icon-button panel-toggle"
               type="button"
@@ -627,71 +699,94 @@ function App() {
             </button>
           </div>
 
-          <nav className="primary-nav" aria-label="主导航">
-            {navItems.map(({ label, icon: Icon }) => (
-              <button
-                key={label}
-                className={activeNav === label ? 'nav-item active' : 'nav-item'}
-                type="button"
-                onClick={() => {
-                  setActiveNav(label)
-                  if (label === '新建任务') {
-                    setOpenedTask(null)
-                    setMessages([])
-                    setPrompt('')
-                    setSelectedWorkspaceNodeId('task-context')
-                    taskWorkbench.resetWorkbench()
-                  }
-                }}
-              >
-                <Icon size={20} strokeWidth={1.9} />
-                <span>{label}</span>
-              </button>
-            ))}
-          </nav>
-
-          <div className="sidebar-scroll">
-            <section className="sidebar-section">
-              <div className="section-heading">
-                <span>任务</span>
-                <span className="count-badge">4</span>
-              </div>
-              <div className="task-list">
-                {recentTasks.map((task) => (
-                  <TaskRow key={task.id} task={task} onOpen={openTask} />
+          {sidebarMode === 'notifications' ? (
+            <NotificationCenter
+              notifications={notifications}
+              assistantBusy={assistantBusy}
+              feedback={notificationFeedback}
+              selectedNotificationId={selectedNotificationId}
+              onProcess={processNotification}
+              onSelect={selectNotification}
+            />
+          ) : (
+            <>
+              <nav className="primary-nav" aria-label="主导航">
+                {navItems.map(({ label, icon: Icon }) => (
+                  <button
+                    key={label}
+                    className={activeNav === label ? 'nav-item active' : 'nav-item'}
+                    type="button"
+                    onClick={() => {
+                      setActiveNav(label)
+                      if (label === '新建任务') {
+                        setOpenedTask(null)
+                        setMessages([])
+                        setPrompt('')
+                        setSelectedWorkspaceNodeId('task-context')
+                        taskWorkbench.resetWorkbench()
+                      }
+                    }}
+                  >
+                    <Icon size={20} strokeWidth={1.9} />
+                    <span>{label}</span>
+                  </button>
                 ))}
-              </div>
-            </section>
+                <button className={`nav-item nav-item--more ${activeNav === '外部 Agent' ? 'active' : ''}`} type="button" aria-expanded={moreNavOpen} onClick={() => setMoreNavOpen((value) => !value)}>
+                  <Ellipsis size={20} strokeWidth={1.9} /><span>更多</span><ChevronDown className={moreNavOpen ? 'nav-item-chevron is-open' : 'nav-item-chevron'} size={16} />
+                </button>
+                {moreNavOpen && (
+                  <div className="secondary-nav">
+                    <button className={activeNav === '外部 Agent' ? 'secondary-nav-item active' : 'secondary-nav-item'} type="button" onClick={() => setActiveNav('外部 Agent')}>
+                      <Globe2 size={18} /><span>外部 Agent</span>
+                    </button>
+                  </div>
+                )}
+              </nav>
 
-            {automationFolders.length > 0 && (
-              <section className="sidebar-section automation-section">
-                <div className="section-heading">
-                  <span>自动化任务</span>
-                  <span className="count-badge">{automationFolders.length}</span>
-                </div>
+              <div className="sidebar-scroll">
+                <section className="sidebar-section">
+                  <div className="section-heading">
+                    <span>任务</span>
+                    <span className="count-badge">4</span>
+                  </div>
+                  <div className="task-list">
+                    {recentTasks.map((task) => (
+                      <TaskRow key={task.id} task={task} onOpen={openTask} />
+                    ))}
+                  </div>
+                </section>
 
-                {automationFolders.map(({ task, runs }) => {
-                  const isOpen = openAutomationFolders[task.id] ?? true
-                  return (
-                    <div className="automation-folder" key={task.id}>
-                      <button className="folder-row" type="button" onClick={() => setOpenAutomationFolders((value) => ({ ...value, [task.id]: !isOpen }))}>
-                        <Folder size={20} strokeWidth={1.8} />
-                        <span>{task.name}</span>
-                        {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                      </button>
-                      {isOpen && (
-                        <div className="nested-tasks">
-                          {runs.map((runTask) => (
-                            <TaskRow key={runTask.id} task={runTask} onOpen={openTask} onDelete={deleteAutomationRunFromSidebar} />
-                          ))}
-                        </div>
-                      )}
+                {automationFolders.length > 0 && (
+                  <section className="sidebar-section automation-section">
+                    <div className="section-heading">
+                      <span>自动化任务</span>
+                      <span className="count-badge">{automationFolders.length}</span>
                     </div>
-                  )
-                })}
-              </section>
-            )}
-          </div>
+
+                    {automationFolders.map(({ task, runs }) => {
+                      const isOpen = openAutomationFolders[task.id] ?? true
+                      return (
+                        <div className="automation-folder" key={task.id}>
+                          <button className="folder-row" type="button" onClick={() => setOpenAutomationFolders((value) => ({ ...value, [task.id]: !isOpen }))}>
+                            <Folder size={20} strokeWidth={1.8} />
+                            <span>{task.name}</span>
+                            {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                          </button>
+                          {isOpen && (
+                            <div className="nested-tasks">
+                              {runs.map((runTask) => (
+                                <TaskRow key={runTask.id} task={runTask} onOpen={openTask} onDelete={deleteAutomationRunFromSidebar} />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </section>
+                )}
+              </div>
+            </>
+          )}
         </aside>
 
         {!sidebarOpen && (
@@ -705,13 +800,20 @@ function App() {
           </button>
         )}
 
-        <main className={`workspace ${activeNav === '自动化' ? 'workspace--automation' : ''} ${activeNav === '助理' ? 'workspace--assistant' : ''}`}>
-          {activeNav === '自动化' ? (
+        <main className={`workspace ${activeNav === '自动化' ? 'workspace--automation' : ''} ${activeNav === '助理' ? 'workspace--assistant' : ''} ${activeNav === '外部 Agent' ? 'workspace--external-agent' : ''}`}>
+          {activeNav === '外部 Agent' ? (
+            <ExternalAgentWorkspace />
+          ) : activeNav === '自动化' ? (
             <AutomationWorkspace tasks={automationTasks} runs={automationRuns} setTasks={setAutomationTasks} setRuns={setAutomationRuns} />
           ) : activeNav === '助理' ? (
             <AssistantWorkspace
               onCreateReminderAutomation={createReminderAutomation}
               onOpenAutomation={() => setActiveNav('自动化')}
+              notificationToProcess={notificationToProcess}
+              onNotificationAccepted={() => setNotificationToProcess(null)}
+              onNotificationHandled={finishNotificationProcessing}
+              onNotificationReceived={receiveNotification}
+              onBusyChange={setAssistantBusy}
             />
           ) : (
             <div className={`chat-workbench ${taskWorkbench.workspaceVisible ? 'chat-workbench--with-drawer' : ''} ${isResizingArtifactDrawer ? 'chat-workbench--resizing' : ''}`} style={chatWorkbenchStyle}>
@@ -866,6 +968,9 @@ function App() {
 
               {downloadToast && <div className="download-toast">{downloadToast}</div>}
             </div>
+          )}
+          {sidebarMode === 'notifications' && (
+            <NotificationDetailView notification={selectedNotification} />
           )}
         </main>
       </div>
