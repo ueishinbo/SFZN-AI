@@ -1,1 +1,1 @@
-export type AppMode = 'task' | 'assistant'
+export type AppMode = 'task' | 'assistant' | 'admin'

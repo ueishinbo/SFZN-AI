@@ -34,6 +34,7 @@ import {
 } from 'lucide-react'
 import './App.css'
 import type { AppMode } from './app/appTypes'
+import AdminWorkspace from './admin/AdminWorkspace'
 import AutomationWorkspace from './automation/AutomationWorkspace'
 import AssistantWorkspace from './assistant/AssistantWorkspace'
 import A2AConversationView, { type ConversationActivityPatch } from './assistant/A2AConversationView'
@@ -724,6 +725,14 @@ function App() {
     setSidebarOpen(taskSidebarOpenBeforeAssistant)
   }
 
+  const enterAdminMode = () => {
+    setAppMode('admin')
+  }
+
+  const returnToAssistantFromAdmin = () => {
+    setAppMode('assistant')
+  }
+
   const surfaceMode = appMode
 
   return (
@@ -738,8 +747,9 @@ function App() {
             onSelectAssistant={() => setAssistantDestination({ type: 'assistant' })}
             onSelectConversation={(conversationId) => setAssistantDestination({ type: 'conversation', conversationId })}
             onSelectFeature={(featureId) => setAssistantDestination({ type: 'feature', featureId })}
+            onEnterAdmin={enterAdminMode}
           />
-        ) : (
+        ) : surfaceMode === 'task' ? (
           <aside className={`sidebar ${sidebarOpen ? '' : 'sidebar--closed'}`}>
           <div className="sidebar-top">
             <label className="search-box">
@@ -856,9 +866,9 @@ function App() {
             </>
           )}
           </aside>
-        )}
+        ) : null}
 
-        {!sidebarOpen && (
+        {surfaceMode !== 'admin' && !sidebarOpen && (
           <button
             className="sidebar-reopen"
             type="button"
@@ -869,7 +879,7 @@ function App() {
           </button>
         )}
 
-        {(surfaceMode !== 'assistant' || assistantDestination.type === 'assistant') && <button
+        {(surfaceMode === 'task' || (surfaceMode === 'assistant' && assistantDestination.type === 'assistant')) && <button
           className={`global-assistant-switch ${surfaceMode === 'assistant' ? 'is-assistant' : ''} ${assistantBusy ? 'is-busy' : ''} ${hasPendingA2AConfirmation ? 'has-pending-confirmation' : ''} ${(surfaceMode === 'assistant' ? assistantDestination.type === 'assistant' && assistantWorkspaceVisible : taskWorkbench.workspaceVisible) ? 'has-workspace' : ''}`}
           type="button"
           onClick={surfaceMode === 'assistant' ? returnToTaskMode : enterAssistantMode}
@@ -880,7 +890,7 @@ function App() {
           {hasPendingA2AConfirmation && <i className="global-assistant-confirmation-dot" title="有事项等待本人确认" />}
         </button>}
 
-        <main className={`workspace ${activeNav === '自动化' ? 'workspace--automation' : ''} ${surfaceMode === 'assistant' ? 'workspace--assistant' : ''} ${activeNav === '外部 Agent' ? 'workspace--external-agent' : ''}`}>
+        <main className={`workspace ${activeNav === '自动化' ? 'workspace--automation' : ''} ${surfaceMode === 'assistant' ? 'workspace--assistant' : ''} ${surfaceMode === 'admin' ? 'workspace--admin' : ''} ${activeNav === '外部 Agent' ? 'workspace--external-agent' : ''}`}>
           <div className={`app-mode-panel ${surfaceMode === 'task' ? '' : 'is-hidden'}`}>
             {activeNav === '外部 Agent' ? (
             <ExternalAgentWorkspace />
@@ -1087,6 +1097,9 @@ function App() {
                 <AssistantFeaturePlaceholder featureId={assistantDestination.featureId} />
               </div>
             )}
+          </div>
+          <div className={`app-mode-panel ${surfaceMode === 'admin' ? '' : 'is-hidden'}`}>
+            <AdminWorkspace onReturn={returnToAssistantFromAdmin} />
           </div>
         </main>
       </div>

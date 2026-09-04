@@ -48,9 +48,12 @@ function speakerReply(memberName: string, previousName?: string) {
 
 function initialPrivateMessages(conversation: A2AConversation): PrivateAssistantMessage[] {
   const conversationType = `${conversation.scope === 'group' ? '多人' : '单人'}${mechanismLabels[conversation.mechanism]}`
+  const perspectiveCopy = conversation.perspective === 'recipient'
+    ? `你是接收方。${conversation.hostName}的分身已经将事项送达；请先判断是否需要回复、确认或转为自己的待办。`
+    : '你是发起方。这里说的话只有你和自己的分身可见。'
   const pendingCopy = conversation.pendingCurrentUserConfirmation
     ? '当前会话正在等待你的确认。完成下方选择后，我才会继续代表你处理这个会话。'
-    : `这里是“${conversation.title}”的私人分身对话。你在这里说的话只有你和自己的分身可见。`
+    : `这里是“${conversation.title}”的私人分身对话。${perspectiveCopy}`
 
   return [{
     id: `private-assistant-initial-${conversation.id}`,
@@ -264,13 +267,14 @@ export default function A2AConversationView({
       if (!conversation) return
       processedCommandIdsRef.current.add(command.id)
       const roundId = `a2a-round-${Date.now()}`
+      const isRecipientReply = conversation.perspective === 'recipient'
       appendMessage(conversation.id, {
         id: `a2a-message-host-${Date.now()}`,
         conversationId: conversation.id,
         roundId,
-        actorUserId: conversation.hostUserId,
-        actorName: conversation.hostName,
-        origin: 'initiator_twin',
+        actorUserId: isRecipientReply ? 'current-user' : conversation.hostUserId,
+        actorName: isRecipientReply ? '张三' : conversation.hostName,
+        origin: isRecipientReply ? 'participant_twin' : 'initiator_twin',
         content: command.content,
         sequence: Date.now(),
         createdAt: command.createdAt,
@@ -286,7 +290,7 @@ export default function A2AConversationView({
         })
         return
       }
-      if (conversation.mechanism === 'collaboration') {
+      if (conversation.mechanism === 'collaboration' && !isRecipientReply) {
         const nextRound = conversation.round + (conversation.repliedCount > 0 ? 1 : 0)
         onConversationActivity(conversation.id, {
           status: 'waiting_replies',
@@ -299,9 +303,9 @@ export default function A2AConversationView({
         runSpeaker({ ...conversation, round: nextRound }, roundId, 0)
       } else {
         onConversationActivity(conversation.id, {
-          status: 'delivered',
+          status: isRecipientReply ? 'response_received' : 'delivered',
           updatedAt: '刚刚',
-          preview: command.content,
+          preview: isRecipientReply ? '已代表你回复发起方' : command.content,
           pendingCurrentUserConfirmation: undefined,
         })
       }
@@ -363,6 +367,7 @@ export default function A2AConversationView({
   }
 
   const typeName = `${selectedConversation.scope === 'group' ? '多人' : '单人'}${mechanismLabels[selectedConversation.mechanism]}`
+  const isRecipientPerspective = selectedConversation.perspective === 'recipient'
 
   return (
     <div className="a2a-conversation-layout">
@@ -373,6 +378,7 @@ export default function A2AConversationView({
             <h2>{selectedConversation.title}</h2>
             <div className="a2a-conversation-badges">
               <span>{typeName}</span>
+              <span className={isRecipientPerspective ? 'is-recipient' : 'is-initiator'}>{isRecipientPerspective ? '接收方视角' : '发起方视角'}</span>
             </div>
           </div>
           <div className="a2a-group-header-members" title={selectedConversation.members.map((member) => member.name).join('、')}>
@@ -386,6 +392,13 @@ export default function A2AConversationView({
           </div>
         </header>
 
+        {isRecipientPerspective && (
+          <section className="a2a-inbound-summary" aria-label="收到的协作事项">
+            <span>已接收</span>
+            <div><strong>{selectedConversation.hostName}的分身向你发来{selectedConversation.mechanism === 'notice' ? '一条通知' : '一项待协作事项'}</strong><small>{selectedConversation.mechanism === 'notice' ? '已阅读，可在右侧整理后续动作。' : '请在右侧让你的分身整理回复，确认后才会正式发送。'}</small></div>
+          </section>
+        )}
+
         <section className="a2a-group-thread a2a-conversation-thread" ref={threadRef} aria-label={`${selectedConversation.title}会话记录`}>
           {messages.length === 0 && (
             <div className="a2a-group-empty-thread">
@@ -395,22 +408,24 @@ export default function A2AConversationView({
             </div>
           )}
 
-          {messages.map((message) => (
-            <article className={`a2a-group-message ${message.origin === 'initiator_twin' ? 'is-host' : ''}`} key={message.id}>
-              {message.origin === 'participant_twin' && (
-                <span className={`a2a-person-avatar a2a-person-avatar--${selectedConversation.members.find((member) => member.userId === message.actorUserId)?.color ?? 'blue'}`}>
+          {messages.map((message) => {
+            const isMyMessage = isRecipientPerspective ? message.actorUserId === 'current-user' : message.origin === 'initiator_twin'
+            const actorColor = selectedConversation.members.find((member) => member.userId === message.actorUserId)?.color ?? 'blue'
+            return <article className={`a2a-group-message ${isMyMessage ? 'is-host' : ''}`} key={message.id}>
+              {!isMyMessage && (
+                <span className={`a2a-person-avatar a2a-person-avatar--${actorColor}`}>
                   {message.actorName.slice(0, 1)}
                 </span>
               )}
               <div>
                 <strong>
                   {message.actorName}
-                  <em>{message.origin === 'initiator_twin' ? '分身代发' : '分身回复'}</em>
+                  <em>{isMyMessage ? '我的分身' : message.origin === 'initiator_twin' ? '发起方分身' : '分身回复'}</em>
                 </strong>
                 <p>{message.content}</p>
               </div>
             </article>
-          ))}
+          })}
 
           {runningSpeaker && (
             <div className="a2a-group-running"><i /><span>{runningSpeaker}的分身正在阅读本轮前序回答并组织回复…</span></div>
@@ -419,7 +434,7 @@ export default function A2AConversationView({
           {pendingConfirmation && (
             <div className="a2a-group-running is-waiting-confirmation">
               <CircleAlert size={16} />
-              <span>当前会话已挂起，等待{selectedConversation.hostName}本人在右侧完成确认。</span>
+              <span>当前会话已挂起，等待{isRecipientPerspective ? '你' : selectedConversation.hostName}本人在右侧完成确认。</span>
             </div>
           )}
         </section>

@@ -1,14 +1,11 @@
 import {
   Bot,
   ChevronRight,
-  Clock3,
-  GraduationCap,
+  Settings2,
   LayoutPanelLeft,
-  Link2,
   Search,
   UserRound,
   UsersRound,
-  WandSparkles,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { mechanismLabels, scopeLabels, type A2AConversation } from './a2aConversationTypes'
@@ -29,14 +26,8 @@ type AssistantModeSidebarProps = {
   onSelectAssistant: () => void
   onSelectConversation: (conversationId: string) => void
   onSelectFeature: (featureId: AssistantFeatureId) => void
+  onEnterAdmin: () => void
 }
-
-const assistantFeatures = [
-  { id: 'automation', label: '自动化任务', icon: Clock3 },
-  { id: 'experts', label: '专家广场', icon: GraduationCap },
-  { id: 'skills', label: '技能广场', icon: WandSparkles },
-  { id: 'mcp', label: 'MCP 广场', icon: Link2 },
-] as const
 
 const conversationGroups = [
   { id: 'group-notice', label: '多人通知', scope: 'group', mechanism: 'notice' },
@@ -68,6 +59,7 @@ export default function AssistantModeSidebar({
   onSelectAssistant,
   onSelectConversation,
   onSelectFeature,
+  onEnterAdmin,
 }: AssistantModeSidebarProps) {
   const [query, setQuery] = useState('')
   const visibleConversations = useMemo(() => {
@@ -107,21 +99,6 @@ export default function AssistantModeSidebar({
         </span>
       </button>
 
-      <nav className="assistant-feature-nav" aria-label="助理功能">
-        {assistantFeatures.map(({ id, label, icon: Icon }) => (
-          <button
-            className={destination.type === 'feature' && destination.featureId === id ? 'active' : ''}
-            type="button"
-            key={id}
-            onClick={() => onSelectFeature(id)}
-          >
-            <Icon size={18} />
-            <span>{label}</span>
-            <ChevronRight size={14} />
-          </button>
-        ))}
-      </nav>
-
       <section className="assistant-group-section">
         <header>
           <span>A2A 会话</span>
@@ -149,6 +126,7 @@ export default function AssistantModeSidebar({
                         <span className="assistant-conversation-type">
                           <em>{scopeLabels[conversation.scope]}</em>
                           <em className={`mechanism-${conversation.mechanism}`}>{mechanismLabels[conversation.mechanism]}</em>
+                          {conversation.perspective === 'recipient' && <em className="perspective-recipient">已接收</em>}
                         </span>
                         <small>{conversation.preview}</small>
                       </span>
@@ -172,6 +150,11 @@ export default function AssistantModeSidebar({
         <button className="assistant-training-card" type="button" onClick={() => onSelectFeature('training')}>
           <span><strong>数字分身</strong><small>身份、能力与 A2A 任务</small></span>
           <ChevronRight className="assistant-training-arrow" size={21} />
+        </button>
+        <button className="assistant-management-link" type="button" onClick={onEnterAdmin}>
+          <Settings2 size={18} />
+          <span>后台管理</span>
+          <ChevronRight size={14} />
         </button>
       </div>
     </aside>

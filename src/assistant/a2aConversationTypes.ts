@@ -34,6 +34,7 @@ export type A2AConversation = {
   status: A2AConversationStatus
   hostUserId: string
   hostName: string
+  perspective?: 'initiator' | 'recipient'
   members: A2AConversationMember[]
   speakingOrder: string[]
   goal?: string
@@ -125,6 +126,47 @@ export const seedA2AConversations: A2AConversation[] = [
     createdAt: '今天 08:40',
     updatedAt: '35分钟前',
     preview: '等待王五回复 · 0/1',
+  },
+  {
+    id: 'a2a-direct-inbound-li-si-materials',
+    title: '李四 · 交付资料请求',
+    scope: 'direct',
+    mechanism: 'collaboration',
+    status: 'waiting_replies',
+    hostUserId: 'user-li-si',
+    hostName: '李四',
+    perspective: 'recipient',
+    members: [{ userId: 'current-user', name: '张三', department: '市场与营销部', color: 'blue' }],
+    speakingOrder: ['current-user'],
+    goal: '确认本周方案交付材料的版本与提交时间',
+    round: 1,
+    expectedReplyCount: 1,
+    repliedCount: 0,
+    createdAt: '今天 10:12',
+    updatedAt: '刚刚',
+    preview: '你收到一项待回复协作',
+  },
+  {
+    id: 'a2a-group-inbound-notice-quality',
+    title: '质量例会行动项',
+    scope: 'group',
+    mechanism: 'notice',
+    status: 'delivered',
+    hostUserId: 'user-chen-gong',
+    hostName: '陈工',
+    perspective: 'recipient',
+    members: [
+      { userId: 'current-user', name: '张三', department: '市场与营销部', color: 'blue' },
+      knownA2AMembers[1],
+      knownA2AMembers[3],
+    ],
+    speakingOrder: [],
+    round: 1,
+    expectedReplyCount: 0,
+    repliedCount: 0,
+    createdAt: '今天 09:46',
+    updatedAt: '22分钟前',
+    preview: '已收到 · 需在周四前完成 2 项行动',
   },
   {
     id: 'a2a-group-notice-year-plan',
@@ -318,6 +360,21 @@ export function createSeedConversationMessages(conversation: A2AConversation): A
     roundId: 'round-direct-1',
     content: '请确认供应商本周交付节点和主要风险，今天下班前回复。',
     createdAt: '今天 08:40',
+  }]
+
+  if (conversation.id === 'a2a-direct-inbound-li-si-materials') return [{
+    ...baseMessage,
+    id: 'a2a-seed-inbound-materials',
+    roundId: 'round-inbound-1',
+    content: '张三，麻烦你确认本周方案交付材料的最终版本、责任人和预计提交时间。若有风险请一并说明，今天 17:00 前回复即可。',
+    createdAt: '今天 10:12',
+  }]
+
+  if (conversation.id === 'a2a-group-inbound-notice-quality') return [{
+    ...baseMessage,
+    id: 'a2a-seed-inbound-quality-notice',
+    content: '质量例会行动项已同步：请在周四前补充方案评审依据，并确认接口风险关闭责任人。相关材料已放入项目共享空间。',
+    createdAt: '今天 09:46',
   }]
 
   if (conversation.id === 'a2a-group-notice-year-plan') return [{
