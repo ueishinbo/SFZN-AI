@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ArrowLeftRight,
   Bot,
   ChevronRight,
   ClipboardCheck,
-  Clock3,
   Layers3,
   LoaderCircle,
   Paperclip,
@@ -28,6 +26,7 @@ import {
   type CollaborationStatus,
 } from './mockCollaboration'
 import {
+  createIncomingAutomationNotification,
   createIncomingReminderNotification,
   notificationKindLabel,
   type AssistantNotification,
@@ -40,10 +39,16 @@ import {
   finishSubagentRun,
   type SubagentRun,
 } from './mockSubagents'
+import {
+  isA2AConversationIntent,
+  mechanismLabels,
+  scopeLabels,
+  type A2ACommandResult,
+  type A2AConversation,
+} from './a2aConversationTypes'
 import './assistant.css'
 
 type TaskListScope = 'attention' | 'all' | 'incoming' | 'outgoing'
-type DemoPerspective = 'sender' | 'receiver'
 
 type AssistantActionCard = {
   decision: AssistantDecision
@@ -65,85 +70,38 @@ type AssistantMessage = {
 
 type AssistantWorkspaceProps = {
   onCreateReminderAutomation: (item: CollaborationItem) => boolean
-  onOpenAutomation: () => void
-  notificationToProcess: AssistantNotification | null
+  notificationToDeliver: AssistantNotification | null
   onNotificationAccepted: (notificationId: string) => void
-  onNotificationHandled: (notificationId: string) => void
+  onNotificationDelivered: (notificationId: string) => void
   onNotificationReceived: (notification: AssistantNotification) => void
   onBusyChange: (busy: boolean) => void
+  a2aConversations: A2AConversation[]
+  onRunA2ACommand: (prompt: string) => A2ACommandResult
+  onWorkspaceVisibilityChange: (visible: boolean) => void
 }
 
 const initialMessages: AssistantMessage[] = [
   {
     id: 'assistant-briefing',
     role: 'assistant',
-    content: '早上好。助理长会话会持续记住必要上下文。你可以派发 C 项目任务，也可以明确创建“仅 A2A”的协作任务；催办和回复仍会在执行前请你确认。',
-  },
-]
+    content: `早上好。助理长会话会持续记住必要上下文。你可以直接输入以下示例口令体验 Demo：
 
-const receiverDemoTask: CollaborationItem = {
-  id: 'collab-receiver-demo',
-  kind: 'assignment',
-  direction: 'incoming',
-  title: '发动机风险评审材料整理',
-  project: 'C929 总体方案项目',
-  projectCode: 'C929-PMO-2026',
-  assigner: '张嘉浩',
-  assignee: '李静',
-  dueAt: '7月29日 18:00',
-  status: 'pending',
-  priority: '重要',
-  description: '整理发动机风险评审材料，形成可供专项评审使用的清单。',
-  progress: '任务已送达并自动接收',
-  updatedAt: '刚刚',
-  sourceSystem: 'C项目管理平台',
-  recordMode: 'c_project_bound',
-  plannedStartAt: '7月28日 09:00',
-  plannedEndAt: '7月29日 18:00',
-  estimatedHours: '12',
-  decisionState: 'resolved',
-  timeline: [{
-    id: 'timeline-receiver-demo-created',
-    title: '张嘉浩派发任务',
-    detail: '任务已写入 C 项目管理平台，并通过 A2A 送达李静的数字分身。',
-    time: '刚刚',
-  }],
-}
+• “模拟长任务”或“总结协作进展”：触发长会话堵塞，期间收到的 A2A 与定时任务消息会进入消息通知中心。
+• “查看所有任务”：查询并展示全部协作任务。
+• “派任务给张三”：生成写入 C 项目管理平台的任务草稿。
+• “创建仅 A2A 任务给张三”：生成不写入 C 项目管理平台的 A2A 原生任务草稿。
+• “催一下张三”：定位已有任务并生成催办确认。
+• “设置自动催办”：为当前任务创建自动催办。
+• “回复当前进展”：生成任务进展回复确认。
+• “通知李四下午评审改到三点”：创建单聊通知。
+• “请王五确认供应商交付风险”：创建可跟踪的单聊协作。
+• “通知李四、王五年度安排已更新”：创建群聊通知。
+• “和陈工、刘工发起方案评审协作”：创建严格顺序回复的群聊协作。
+• 新建会话后可从左侧进入；中间只展示分身正式记录，发送、回复和 Ask User 确认都在右侧私人分身对话中完成。
+• “组织一次专项评审”：进入评审策划问答流程。
+• “用子智能体分析客户支援”：体验多个子智能体并行协作；补充“模拟失败”可体验失败与重试。
 
-const receiverDemoSchema = {
-  schemaId: 'c-project.task.receipt',
-  schemaVersion: 'v2026.07.3',
-  targetSystem: 'C项目管理平台',
-  fields: [
-    { key: 'title', label: '名称', required: true, value: receiverDemoTask.title, control: 'readonly' as const },
-    { key: 'assignee', label: '负责人', required: true, value: receiverDemoTask.assignee, control: 'readonly' as const },
-    { key: 'plannedStartAt', label: '计划开始时间', required: true, value: receiverDemoTask.plannedStartAt ?? '', control: 'readonly' as const },
-    { key: 'plannedEndAt', label: '计划完成时间', required: true, value: receiverDemoTask.plannedEndAt ?? '', control: 'readonly' as const },
-    { key: 'estimatedHours', label: '预估工时', required: true, value: `${receiverDemoTask.estimatedHours} 小时`, control: 'readonly' as const },
-  ],
-}
-
-const initialReceiverMessages: AssistantMessage[] = [
-  {
-    id: 'receiver-briefing',
-    role: 'assistant',
-    content: '这里是李静的助理长会话。刚刚收到张嘉浩数字分身派发的一项 C 项目任务，任务已自动接收。',
-  },
-  {
-    id: 'receiver-task-receipt',
-    role: 'assistant',
-    content: '任务已完成身份、字段和来源校验。你可以查看任务信息，或在卡片底部补充回复。',
-    actionCard: {
-      decision: {
-        id: 'decision-receiver-task-receipt',
-        kind: 'task_receipt',
-        item: receiverDemoTask,
-        schema: receiverDemoSchema,
-        recordMode: 'c_project_bound',
-      },
-      status: 'resolved',
-      version: 1,
-    },
+派发、催办和回复等正式动作仍需在行动卡中确认。`,
   },
 ]
 
@@ -372,34 +330,29 @@ function TaskFilePreview({ item }: { item: CollaborationItem }) {
 
 export default function AssistantWorkspace({
   onCreateReminderAutomation,
-  onOpenAutomation,
-  notificationToProcess,
+  notificationToDeliver,
   onNotificationAccepted,
-  onNotificationHandled,
+  onNotificationDelivered,
   onNotificationReceived,
   onBusyChange,
+  a2aConversations,
+  onRunA2ACommand,
+  onWorkspaceVisibilityChange,
 }: AssistantWorkspaceProps) {
   const threadRef = useRef<HTMLElement>(null)
   const composerRef = useRef<HTMLTextAreaElement>(null)
   const timersRef = useRef<number[]>([])
   const subagentTimersRef = useRef<number[]>([])
   const acceptedNotificationIdsRef = useRef(new Set<string>())
-  const [perspective, setPerspective] = useState<DemoPerspective>('sender')
-  const [senderItems, setSenderItems] = useState<CollaborationItem[]>(collaborationSeeds)
-  const [receiverItems, setReceiverItems] = useState<CollaborationItem[]>([receiverDemoTask])
-  const [senderMessages, setSenderMessages] = useState<AssistantMessage[]>(initialMessages)
-  const [receiverMessages, setReceiverMessages] = useState<AssistantMessage[]>(initialReceiverMessages)
-  const [receiverUserName, setReceiverUserName] = useState('李静')
+  const [items, setItems] = useState<CollaborationItem[]>(collaborationSeeds)
+  const [messages, setMessages] = useState<AssistantMessage[]>(initialMessages)
   const [prompt, setPrompt] = useState('')
   const [selectedFileId, setSelectedFileId] = useState('assistant-memory-main')
   const [selectedItemId, setSelectedItemId] = useState('collab-engine-review')
   const [isModelResponding, setIsModelResponding] = useState(false)
+  const [queuedA2ARequests, setQueuedA2ARequests] = useState<string[]>([])
   const [subagentRun, setSubagentRun] = useState<SubagentRun | null>(null)
   const [activeSubagentId, setActiveSubagentId] = useState<string | null>(null)
-  const items = perspective === 'sender' ? senderItems : receiverItems
-  const setItems = perspective === 'sender' ? setSenderItems : setReceiverItems
-  const messages = perspective === 'sender' ? senderMessages : receiverMessages
-  const setMessages = perspective === 'sender' ? setSenderMessages : setReceiverMessages
   const assistantWorkbench = useWorkspaceWorkbench({
     initialTabs: [{
       id: 'file:assistant-memory-main',
@@ -409,7 +362,12 @@ export default function AssistantWorkspace({
       kind: 'markdown',
     }],
     initialNavigatorOpen: true,
+    initialWorkspaceVisible: false,
   })
+
+  useEffect(() => {
+    onWorkspaceVisibilityChange(assistantWorkbench.workspaceVisible)
+  }, [assistantWorkbench.workspaceVisible, onWorkspaceVisibilityChange])
 
   useEffect(() => () => {
     timersRef.current.forEach((timer) => window.clearTimeout(timer))
@@ -497,6 +455,41 @@ export default function AssistantWorkspace({
     timersRef.current.push(timer)
   }
 
+  const runA2ACommand = useCallback((value: string, fromQueue = false) => {
+    appendMessage({ role: 'user', content: value })
+    setIsModelResponding(true)
+    const messageId = appendMessage({
+      role: 'assistant',
+      content: fromQueue ? '当前任务已经结束，我正在处理刚才排队的 A2A 请求…' : '我正在识别会话对象、沟通范围和事项机制…',
+      streaming: true,
+    })
+    const timer = window.setTimeout(() => {
+      const result = onRunA2ACommand(value)
+      const { conversation } = result
+      const members = conversation.members.map((member) => member.name).join('、')
+      const typeName = `${scopeLabels[conversation.scope]}${mechanismLabels[conversation.mechanism]}`
+      const behavior = result.command.action === 'complete'
+        ? '该目标已标记为完成，不会再自动发起下一轮。'
+        : conversation.mechanism === 'collaboration'
+          ? conversation.scope === 'group'
+            ? `系统会跟踪${conversation.expectedReplyCount}位参与人的回复；群聊按${conversation.members.map((member) => member.name).join(' → ')}的顺序各回复一次。`
+            : `系统会跟踪${conversation.members[0].name}是否回复；收到回复后会回到助理提醒你判断目标是否完成。`
+          : '本次只记录送达，不创建待办，也不要求对方回复。'
+      finishModelResponse(
+        messageId,
+        `${result.command.action === 'complete' ? `已结束${typeName}“${conversation.title}”` : result.created ? `${typeName}“${conversation.title}”已经创建` : `已通过你的数字分身向“${conversation.title}”代发消息`}。参与人：${members}。${behavior}会话页仅用于查看记录，继续发送或回复仍在这里告诉我。`,
+      )
+    }, 900)
+    timersRef.current.push(timer)
+  }, [appendMessage, finishModelResponse, onRunA2ACommand])
+
+  useEffect(() => {
+    if (isModelResponding || queuedA2ARequests.length === 0) return
+    const request = queuedA2ARequests[0]
+    setQueuedA2ARequests((current) => current.slice(1))
+    runA2ACommand(request, true)
+  }, [isModelResponding, queuedA2ARequests, runA2ACommand])
+
   const clearSubagentTimers = () => {
     subagentTimersRef.current.forEach((timer) => window.clearTimeout(timer))
     subagentTimersRef.current = []
@@ -571,12 +564,12 @@ export default function AssistantWorkspace({
 
   useEffect(() => {
     if (
-      !notificationToProcess
+      !notificationToDeliver
       || isModelResponding
-      || acceptedNotificationIdsRef.current.has(notificationToProcess.id)
+      || acceptedNotificationIdsRef.current.has(notificationToDeliver.id)
     ) return
 
-    const notification = notificationToProcess
+    const notification = notificationToDeliver
     acceptedNotificationIdsRef.current.add(notification.id)
     onNotificationAccepted(notification.id)
     assistantWorkbench.hideWorkspace()
@@ -585,18 +578,26 @@ export default function AssistantWorkspace({
       content: notification.summary,
       notification,
     })
+
+    if (notification.kind === 'automation') {
+      appendMessage({
+        role: 'assistant',
+        content: `定时任务“${notification.title}”已按队列顺序自动进入长会话。该结果不会触发新一轮模型处理。`,
+      })
+      onNotificationDelivered(notification.id)
+      return
+    }
+
     setIsModelResponding(true)
     const messageId = appendMessage({
       role: 'assistant',
-      content: `我已从消息通知中心接收这条${notificationKindLabel(notification.kind)}，正在结合长会话上下文处理…`,
+      content: `这条${notificationKindLabel(notification.kind)}已按先进先出顺序自动进入长会话，正在结合上下文处理…`,
       streaming: true,
     })
     const timer = window.setTimeout(() => {
-      const result = notification.kind === 'a2a'
-        ? `这条消息已经处理：${notification.summary}我已结合当前会话梳理出回复要点，下一步可以继续生成正式回复或更新关联任务。`
-        : `这项定时任务结果已经处理：${notification.summary}我已把结果带入长会话，接下来可以继续追问明细或安排后续动作。`
+      const result = `这条 A2A 消息已经处理：${notification.summary}我已结合当前会话梳理出回复要点，下一步可以继续生成正式回复或更新关联任务。`
       finishModelResponse(messageId, result)
-      onNotificationHandled(notification.id)
+      onNotificationDelivered(notification.id)
     }, 2200)
     timersRef.current.push(timer)
   }, [
@@ -604,9 +605,9 @@ export default function AssistantWorkspace({
     appendMessage,
     finishModelResponse,
     isModelResponding,
-    notificationToProcess,
+    notificationToDeliver,
     onNotificationAccepted,
-    onNotificationHandled,
+    onNotificationDelivered,
   ])
 
   const updateActionCardStatus = (
@@ -756,45 +757,12 @@ export default function AssistantWorkspace({
     reminderText: `请同步“${item.title}”的当前进展，如存在延期风险请一并说明。`,
   })
 
-  const reminderReceiptDecision = (
-    item: CollaborationItem,
-    reminderText: string,
-  ): AssistantDecision => ({
-    id: `decision-reminder-receipt-${item.id}-${Date.now()}`,
-    kind: 'reminder_receipt',
-    item,
-    reminderText,
-  })
-
   const progressReplyDecision = (item: CollaborationItem): AssistantDecision => ({
     id: `decision-progress-${item.id}-${Date.now()}`,
     kind: 'progress_reply',
     item,
     reminderText: `请在${item.dueAt}前同步当前进展，如存在风险请直接说明。`,
   })
-
-  const taskReceiptDecision = (item: CollaborationItem): AssistantDecision => {
-    const recordMode = item.recordMode ?? 'assistant_local'
-    const writesCProject = recordMode === 'c_project_bound'
-    return {
-      id: `decision-receipt-${item.id}-${Date.now()}`,
-      kind: 'task_receipt',
-      item,
-      recordMode,
-      schema: {
-        schemaId: writesCProject ? 'c-project.task.receipt' : 'a2a.task.receipt',
-        schemaVersion: writesCProject ? 'v2026.07.3' : 'A2A-v1',
-        targetSystem: item.sourceSystem,
-        fields: [
-          { key: 'title', label: '名称', required: true, value: item.title, control: 'readonly' },
-          { key: 'assignee', label: '负责人', required: true, value: item.assignee, control: 'readonly' },
-          { key: 'plannedStartAt', label: '计划开始时间', required: true, value: item.plannedStartAt ?? '待确认', control: 'readonly' },
-          { key: 'plannedEndAt', label: '计划完成时间', required: true, value: item.plannedEndAt ?? item.dueAt, control: 'readonly' },
-          { key: 'estimatedHours', label: '预估工时', required: true, value: `${item.estimatedHours ?? '待确认'} 小时`, control: 'readonly' },
-        ],
-      },
-    }
-  }
 
   const workflowQuestionsDecision = (): AssistantDecision => ({
     id: `decision-workflow-risk-review-${Date.now()}`,
@@ -830,46 +798,6 @@ export default function AssistantWorkspace({
       })
     }
     window.setTimeout(() => composerRef.current?.focus(), 40)
-  }
-
-  const handleSupplementReply = (decision: AssistantDecision, message: string) => {
-    if (!('item' in decision)) return
-    const decisionItem = decision.item
-    const eventId = Date.now()
-
-    setReceiverItems((current) => current.map((item) => item.id === decisionItem.id ? {
-      ...item,
-      updatedAt: '刚刚',
-      timeline: [...item.timeline, {
-        id: `timeline-supplement-reply-${eventId}`,
-        title: '你发送了补充回复',
-        detail: message,
-        time: '刚刚',
-      }],
-    } : item))
-    setSenderItems((current) => current.map((item) => item.id === decisionItem.id ? {
-      ...item,
-      updatedAt: '刚刚',
-      timeline: [...item.timeline, {
-        id: `timeline-supplement-received-${eventId}`,
-        title: `${decisionItem.assignee}补充回复`,
-        detail: message,
-        time: '刚刚',
-      }],
-    } : item))
-    setReceiverMessages((current) => [...current, {
-      id: `receiver-supplement-confirm-${eventId}`,
-      role: 'assistant',
-      content: decision.kind === 'progress_reply'
-        || (decision.kind === 'task_receipt' && decision.recordMode === 'assistant_local')
-        ? `补充回复已发送给${decisionItem.assigner}的数字分身。待确认卡仍保持原状态。`
-        : `补充回复已发送给${decisionItem.assigner}的数字分身，任务状态未改变。`,
-    }])
-    setSenderMessages((current) => [...current, {
-      id: `sender-supplement-received-${eventId}`,
-      role: 'assistant',
-      content: `${decisionItem.assignee}对“${decisionItem.title}”补充回复：${message}`,
-    }])
   }
 
   const handleDecisionResolve = (
@@ -913,29 +841,6 @@ export default function AssistantWorkspace({
           ? `任务已经派发给${assignee}。C 项目管理平台写入成功，A2A 事件已送达，Workspace 投影也已更新。`
           : `任务已经派发给${assignee}。本次未写入 C 项目管理平台，A2A 原生任务、协作历史和 Workspace 投影均已创建。`,
       })
-
-      const receiverItem: CollaborationItem = {
-        ...nextItem,
-        direction: 'incoming',
-        assigner: '张嘉浩',
-        assignee,
-        status: 'pending',
-        progress: writesCProject ? '任务已送达并自动接收' : '等待确认收到',
-        decisionState: writesCProject ? 'resolved' : 'surfaced',
-      }
-      const receiptDecision = taskReceiptDecision(receiverItem)
-      setReceiverUserName(assignee)
-      setReceiverItems((current) => [receiverItem, ...current.filter((item) => item.id !== receiverItem.id)])
-      setReceiverMessages((current) => [...current, {
-        id: `receiver-dispatched-message-${Date.now()}`,
-        role: 'assistant',
-        content: `刚刚收到张嘉浩数字分身派发的新任务。${writesCProject ? '该任务来自 C 项目管理平台。' : '该任务仅保存在 A2A 协作域。'}`,
-        actionCard: {
-          decision: receiptDecision,
-          status: writesCProject ? 'resolved' : 'pending_confirmation',
-          version: 1,
-        },
-      }])
     }
 
     if (decision.kind === 'reminder' && resolution.action === 'send_reminder') {
@@ -943,7 +848,6 @@ export default function AssistantWorkspace({
       const taskTitle = resolution.fieldValues?.taskTitle?.trim() || decisionItem.title
       const assignee = resolution.assignee?.trim() || decisionItem.assignee
       const reminderText = resolution.reminderText ?? decision.reminderText
-      const reminderEventId = Date.now()
       setItems((current) => current.map((item) => item.id === decisionItem.id ? {
         ...item,
         decisionState: 'resolved',
@@ -957,45 +861,6 @@ export default function AssistantWorkspace({
         }],
       } : item))
       appendMessage({ role: 'assistant', content: `“${taskTitle}”的催办已发送给${assignee}。` })
-
-      const receiverReminderItem: CollaborationItem = {
-        ...decisionItem,
-        id: `collab-reminder-received-${reminderEventId}`,
-        kind: 'reminder',
-        direction: 'incoming',
-        title: taskTitle,
-        assigner: '张嘉浩',
-        assignee,
-        description: reminderText,
-        progress: '已收到催办，可补充回复',
-        updatedAt: '刚刚',
-        sourceSystem: 'A2A协作历史',
-        recordMode: 'assistant_local',
-        decisionState: 'resolved',
-        timeline: [{
-          id: `timeline-reminder-received-${reminderEventId}`,
-          title: '收到催办',
-          detail: reminderText,
-          time: '刚刚',
-          tone: 'warning',
-        }],
-      }
-      const inboundReminderDecision = reminderReceiptDecision(receiverReminderItem, reminderText)
-      setReceiverUserName(assignee)
-      setReceiverItems((current) => [
-        receiverReminderItem,
-        ...current.filter((item) => item.id !== receiverReminderItem.id),
-      ])
-      setReceiverMessages((current) => [...current, {
-        id: `receiver-reminder-message-${reminderEventId}`,
-        role: 'assistant',
-        content: `张嘉浩正在催办“${taskTitle}”：${reminderText}`,
-        actionCard: {
-          decision: inboundReminderDecision,
-          status: 'resolved',
-          version: 1,
-        },
-      }])
     }
 
     if (decision.kind === 'progress_reply' && resolution.action === 'reply_progress') {
@@ -1016,55 +881,6 @@ export default function AssistantWorkspace({
         }],
       } : item))
       appendMessage({ role: 'assistant', content: `进展已经写回${decisionItem.sourceSystem}，并同步给${decisionItem.assigner}的数字分身：${progress}` })
-      if (perspective === 'receiver') {
-        setSenderItems((current) => current.map((item) => item.id === decisionItem.id ? {
-          ...item,
-          status: 'in_progress',
-          progress,
-          updatedAt: '刚刚',
-        } : item))
-        setSenderMessages((current) => [...current, {
-          id: `sender-progress-feedback-${Date.now()}`,
-          role: 'assistant',
-          content: `${decisionItem.assignee}回复了“${decisionItem.title}”的进展：${progress}`,
-        }])
-      }
-    }
-
-    if (decision.kind === 'task_receipt') {
-      const decisionItem = decision.item
-      const requestedAdjustment = resolution.action === 'request_adjustment'
-      setItems((current) => current.map((item) => item.id === decisionItem.id ? {
-        ...item,
-        decisionState: 'resolved',
-        updatedAt: '刚刚',
-        timeline: [...item.timeline, {
-          id: `timeline-receipt-${Date.now()}`,
-          title: requestedAdjustment ? '你申请了任务调整' : '你已确认收到任务',
-          detail: requestedAdjustment ? '等待派发人确认新的计划。' : '确认收到不等于任务完成。',
-          time: '刚刚',
-        }],
-      } : item))
-      appendMessage({ role: 'assistant', content: requestedAdjustment ? '调整申请已发送给派发人的数字分身。' : '已确认收到任务，并同步给派发人的数字分身。' })
-      setSenderItems((current) => current.map((item) => item.id === decisionItem.id ? {
-        ...item,
-        progress: requestedAdjustment ? '接收方申请调整计划' : `${decisionItem.assignee}已确认收到`,
-        updatedAt: '刚刚',
-        timeline: [...item.timeline, {
-          id: `timeline-receiver-feedback-${Date.now()}`,
-          title: requestedAdjustment ? `${decisionItem.assignee}申请调整` : `${decisionItem.assignee}确认收到`,
-          detail: requestedAdjustment ? '调整申请已通过 A2A 回传，等待发起方处理。' : '确认收到不等于任务已经开始。',
-          time: '刚刚',
-          tone: requestedAdjustment ? 'warning' : 'success',
-        }],
-      } : item))
-      setSenderMessages((current) => [...current, {
-        id: `sender-receiver-feedback-${Date.now()}`,
-        role: 'assistant',
-        content: requestedAdjustment
-          ? `${decisionItem.assignee}已通过数字分身申请调整“${decisionItem.title}”的计划，后续需要发起方重新确认。`
-          : `${decisionItem.assignee}已确认收到“${decisionItem.title}”。这只表示任务已被接收，不代表已经开始或完成。`,
-      }])
     }
 
     if (decision.kind === 'workflow_questions' && resolution.action === 'complete_workflow') {
@@ -1128,22 +944,37 @@ export default function AssistantWorkspace({
       onNotificationReceived(createIncomingReminderNotification())
     }, 900)
 
+    const automationTimer = window.setTimeout(() => {
+      onNotificationReceived(createIncomingAutomationNotification())
+    }, 1500)
+
     const finishTimer = window.setTimeout(() => {
       finishModelResponse(messageId, '汇总完成：今天已经完成两项材料整理，还有一项发动机风险评审正在推进。我已经把关键进展整理到当前长会话中。')
     }, 8500)
 
-    timersRef.current.push(incomingTimer, finishTimer)
+    timersRef.current.push(incomingTimer, automationTimer, finishTimer)
   }
 
   const submitPrompt = () => {
-    if (isModelResponding) return
     const value = prompt.trim()
     if (!value) return
+    if (isModelResponding) {
+      if (isA2AConversationIntent(value, a2aConversations)) {
+        setQueuedA2ARequests((current) => [...current, value])
+        setPrompt('')
+      }
+      return
+    }
     setPrompt('')
     if (subagentRun) {
       clearSubagentTimers()
       setSubagentRun(null)
       setActiveSubagentId(null)
+    }
+
+    if (isA2AConversationIntent(value, a2aConversations)) {
+      runA2ACommand(value)
+      return
     }
 
     const latestPendingDispatchMessage = [...messages].reverse().find((message) => (
@@ -1248,29 +1079,11 @@ export default function AssistantWorkspace({
     appendMessage({ role: 'user', content: value })
     appendMessage({
       role: 'assistant',
-      content: perspective === 'sender'
-        ? '你可以直接派发 C 项目任务、创建仅 A2A 协作任务、催办已有任务或查询进展。正式动作仍需点击行动卡确认。'
-        : '你可以查看收到的任务、补充回复或回复任务进展。相关事项会一直保留在 A2A 协作记录和 Workspace 中。',
+      content: '你可以直接派发 C 项目任务、创建仅 A2A 协作任务、催办已有任务或查询进展。正式动作仍需点击行动卡确认。',
     })
   }
 
-  const switchPerspective = () => {
-    const nextPerspective: DemoPerspective = perspective === 'sender' ? 'receiver' : 'sender'
-    setPerspective(nextPerspective)
-    setPrompt('')
-    clearSubagentTimers()
-    setSubagentRun(null)
-    setActiveSubagentId(null)
-    setSelectedItemId(nextPerspective === 'sender'
-      ? senderItems[0]?.id ?? 'collab-engine-review'
-      : receiverItems[0]?.id ?? receiverDemoTask.id)
-    assistantWorkbench.hideWorkspace()
-    window.setTimeout(() => {
-      const thread = threadRef.current
-      if (thread) thread.scrollTop = thread.scrollHeight
-      composerRef.current?.focus()
-    }, 40)
-  }
+  const canSubmitWhileBusy = isModelResponding && isA2AConversationIntent(prompt.trim(), a2aConversations)
 
   return (
     <div className={[
@@ -1282,22 +1095,11 @@ export default function AssistantWorkspace({
           <div className="assistant-identity">
             <span className="assistant-identity-avatar"><Bot size={23} /></span>
             <div>
-              <p>个人数字分身 · {perspective === 'sender' ? '发起方视角' : '接收方视角'}</p>
-              <h2>{perspective === 'sender' ? '我的助理' : `${receiverUserName}的助理`}</h2>
+              <p>个人数字分身 · 当前用户</p>
+              <h2>我的助理</h2>
             </div>
           </div>
           <div className="assistant-header-actions">
-            <button
-              className="assistant-perspective-switch"
-              type="button"
-              disabled={isModelResponding}
-              onClick={switchPerspective}
-              title={perspective === 'sender' ? '查看任务接收方的助理对话' : '返回任务发起方的助理对话'}
-            >
-              <ArrowLeftRight size={17} />
-              <span>{perspective === 'sender' ? '切换接收方' : '返回发起方'}</span>
-            </button>
-            <button className="assistant-automation-link" type="button" onClick={onOpenAutomation}><Clock3 size={18} /><span>自动化</span></button>
             {!assistantWorkbench.workspaceVisible && (
               <WorkspaceHeaderControls
                 outputs={assistantOutputs}
@@ -1347,10 +1149,6 @@ export default function AssistantWorkspace({
                     status={message.actionCard.status}
                     onDefer={() => handleDecisionDefer(message.id, message.actionCard!.decision)}
                     onResolve={(resolution) => handleDecisionResolve(message.id, message.actionCard!.decision, resolution)}
-                    onSupplementReply={perspective === 'receiver'
-                      && ['task_receipt', 'progress_reply', 'reminder_receipt'].includes(message.actionCard.decision.kind)
-                      ? (reply) => handleSupplementReply(message.actionCard!.decision, reply)
-                      : undefined}
                   />
                 )}
                 {message.retrySubagent && (
@@ -1371,31 +1169,28 @@ export default function AssistantWorkspace({
           />
         )}
 
+        {queuedA2ARequests.length > 0 && <div className="assistant-queued-command">{queuedA2ARequests.length} 条 A2A 发送请求已排队，当前任务结束后会依次处理。</div>}
         <section className={`assistant-composer ${isModelResponding ? 'assistant-composer--blocked' : ''}`} aria-label="助理输入器">
-          {isModelResponding ? (
-            <div className="assistant-composer-blocked-message">
-              <span><LoaderCircle size={20} /></span>
-              <div>
-                <strong>{subagentRun ? '正在等待子智能体完成' : '助理正在处理当前任务'}</strong>
-                <small>{subagentRun ? '点击上方子智能体，可查看实时执行过程' : '当前回复结束后可以继续发送消息'}</small>
-              </div>
+          {isModelResponding && (
+            <div className="assistant-composer-busy-strip">
+              <LoaderCircle size={14} />
+              <span>{subagentRun ? '正在等待子智能体完成；A2A 发送请求仍可排队' : '助理正在处理当前任务；A2A 发送请求仍可排队'}</span>
             </div>
-          ) : (
-            <textarea
-              ref={composerRef}
-              value={prompt}
-              onChange={(event) => setPrompt(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && !event.shiftKey) {
-                  event.preventDefault()
-                  submitPrompt()
-                }
-              }}
-              placeholder={perspective === 'sender'
-                ? '直接问我待办、派发、催办，或输入“用子智能体分析客户支援”体验协同…'
-                : '可以继续聊天，或回复收到的任务与催办…'}
-            />
           )}
+          <textarea
+            ref={composerRef}
+            value={prompt}
+            onChange={(event) => setPrompt(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault()
+                submitPrompt()
+              }
+            }}
+            placeholder={isModelResponding
+              ? '例如：通知李四、王五下午评审改到三点'
+              : '问我待办、派发、催办，或让我发起和回复 A2A 会话…'}
+          />
           <div className="assistant-composer-toolbar">
             <div>
               <button type="button" disabled={isModelResponding}><Layers3 size={17} /><span>商飞大模型 L1-S1</span></button>
@@ -1405,11 +1200,11 @@ export default function AssistantWorkspace({
               <button className="assistant-composer-icon" type="button" disabled={isModelResponding} aria-label="添加附件"><Paperclip size={19} /></button>
               <button className="assistant-composer-icon assistant-composer-sparkle" type="button" disabled={isModelResponding} aria-label="智能增强"><Sparkles size={19} /></button>
               <button
-                className={`assistant-send-button ${prompt.trim() && !isModelResponding ? 'ready' : ''}`}
+                className={`assistant-send-button ${prompt.trim() && (!isModelResponding || canSubmitWhileBusy) ? 'ready' : ''}`}
                 type="button"
-                disabled={isModelResponding}
+                disabled={isModelResponding && !canSubmitWhileBusy}
                 onClick={submitPrompt}
-                aria-label={isModelResponding ? '模型输出结束后可发送' : '发送'}
+                aria-label={isModelResponding ? '将 A2A 请求加入队列' : '发送'}
               >
                 <Send size={20} />
               </button>

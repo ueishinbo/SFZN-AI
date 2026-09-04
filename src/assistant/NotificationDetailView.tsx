@@ -1,4 +1,4 @@
-import { Bot, Clock3, LockKeyhole, MessageSquareText, Send } from 'lucide-react'
+import { Bot, Clock3, LockKeyhole, MessageSquareText } from 'lucide-react'
 import { notificationKindLabel, type AssistantNotification } from './mockNotifications'
 
 function formatReceivedAt(receivedAt: string) {
@@ -67,17 +67,6 @@ export default function NotificationDetailView({ notification }: { notification:
         )}
       </div>
 
-      <section className="notification-readonly-composer" aria-label="消息查看输入器">
-        <textarea
-          aria-label="消息查看模式不可输入"
-          disabled
-          placeholder="当前为消息查看模式，不能直接聊天"
-        />
-        <div>
-          <span><LockKeyhole size={15} />如需继续交流，请悬浮左侧消息并点击“处理”</span>
-          <button type="button" disabled aria-label="消息查看模式不可发送"><Send size={19} /></button>
-        </div>
-      </section>
     </section>
   )
 }

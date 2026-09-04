@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import {
   ArrowLeft,
   ArrowRight,
@@ -33,8 +33,19 @@ import {
   WandSparkles,
 } from 'lucide-react'
 import './App.css'
+import type { AppMode } from './app/appTypes'
 import AutomationWorkspace from './automation/AutomationWorkspace'
 import AssistantWorkspace from './assistant/AssistantWorkspace'
+import A2AConversationView, { type ConversationActivityPatch } from './assistant/A2AConversationView'
+import AssistantModeSidebar, { type AssistantDestination } from './assistant/AssistantModeSidebar'
+import AssistantFeaturePlaceholder from './assistant/AssistantFeaturePlaceholder'
+import {
+  buildA2ACommand,
+  seedA2AConversations,
+  type A2ACommandResult,
+  type A2AConversation,
+  type A2AConversationCommand,
+} from './assistant/a2aConversationTypes'
 import type { CollaborationItem } from './assistant/mockCollaboration'
 import NotificationCenter from './assistant/NotificationCenter'
 import NotificationDetailView from './assistant/NotificationDetailView'
@@ -44,6 +55,7 @@ import {
 } from './assistant/mockNotifications'
 import WorkspaceWorkbench, { WorkspaceHeaderControls, type WorkspaceOutputItem } from './workspace/WorkspaceWorkbench'
 import ExternalAgentWorkspace from './external-agent/ExternalAgentWorkspace'
+import DigitalTwinTrainingWorkspace from './digital-twin/DigitalTwinTrainingWorkspace'
 import { useWorkspaceWorkbench, type WorkspaceTab } from './workspace/useWorkspaceWorkbench'
 import type { WorkspaceTreeNode } from './workspace/workspaceTypes'
 import {
@@ -362,7 +374,9 @@ function TaskRow({ task, onOpen, onDelete }: { task: Task; onOpen: (task: Task) 
 }
 
 function App() {
+  const [appMode, setAppMode] = useState<AppMode>('task')
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [taskSidebarOpenBeforeAssistant, setTaskSidebarOpenBeforeAssistant] = useState(true)
   const [sidebarMode, setSidebarMode] = useState<'default' | 'notifications'>('default')
   const [activeNav, setActiveNav] = useState('新建任务')
   const [moreNavOpen, setMoreNavOpen] = useState(false)
@@ -375,20 +389,25 @@ function App() {
   const [isResizingArtifactDrawer, setIsResizingArtifactDrawer] = useState(false)
   const [downloadToast, setDownloadToast] = useState('')
   const [assistantBusy, setAssistantBusy] = useState(false)
+  const [assistantWorkspaceVisible, setAssistantWorkspaceVisible] = useState(false)
+  const [assistantDestination, setAssistantDestination] = useState<AssistantDestination>({ type: 'assistant' })
+  const [a2aConversations, setA2AConversations] = useState<A2AConversation[]>(seedA2AConversations)
+  const [a2aCommands, setA2ACommands] = useState<A2AConversationCommand[]>([])
   const [notifications, setNotifications] = useState<AssistantNotification[]>(createSeedNotifications)
   const [selectedNotificationId, setSelectedNotificationId] = useState<string | null>(null)
-  const [notificationToProcess, setNotificationToProcess] = useState<AssistantNotification | null>(null)
-  const [notificationFeedback, setNotificationFeedback] = useState('')
+  const [notificationToDeliver, setNotificationToDeliver] = useState<AssistantNotification | null>(null)
   const [automationTasks, setAutomationTasks] = useState<AutomationTask[]>(() => loadStoredList(TASKS_STORAGE_KEY, seedTasks))
   const [automationRuns, setAutomationRuns] = useState<AutomationRun[]>(() => loadStoredList(RUNS_STORAGE_KEY, seedRuns))
   const taskWorkbench = useWorkspaceWorkbench()
 
-  const unreadNotificationCount = notifications.filter((notification) => notification.status === 'unread').length
+  const hasQueuedNotifications = notifications.length > 0
+  const hasPendingA2AConfirmation = a2aConversations.some((conversation) => Boolean(conversation.pendingCurrentUserConfirmation))
   const selectedNotification = notifications.find((notification) => notification.id === selectedNotificationId) ?? null
 
   const receiveNotification = (notification: AssistantNotification) => {
-    setNotifications((current) => [notification, ...current.filter((item) => item.id !== notification.id)])
-    setNotificationFeedback('收到一条新消息，已暂存到通知中心。')
+    // 此回调只接收助理运行中产生的模拟异步消息。始终先入队，避免定时器
+    // 捕获任务开始前的 idle 状态后绕过通知列表，甚至覆盖待投递消息。
+    setNotifications((current) => [...current.filter((item) => item.id !== notification.id), notification])
   }
 
   const markNotificationRead = (notificationId: string) => {
@@ -404,26 +423,22 @@ function App() {
     markNotificationRead(notification.id)
   }
 
-  const processNotification = (notification: AssistantNotification) => {
-    if (assistantBusy) {
-      setNotificationFeedback('助理仍在输出，当前消息没有插入长会话。')
-      return
-    }
-    if (notification.status === 'handled' || notification.status === 'processing') return
-    setNotifications((current) => current.map((item) => (
-      item.id === notification.id ? { ...item, status: 'processing' } : item
-    )))
-    setNotificationFeedback('')
-    setActiveNav('助理')
-    setSidebarMode('default')
-    setNotificationToProcess(notification)
+  const acceptQueuedNotification = (notificationId: string) => {
+    setNotifications((current) => current.filter((notification) => notification.id !== notificationId))
+    setSelectedNotificationId((current) => current === notificationId ? null : current)
   }
 
-  const finishNotificationProcessing = (notificationId: string) => {
-    setNotifications((current) => current.map((notification) => (
-      notification.id === notificationId ? { ...notification, status: 'handled' } : notification
-    )))
+  const finishNotificationDelivery = (notificationId: string) => {
+    setNotificationToDeliver((current) => current?.id === notificationId ? null : current)
   }
+
+  useEffect(() => {
+    if (assistantBusy || notificationToDeliver || notifications.length === 0) return
+    const nextNotification = [...notifications].sort((left, right) => (
+      new Date(left.receivedAt).getTime() - new Date(right.receivedAt).getTime()
+    ))[0]
+    setNotificationToDeliver(nextNotification)
+  }, [assistantBusy, notificationToDeliver, notifications])
 
   useEffect(() => {
     const activeTab = taskWorkbench.tabs.find((tab) => tab.id === taskWorkbench.activeTabId)
@@ -445,7 +460,6 @@ function App() {
   const navItems = useMemo(
     () => [
       { label: '新建任务', icon: Plus },
-      { label: '助理', icon: Bot },
       { label: '专家', icon: BriefcaseBusiness },
       { label: '自动化', icon: Clock3 },
     ],
@@ -667,10 +681,66 @@ function App() {
     '--artifact-drawer-width': `${artifactDrawerWidth}px`,
   } as CSSProperties
 
+  const runA2ACommand = useCallback((value: string): A2ACommandResult => {
+    const result = buildA2ACommand(value, a2aConversations)
+    if (result.created) setA2AConversations((current) => [result.conversation, ...current])
+    setA2ACommands((current) => [...current, result.command])
+    return result
+  }, [a2aConversations])
+
+  const updateA2AConversationActivity = useCallback((conversationId: string, patch: ConversationActivityPatch) => {
+    setA2AConversations((current) => current.map((conversation) => conversation.id === conversationId
+      ? { ...conversation, ...patch }
+      : conversation))
+  }, [])
+
+  const markA2ACommandHandled = useCallback((commandId: string) => {
+    setA2ACommands((current) => current.filter((command) => command.id !== commandId))
+  }, [])
+
+  const submitA2AConversationCommand = useCallback((
+    conversationId: string,
+    action: A2AConversationCommand['action'],
+    content: string,
+  ) => {
+    setA2ACommands((current) => [...current, {
+      id: `a2a-private-command-${Date.now()}`,
+      conversationId,
+      action,
+      content,
+      createdAt: '刚刚',
+    }])
+  }, [])
+
+  const enterAssistantMode = () => {
+    setTaskSidebarOpenBeforeAssistant(sidebarOpen)
+    setAppMode('assistant')
+    setAssistantDestination({ type: 'assistant' })
+    setSidebarOpen(true)
+  }
+
+  const returnToTaskMode = () => {
+    setAppMode('task')
+    setSidebarOpen(taskSidebarOpenBeforeAssistant)
+  }
+
+  const surfaceMode = appMode
+
   return (
     <div className="app-shell">
       <div className="app-body">
-        <aside className={`sidebar ${sidebarOpen ? '' : 'sidebar--closed'}`}>
+        {surfaceMode === 'assistant' ? (
+          <AssistantModeSidebar
+            open={sidebarOpen}
+            conversations={a2aConversations}
+            destination={assistantDestination}
+            onClose={() => setSidebarOpen(false)}
+            onSelectAssistant={() => setAssistantDestination({ type: 'assistant' })}
+            onSelectConversation={(conversationId) => setAssistantDestination({ type: 'conversation', conversationId })}
+            onSelectFeature={(featureId) => setAssistantDestination({ type: 'feature', featureId })}
+          />
+        ) : (
+          <aside className={`sidebar ${sidebarOpen ? '' : 'sidebar--closed'}`}>
           <div className="sidebar-top">
             <label className="search-box">
               <Search size={19} strokeWidth={2} />
@@ -687,7 +757,7 @@ function App() {
               onClick={() => setSidebarMode((mode) => mode === 'notifications' ? 'default' : 'notifications')}
             >
               <Bell size={20} strokeWidth={1.8} />
-              {unreadNotificationCount > 0 && <span className="notification-toggle-badge">{unreadNotificationCount}</span>}
+              {hasQueuedNotifications && <span className="notification-toggle-badge" aria-label="有等待推送的消息" />}
             </button>
             <button
               className="icon-button panel-toggle"
@@ -703,9 +773,7 @@ function App() {
             <NotificationCenter
               notifications={notifications}
               assistantBusy={assistantBusy}
-              feedback={notificationFeedback}
               selectedNotificationId={selectedNotificationId}
-              onProcess={processNotification}
               onSelect={selectNotification}
             />
           ) : (
@@ -787,7 +855,8 @@ function App() {
               </div>
             </>
           )}
-        </aside>
+          </aside>
+        )}
 
         {!sidebarOpen && (
           <button
@@ -800,21 +869,23 @@ function App() {
           </button>
         )}
 
-        <main className={`workspace ${activeNav === '自动化' ? 'workspace--automation' : ''} ${activeNav === '助理' ? 'workspace--assistant' : ''} ${activeNav === '外部 Agent' ? 'workspace--external-agent' : ''}`}>
-          {activeNav === '外部 Agent' ? (
+        {(surfaceMode !== 'assistant' || assistantDestination.type === 'assistant') && <button
+          className={`global-assistant-switch ${surfaceMode === 'assistant' ? 'is-assistant' : ''} ${assistantBusy ? 'is-busy' : ''} ${hasPendingA2AConfirmation ? 'has-pending-confirmation' : ''} ${(surfaceMode === 'assistant' ? assistantDestination.type === 'assistant' && assistantWorkspaceVisible : taskWorkbench.workspaceVisible) ? 'has-workspace' : ''}`}
+          type="button"
+          onClick={surfaceMode === 'assistant' ? returnToTaskMode : enterAssistantMode}
+          title={surfaceMode === 'assistant' ? '返回原任务模式' : '进入助理模式'}
+        >
+          <span><Bot size={16} /></span>
+          <span>{surfaceMode === 'assistant' ? '返回任务' : '助理'}</span>
+          {hasPendingA2AConfirmation && <i className="global-assistant-confirmation-dot" title="有事项等待本人确认" />}
+        </button>}
+
+        <main className={`workspace ${activeNav === '自动化' ? 'workspace--automation' : ''} ${surfaceMode === 'assistant' ? 'workspace--assistant' : ''} ${activeNav === '外部 Agent' ? 'workspace--external-agent' : ''}`}>
+          <div className={`app-mode-panel ${surfaceMode === 'task' ? '' : 'is-hidden'}`}>
+            {activeNav === '外部 Agent' ? (
             <ExternalAgentWorkspace />
           ) : activeNav === '自动化' ? (
             <AutomationWorkspace tasks={automationTasks} runs={automationRuns} setTasks={setAutomationTasks} setRuns={setAutomationRuns} />
-          ) : activeNav === '助理' ? (
-            <AssistantWorkspace
-              onCreateReminderAutomation={createReminderAutomation}
-              onOpenAutomation={() => setActiveNav('自动化')}
-              notificationToProcess={notificationToProcess}
-              onNotificationAccepted={() => setNotificationToProcess(null)}
-              onNotificationHandled={finishNotificationProcessing}
-              onNotificationReceived={receiveNotification}
-              onBusyChange={setAssistantBusy}
-            />
           ) : (
             <div className={`chat-workbench ${taskWorkbench.workspaceVisible ? 'chat-workbench--with-drawer' : ''} ${isResizingArtifactDrawer ? 'chat-workbench--resizing' : ''}`} style={chatWorkbenchStyle}>
               <section className="chat-pane">
@@ -842,7 +913,12 @@ function App() {
                   <section className="welcome" aria-live="polite">
                     <div className="bot-mark"><Bot size={55} strokeWidth={1.8} /></div>
                     <h1><span>COMAC AI</span>，我帮你</h1>
-                    <p>试试输入：生成HTML、生成PPT、生成WORD、生成Markdown。</p>
+                    <p>从一个想法开始，让分析、文档与日常工作更进一步。</p>
+                    <div className="welcome-prompts" aria-label="任务灵感">
+                      <button className="welcome-prompt" type="button" onClick={() => setPrompt('帮我生成一份 WORD 工作总结，梳理本周进展与下周计划。')}><FileText size={15} />起草工作总结</button>
+                      <button className="welcome-prompt" type="button" onClick={() => setPrompt('帮我生成一份 PPT，介绍项目进展、关键成果与后续计划。')}><Presentation size={15} />整理汇报演示</button>
+                      <button className="welcome-prompt" type="button" onClick={() => setPrompt('帮我用 Markdown 梳理当前任务的关键问题、原因与行动建议。')}><Layers3 size={15} />梳理问题思路</button>
+                    </div>
                   </section>
                 ) : (
                   <section className="chat-thread" aria-label="对话内容">
@@ -972,6 +1048,46 @@ function App() {
           {sidebarMode === 'notifications' && (
             <NotificationDetailView notification={selectedNotification} />
           )}
+          </div>
+
+          <div className={`app-mode-panel ${surfaceMode === 'assistant' ? '' : 'is-hidden'}`}>
+            <div className={`assistant-destination-panel ${assistantDestination.type === 'assistant' ? '' : 'is-hidden'}`}>
+              <AssistantWorkspace
+                onCreateReminderAutomation={createReminderAutomation}
+                notificationToDeliver={notificationToDeliver}
+                onNotificationAccepted={acceptQueuedNotification}
+                onNotificationDelivered={finishNotificationDelivery}
+                onNotificationReceived={receiveNotification}
+                onBusyChange={setAssistantBusy}
+                a2aConversations={a2aConversations}
+                onRunA2ACommand={runA2ACommand}
+                onWorkspaceVisibilityChange={setAssistantWorkspaceVisible}
+              />
+            </div>
+            <div className={`assistant-destination-panel ${assistantDestination.type === 'conversation' ? '' : 'is-hidden'}`}>
+              <A2AConversationView
+                conversations={a2aConversations}
+                selectedConversationId={assistantDestination.type === 'conversation' ? assistantDestination.conversationId : null}
+                commands={a2aCommands}
+                onCommandHandled={markA2ACommandHandled}
+                onConversationActivity={updateA2AConversationActivity}
+                onSubmitCommand={submitA2AConversationCommand}
+              />
+            </div>
+            {assistantDestination.type === 'feature' && assistantDestination.featureId === 'training' && (
+              <div className="assistant-destination-panel">
+                <DigitalTwinTrainingWorkspace
+                  a2aConversations={a2aConversations}
+                  onOpenA2AConversation={(conversationId) => setAssistantDestination({ type: 'conversation', conversationId })}
+                />
+              </div>
+            )}
+            {assistantDestination.type === 'feature' && assistantDestination.featureId !== 'training' && (
+              <div className="assistant-destination-panel">
+                <AssistantFeaturePlaceholder featureId={assistantDestination.featureId} />
+              </div>
+            )}
+          </div>
         </main>
       </div>
     </div>
