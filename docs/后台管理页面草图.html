@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>COMAC AI｜组织训练与治理台（页面草图）</title>
+  </head>
+  <body>
+    <header>
+      <h1>COMAC AI｜组织训练与治理台</h1>
+      <label>
+        当前组织范围
+        <select id="organization">
+          <option>民机事业群</option>
+          <option>数字化事业群</option>
+          <option>集团全部</option>
+        </select>
+      </label>
+      <label>
+        环境
+        <select><option>正式环境</option><option>测试环境</option></select>
+      </label>
+      <input type="search" placeholder="搜索人员、岗位 Agent、训练资产" />
+      <button type="button" onclick="alert('这里打开当前管理员的通知与待办。')">通知（3）</button>
+      <button type="button" onclick="alert('这里打开管理员账号菜单。')">管理员：李明</button>
+    </header>
+
+    <hr />
+
+    <aside>
+      <h2>后台管理</h2>
+      <nav aria-label="主导航">
+        <button type="button" data-page="overview">总览</button>
+        <h3>岗位 Agent</h3>
+        <button type="button" data-page="templates">岗位模板</button>
+        <button type="button" data-page="instances">岗位实例</button>
+        <button type="button" data-page="training">训练与评测</button>
+        <h3>数字分身</h3>
+        <button type="button" data-page="twins">人员分身</button>
+        <button type="button" data-page="bindings">绑定管理</button>
+        <h3>运行治理</h3>
+        <button type="button" data-page="approvals">审批中心 <strong>3</strong></button>
+        <button type="button" data-page="monitoring">运行监控</button>
+        <button type="button" data-page="audit">风险与审计</button>
+        <h3>组织设置</h3>
+        <button type="button" data-page="settings">组织、工具与数据源</button>
+      </nav>
+    </aside>
+
+    <main>
+      <section id="overview" data-page-section>
+        <p>民机事业群 / 工作台</p>
+        <h2>总览</h2>
+        <p>查看岗位 Agent 建设进度、人员覆盖和需要处理的风险。</p>
+        <p>
+          <button type="button" data-page="instances">已发布岗位实例：12</button>
+          <button type="button" data-page="bindings">已绑定人员：86 / 126</button>
+          <button type="button" data-page="approvals">待审批版本：3</button>
+          <button type="button" data-page="monitoring">异常运行：2</button>
+        </p>
+        <h3>岗位覆盖</h3>
+        <table border="1">
+          <thead><tr><th>岗位</th><th>民机事业群</th><th>数字化事业群</th><th>集团职能</th></tr></thead>
+          <tbody>
+            <tr><th>项目经理</th><td><button type="button" data-page="instance-detail">已发布 / 32 人</button></td><td>未建设</td><td>—</td></tr>
+            <tr><th>产品经理</th><td>整理中</td><td>已发布 / 18 人</td><td>—</td></tr>
+            <tr><th>采购专员</th><td>评测中</td><td>—</td><td>已发布 / 12 人</td></tr>
+          </tbody>
+        </table>
+        <h3>待我处理</h3>
+        <ol>
+          <li><button type="button" data-page="approval-detail">“民机事业群·项目经理”V1.3 发布申请</button>：评测通过，影响 32 人</li>
+          <li><button type="button" data-page="approval-detail">型号资料库读取权限申请</button>：高风险数据源</li>
+          <li><button type="button" data-page="monitoring">2 个任务命中人工确认超时</button></li>
+        </ol>
+      </section>
+
+      <section id="templates" data-page-section hidden>
+        <p>岗位 Agent / 岗位模板</p>
+        <h2>岗位模板</h2>
+        <p>模板定义同一岗位的通用能力；它不能直接被员工绑定。</p>
+        <p><input placeholder="搜索模板" /> <select><option>全部岗位族</option><option>经营管理</option><option>研发设计</option></select> <button type="button" onclick="alert('新建模板需由平台岗位专家发起。')">新建岗位模板</button></p>
+        <table border="1">
+          <thead><tr><th>模板</th><th>岗位族</th><th>派生实例</th><th>当前版本</th><th>负责人</th><th>状态</th></tr></thead>
+          <tbody>
+            <tr><td><button type="button" data-page="template-detail">项目经理</button></td><td>经营管理</td><td>3</td><td>V2.4</td><td>王强</td><td>已发布</td></tr>
+            <tr><td>产品经理</td><td>产品与数字化</td><td>2</td><td>V1.8</td><td>陈晨</td><td>已发布</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="template-detail" data-page-section hidden>
+        <p><button type="button" data-page="templates">返回岗位模板</button></p>
+        <h2>项目经理 <small>岗位模板 / 已发布 V2.4</small></h2>
+        <p>负责人：王强 ｜ 已派生 3 个岗位实例 ｜ 最近更新：2026-09-01</p>
+        <button type="button" onclick="alert('从此模板新建事业群或部门范围的岗位实例。')">新建岗位实例</button>
+        <hr />
+        <nav aria-label="模板详情"><button type="button">概览</button><button type="button">职责能力</button><button type="button">流程规则</button><button type="button">知识与案例</button><button type="button">工具权限</button><button type="button">版本评测</button></nav>
+        <h3>模板资产摘要</h3>
+        <ul>
+          <li>岗位说明书：项目目标、核心职责、交付物、上下游关系</li>
+          <li>能力地图：计划管理、风险管理、跨部门协同、项目复盘</li>
+          <li>通用 SOP：立项、计划、例会、风险闭环、结项</li>
+          <li>强制规则：不得绕过项目负责人审批；对外发送必须确认</li>
+        </ul>
+        <p><strong>提示：</strong>模板更新不会自动覆盖已发布实例。实例负责人会收到“可同步变更”提醒。</p>
+      </section>
+
+      <section id="instances" data-page-section hidden>
+        <p>岗位 Agent / 岗位实例</p>
+        <h2>岗位实例</h2>
+        <p>岗位实例承载事业群、部门的具体做法，是人员数字分身实际绑定和调用的对象。</p>
+        <p><input placeholder="搜索岗位实例" /> <select><option>全部事业群</option><option>民机事业群</option><option>数字化事业群</option></select> <select><option>全部状态</option><option>草稿</option><option>评测中</option><option>已发布</option></select> <button type="button" data-page="create-instance">新建岗位实例</button></p>
+        <table border="1">
+          <thead><tr><th>岗位实例</th><th>基于模板</th><th>适用组织</th><th>状态</th><th>绑定人数</th><th>版本</th><th>负责人</th><th>质量</th></tr></thead>
+          <tbody>
+            <tr><td><button type="button" data-page="instance-detail">民机事业群·项目经理</button></td><td>项目经理 V2.4</td><td>民机事业群</td><td>已发布</td><td>32</td><td>V1.2</td><td>赵敏</td><td>正常</td></tr>
+            <tr><td>民机事业群·采购专员</td><td>采购专员 V1.3</td><td>民机事业群</td><td>评测中</td><td>0</td><td>V0.9</td><td>周楠</td><td>待处理</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="create-instance" data-page-section hidden>
+        <p><button type="button" data-page="instances">取消并返回</button></p>
+        <h2>新建岗位实例</h2>
+        <p>第 1 步，共 4 步：选择岗位模板与适用组织。</p>
+        <fieldset>
+          <legend>基础信息</legend>
+          <p><label>岗位模板 <select><option>项目经理（V2.4）</option><option>采购专员（V1.3）</option></select></label></p>
+          <p><label>适用组织 <select><option>民机事业群</option><option>民机事业群 / 型号项目部</option></select></label></p>
+          <p><label>实例名称 <input value="民机事业群·项目经理" /></label></p>
+          <p><label>岗位负责人 <input value="赵敏" /></label></p>
+        </fieldset>
+        <p><button type="button" onclick="alert('下一步将选择需要继承的模板资产，并填写事业群差异。草图暂不保存数据。')">下一步：配置继承资产</button></p>
+      </section>
+
+      <section id="instance-detail" data-page-section hidden>
+        <p><button type="button" data-page="instances">返回岗位实例</button></p>
+        <h2>民机事业群·项目经理 <small>已发布 / V1.2</small></h2>
+        <p>基于：项目经理模板 V2.4 ｜ 适用范围：民机事业群 ｜ 负责人：赵敏 ｜ 当前影响：32 名人员</p>
+        <p><button type="button" onclick="alert('已发布版本不能直接编辑。系统将复制出 V1.3 草稿。')">创建新版本</button> <button type="button" data-page="bindings">查看人员绑定（32）</button></p>
+        <hr />
+        <nav aria-label="岗位实例详情"><button type="button">概览</button><button type="button">训练资产</button><button type="button">执行边界</button><button type="button" data-page="training">评测</button><button type="button" data-page="bindings">人员绑定</button><button type="button">版本记录</button></nav>
+        <h3>训练资产</h3>
+        <table border="1"><thead><tr><th>类别</th><th>数量</th><th>最后更新</th><th>来源</th><th>操作</th></tr></thead><tbody>
+          <tr><td>知识资料</td><td>24</td><td>2026-08-29</td><td>事业群知识库</td><td><button type="button" onclick="alert('打开知识资料管理。新增内容先经解析、脱敏与审核。')">管理</button></td></tr>
+          <tr><td>SOP 与规则</td><td>8</td><td>2026-08-26</td><td>岗位负责人</td><td><button type="button">管理</button></td></tr>
+          <tr><td>历史案例</td><td>16</td><td>2026-08-18</td><td>审核后任务沉淀</td><td><button type="button">管理</button></td></tr>
+          <tr><td>输出模板</td><td>5</td><td>2026-08-10</td><td>组织模板库</td><td><button type="button">管理</button></td></tr>
+        </tbody></table>
+        <h3>执行边界</h3>
+        <ul>
+          <li>可读：项目管理系统、事业群知识库</li>
+          <li>可写：项目周报草稿（提交前须本人确认）</li>
+          <li>禁止：向外部系统下发正式任务、导出敏感资料</li>
+        </ul>
+        <p><button type="button" data-page="training">查看评测结果</button> <button type="button" data-page="approvals">查看 V1.3 发布申请</button></p>
+      </section>
+
+      <section id="training" data-page-section hidden>
+        <p>岗位 Agent / 训练与评测</p>
+        <h2>训练与评测</h2>
+        <p>选择岗位实例，确认它是否已经具备“上岗”条件。</p>
+        <label>岗位实例 <select><option>民机事业群·项目经理 / V1.3 草稿</option><option>民机事业群·采购专员 / V0.9</option></select></label>
+        <p>当前状态：评测通过，待提交发布审批。</p>
+        <div>
+          <h3>能力与用例</h3>
+          <ol>
+            <li><button type="button" onclick="showCase('风险识别', '通过', '正确引用《项目风险管理办法》，并提出需人工确认的升级建议。')">风险识别（通过）</button></li>
+            <li><button type="button" onclick="showCase('周报生成', '通过', '按照民机事业群周报模板输出，并标注 3 个待确认数据。')">周报生成（通过）</button></li>
+            <li><button type="button" onclick="showCase('任务下发边界', '通过', '识别正式任务下发为高风险动作，未直接执行。')">任务下发边界（通过）</button></li>
+            <li><button type="button" onclick="showCase('跨部门协同', '需人工复核', '输出建议完整，但协同对象选择依据不足。')">跨部门协同（需人工复核）</button></li>
+          </ol>
+        </div>
+        <article id="case-result">
+          <h3>选择一个用例查看详情</h3>
+          <p>此处展示输入、执行过程、引用依据、输出、自动评分与人工判定。</p>
+        </article>
+        <p><button type="button" onclick="alert('提交后将创建“岗位版本发布”审批单。')">提交发布审批</button></p>
+      </section>
+
+      <section id="twins" data-page-section hidden>
+        <p>数字分身 / 人员分身</p>
+        <h2>人员数字分身</h2>
+        <p>人员分身是员工前台的唯一入口；它可绑定多个岗位 Agent，但不等同于岗位 Agent。</p>
+        <p><input placeholder="搜索姓名或工号" /> <select><option>全部组织</option><option>民机事业群</option></select> <select><option>全部岗位实例</option><option>民机事业群·项目经理</option></select></p>
+        <table border="1"><thead><tr><th>员工</th><th>组织</th><th>分身状态</th><th>已绑定岗位</th><th>默认岗位</th><th>待确认</th><th>风险</th></tr></thead><tbody>
+          <tr><td><button type="button" data-page="twin-detail">张三 / 100024</button></td><td>民机事业群 / 型号项目部</td><td>启用</td><td>2</td><td>民机事业群·项目经理</td><td>1</td><td>正常</td></tr>
+          <tr><td>李四 / 100037</td><td>民机事业群 / 型号项目部</td><td>启用</td><td>1</td><td>民机事业群·项目经理</td><td>0</td><td>确认超时</td></tr>
+        </tbody></table>
+      </section>
+
+      <section id="twin-detail" data-page-section hidden>
+        <p><button type="button" data-page="twins">返回人员分身</button></p>
+        <h2>张三的数字分身 <small>启用</small></h2>
+        <p>民机事业群 / 型号项目部 ｜ 工号 100024 ｜ 最近活跃：今天 10:42</p>
+        <div>
+          <h3>身份与个人授权摘要</h3>
+          <p>组织身份由 HR 系统同步。个人偏好、私有对话和私有记忆不在后台展开。</p>
+          <p>已授权：使用项目管理系统读取权限；周报草稿生成。任何正式下发、发送和导出均需张三确认。</p>
+        </div>
+        <div>
+          <h3>已绑定岗位 Agent</h3>
+          <ol>
+            <li><strong>默认</strong> 民机事业群·项目经理 <button type="button" onclick="alert('这里可暂停、设为默认或解除绑定。解除前会检查未完成任务。')">管理</button></li>
+            <li>数字化事业群·产品经理（跨组织协作） <button type="button" onclick="alert('这里可暂停、设为默认或解除绑定。')">管理</button></li>
+          </ol>
+          <button type="button" data-page="binding-create">绑定岗位 Agent</button>
+        </div>
+        <div><h3>治理状态</h3><p>个人资料：3 项 ｜ 记忆：已启用 ｜ 待本人确认：1 项 ｜ 近 30 天风险告警：0</p></div>
+      </section>
+
+      <section id="bindings" data-page-section hidden>
+        <p>数字分身 / 绑定管理</p>
+        <h2>人员与岗位 Agent 绑定</h2>
+        <p>只有已发布、人员满足资格且组织范围匹配的岗位实例可以绑定。</p>
+        <p><button type="button" data-page="binding-create">新建绑定</button></p>
+        <table border="1"><thead><tr><th>员工</th><th>岗位实例</th><th>使用状态</th><th>优先级</th><th>个人授权</th><th>绑定时间</th><th>操作</th></tr></thead><tbody>
+          <tr><td>张三</td><td>民机事业群·项目经理</td><td>可用</td><td>默认</td><td>已配置</td><td>2026-07-12</td><td><button type="button">管理</button></td></tr>
+          <tr><td>张三</td><td>数字化事业群·产品经理</td><td>可用</td><td>2</td><td>已配置</td><td>2026-08-21</td><td><button type="button">管理</button></td></tr>
+        </tbody></table>
+      </section>
+
+      <section id="binding-create" data-page-section hidden>
+        <p><button type="button" data-page="bindings">取消并返回</button></p>
+        <h2>绑定岗位 Agent</h2>
+        <fieldset><legend>1. 选择人员</legend><label>人员 <input value="张三 / 100024" /></label></fieldset>
+        <fieldset><legend>2. 选择岗位实例</legend><label>可绑定实例 <select><option>数字化事业群·产品经理（已发布 V1.5）</option><option>民机事业群·采购专员（不可选：评测中）</option></select></label><p>系统已校验：组织协作资格满足；实例为已发布状态。</p></fieldset>
+        <fieldset><legend>3. 设置使用方式</legend><p><label><input type="radio" name="priority" checked /> 可用，非默认</label> <label><input type="radio" name="priority" /> 设为默认岗位</label> <label><input type="radio" name="priority" /> 暂停（预配置）</label></p><p><label><input type="checkbox" checked /> 允许生成工作草稿</label> <label><input type="checkbox" checked /> 发送、写入、下发、导出仍需本人确认</label></p></fieldset>
+        <fieldset><legend>4. 权限合并预览</legend><p>该岗位请求项目系统只读；张三已有该权限。最终权限：只读。</p><p>冲突时始终采用更严格的权限，不自动扩大个人权限。</p></fieldset>
+        <p><button type="button" onclick="alert('草图中模拟绑定成功：张三可在前台选择该岗位身份执行工作。')">确认绑定</button></p>
+      </section>
+
+      <section id="approvals" data-page-section hidden>
+        <p>运行治理 / 审批中心</p>
+        <h2>审批中心</h2>
+        <p>训练内容、敏感资产、工具权限和人员批量绑定在进入生产前统一审批。</p>
+        <table border="1"><thead><tr><th>申请对象</th><th>申请类型</th><th>风险</th><th>影响范围</th><th>申请人</th><th>当前节点</th><th>操作</th></tr></thead><tbody>
+          <tr><td>民机事业群·项目经理 V1.3</td><td>版本发布</td><td>中</td><td>32 名人员</td><td>赵敏</td><td>待李明审批</td><td><button type="button" data-page="approval-detail">查看</button></td></tr>
+          <tr><td>型号资料库</td><td>工具/数据权限</td><td>高</td><td>1 个岗位实例</td><td>赵敏</td><td>安全合规复核</td><td><button type="button" data-page="approval-detail">查看</button></td></tr>
+        </tbody></table>
+      </section>
+
+      <section id="approval-detail" data-page-section hidden>
+        <p><button type="button" data-page="approvals">返回审批中心</button></p>
+        <h2>民机事业群·项目经理 V1.3 发布申请</h2>
+        <p>申请人：赵敏 ｜ 风险等级：中 ｜ 影响范围：32 名已绑定人员</p>
+        <h3>变更摘要</h3>
+        <ul><li>新增《项目风险管理办法（2026）》知识资料</li><li>更新风险升级 SOP</li><li>增加“正式任务下发必须人工确认”规则</li></ul>
+        <h3>评测证据</h3>
+        <p>红线用例：8 / 8 通过；流程合规：96%；关键输出已由岗位负责人确认。</p>
+        <h3>发布与回滚</h3>
+        <p>计划生效：审批通过后次日 00:00；进行中任务继续使用 V1.2；可回滚至 V1.2。</p>
+        <p><button type="button" onclick="alert('草图中模拟审批通过，并将在计划时间发布。')">通过</button> <button type="button" onclick="alert('草图中模拟驳回。申请将退回岗位负责人。')">驳回</button> <button type="button" onclick="alert('草图中模拟要求补充评测证据。')">要求补充</button></p>
+      </section>
+
+      <section id="monitoring" data-page-section hidden><h2>运行监控（首期基础列表）</h2><p>展示运行量、失败、人工确认超时与质量反馈。详细监控规则在下一阶段补充。</p></section>
+      <section id="audit" data-page-section hidden><h2>风险与审计（首期基础列表）</h2><p>按人员、岗位实例、版本、操作与时间检索可追溯记录。</p></section>
+      <section id="settings" data-page-section hidden><h2>组织、工具与数据源（首期占位）</h2><p>维护组织同步、管理员角色、工具连接和数据源分级。</p></section>
+    </main>
+
+    <hr />
+    <footer><p>低保真页面草图：用于验证对象模型、导航和操作路径；不代表最终视觉、字段或权限实现。</p></footer>
+
+    <script>
+      function showPage(id) {
+        document.querySelectorAll('[data-page-section]').forEach((section) => { section.hidden = section.id !== id; });
+        window.scrollTo(0, 0);
+      }
+      document.querySelectorAll('[data-page]').forEach((button) => {
+        button.addEventListener('click', () => showPage(button.dataset.page));
+      });
+      function showCase(name, result, detail) {
+        document.getElementById('case-result').innerHTML = '<h3>' + name + '：' + result + '</h3><p>' + detail + '</p><p><strong>展示内容：</strong>任务输入、模型执行过程、引用依据、产物、自动评分、人工判定与修改记录。</p>';
+      }
+      showPage('overview');
+    </script>
+  </body>
+</html>

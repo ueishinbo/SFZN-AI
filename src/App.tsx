@@ -18,6 +18,7 @@ import {
   Folder,
   Globe2,
   LayoutPanelLeft,
+  LayoutGrid,
   Layers3,
   Maximize2,
   Mic,
@@ -56,6 +57,7 @@ import {
 } from './assistant/mockNotifications'
 import WorkspaceWorkbench, { WorkspaceHeaderControls, type WorkspaceOutputItem } from './workspace/WorkspaceWorkbench'
 import ExternalAgentWorkspace from './external-agent/ExternalAgentWorkspace'
+import OrganizationWorkbench from './organization/OrganizationWorkbench'
 import DigitalTwinTrainingWorkspace from './digital-twin/DigitalTwinTrainingWorkspace'
 import { useWorkspaceWorkbench, type WorkspaceTab } from './workspace/useWorkspaceWorkbench'
 import type { WorkspaceTreeNode } from './workspace/workspaceTypes'
@@ -375,7 +377,7 @@ function TaskRow({ task, onOpen, onDelete }: { task: Task; onOpen: (task: Task) 
 }
 
 function App() {
-  const [appMode, setAppMode] = useState<AppMode>('task')
+  const [appMode, setAppMode] = useState<AppMode>(()=>new URLSearchParams(location.search).get('view')==='admin'?'admin':['twin','assistant'].includes(new URLSearchParams(location.search).get('view')||'')?'assistant':'task')
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [taskSidebarOpenBeforeAssistant, setTaskSidebarOpenBeforeAssistant] = useState(true)
   const [sidebarMode, setSidebarMode] = useState<'default' | 'notifications'>('default')
@@ -391,7 +393,7 @@ function App() {
   const [downloadToast, setDownloadToast] = useState('')
   const [assistantBusy, setAssistantBusy] = useState(false)
   const [assistantWorkspaceVisible, setAssistantWorkspaceVisible] = useState(false)
-  const [assistantDestination, setAssistantDestination] = useState<AssistantDestination>({ type: 'assistant' })
+  const [assistantDestination, setAssistantDestination] = useState<AssistantDestination>(()=>new URLSearchParams(location.search).get('view')==='twin'?{type:'feature',featureId:'training'}:{ type: 'assistant' })
   const [a2aConversations, setA2AConversations] = useState<A2AConversation[]>(seedA2AConversations)
   const [a2aCommands, setA2ACommands] = useState<A2AConversationCommand[]>([])
   const [notifications, setNotifications] = useState<AssistantNotification[]>(createSeedNotifications)
@@ -461,6 +463,7 @@ function App() {
   const navItems = useMemo(
     () => [
       { label: '新建任务', icon: Plus },
+      { label: '组织智能工作台', icon: LayoutGrid },
       { label: '专家', icon: BriefcaseBusiness },
       { label: '自动化', icon: Clock3 },
     ],
@@ -733,6 +736,13 @@ function App() {
     setAppMode('assistant')
   }
 
+  useEffect(() => {
+    const url = new URL(location.href)
+    const view = appMode === 'admin' ? 'admin' : appMode === 'assistant' ? assistantDestination.type === 'feature' && assistantDestination.featureId === 'training' ? 'twin' : 'assistant' : 'task'
+    url.searchParams.set('view', view)
+    history.replaceState(null, '', url)
+  }, [appMode, assistantDestination])
+
   const surfaceMode = appMode
 
   return (
@@ -741,11 +751,9 @@ function App() {
         {surfaceMode === 'assistant' ? (
           <AssistantModeSidebar
             open={sidebarOpen}
-            conversations={a2aConversations}
             destination={assistantDestination}
             onClose={() => setSidebarOpen(false)}
             onSelectAssistant={() => setAssistantDestination({ type: 'assistant' })}
-            onSelectConversation={(conversationId) => setAssistantDestination({ type: 'conversation', conversationId })}
             onSelectFeature={(featureId) => setAssistantDestination({ type: 'feature', featureId })}
             onEnterAdmin={enterAdminMode}
           />
@@ -890,10 +898,12 @@ function App() {
           {hasPendingA2AConfirmation && <i className="global-assistant-confirmation-dot" title="有事项等待本人确认" />}
         </button>}
 
-        <main className={`workspace ${activeNav === '自动化' ? 'workspace--automation' : ''} ${surfaceMode === 'assistant' ? 'workspace--assistant' : ''} ${surfaceMode === 'admin' ? 'workspace--admin' : ''} ${activeNav === '外部 Agent' ? 'workspace--external-agent' : ''}`}>
+        <main className={`workspace ${activeNav === '自动化' ? 'workspace--automation' : ''} ${surfaceMode === 'assistant' ? 'workspace--assistant' : ''} ${surfaceMode === 'admin' ? 'workspace--admin' : ''} ${activeNav === '外部 Agent' ? 'workspace--external-agent' : ''} ${activeNav === '组织智能工作台' ? 'workspace--organization' : ''}`}>
           <div className={`app-mode-panel ${surfaceMode === 'task' ? '' : 'is-hidden'}`}>
             {activeNav === '外部 Agent' ? (
             <ExternalAgentWorkspace />
+          ) : activeNav === '组织智能工作台' ? (
+            <OrganizationWorkbench />
           ) : activeNav === '自动化' ? (
             <AutomationWorkspace tasks={automationTasks} runs={automationRuns} setTasks={setAutomationTasks} setRuns={setAutomationRuns} />
           ) : (

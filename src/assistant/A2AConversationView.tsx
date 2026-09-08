@@ -378,7 +378,6 @@ export default function A2AConversationView({
             <h2>{selectedConversation.title}</h2>
             <div className="a2a-conversation-badges">
               <span>{typeName}</span>
-              <span className={isRecipientPerspective ? 'is-recipient' : 'is-initiator'}>{isRecipientPerspective ? '接收方视角' : '发起方视角'}</span>
             </div>
           </div>
           <div className="a2a-group-header-members" title={selectedConversation.members.map((member) => member.name).join('、')}>
@@ -391,13 +390,6 @@ export default function A2AConversationView({
             <strong>{selectedConversation.members.length + 1} 人</strong>
           </div>
         </header>
-
-        {isRecipientPerspective && (
-          <section className="a2a-inbound-summary" aria-label="收到的协作事项">
-            <span>已接收</span>
-            <div><strong>{selectedConversation.hostName}的分身向你发来{selectedConversation.mechanism === 'notice' ? '一条通知' : '一项待协作事项'}</strong><small>{selectedConversation.mechanism === 'notice' ? '已阅读，可在右侧整理后续动作。' : '请在右侧让你的分身整理回复，确认后才会正式发送。'}</small></div>
-          </section>
-        )}
 
         <section className="a2a-group-thread a2a-conversation-thread" ref={threadRef} aria-label={`${selectedConversation.title}会话记录`}>
           {messages.length === 0 && (

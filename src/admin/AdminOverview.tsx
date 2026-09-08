@@ -1,10 +1,125 @@
-import { Activity, ArrowUpRight, CheckCircle2, CircleAlert } from 'lucide-react'
-import { overviewActivities, overviewMetrics } from './mockAdminData'
-
-export default function AdminOverview() {
-  return <><section className="admin-page-heading"><div><p>PLATFORM OVERVIEW</p><h1>平台概览</h1><span>查看当前组织内的资源、连接和自动化运行情况。</span></div><button type="button"><Activity size={16} />导出运行摘要</button></section>
-    <section className="admin-metric-grid">{overviewMetrics.map((metric) => <article className={`tone-${metric.tone}`} key={metric.label}><span>{metric.label}</span><strong>{metric.value}</strong><small><ArrowUpRight size={13} />{metric.hint}</small></article>)}</section>
-    <section className="admin-overview-grid"><article className="admin-card admin-health"><header><div><h2>平台健康度</h2><span>所有核心服务状态正常</span></div><em><CheckCircle2 size={15} />正常</em></header><div className="admin-health-list"><span><i />模型服务<strong>正常</strong></span><span><i />MCP 网关<strong>正常</strong></span><span><i />自动化调度<strong>正常</strong></span><span><i />审批服务<strong>正常</strong></span></div></article><article className="admin-card"><header><div><h2>待处理事项</h2><span>需要管理员关注的申请与异常</span></div><em className="is-warning"><CircleAlert size={15} />3 项</em></header><div className="admin-pending"><button type="button">2 个访问授权申请 <ArrowUpRight size={14} /></button><button type="button">1 个专家启用申请 <ArrowUpRight size={14} /></button><button type="button">0 个运行异常 <ArrowUpRight size={14} /></button></div></article></section>
-    <section className="admin-card admin-activity"><header><div><h2>最近活动</h2><span>资源配置与平台运行记录</span></div><button type="button">查看全部</button></header>{overviewActivities.map(([title, detail, time]) => <article key={title}><i><Activity size={15} /></i><div><strong>{title}</strong><span>{detail}</span></div><time>{time}</time></article>)}</section>
-  </>
+import { ArrowUpRight, Download } from "lucide-react";
+import { actions, download, useRoleStore } from "../role-center/store";
+import { Badge, Empty } from "../role-center/ui";
+import type { AdminPageId } from "./mockAdminData";
+export default function AdminOverview({
+  onNavigate,
+}: {
+  onNavigate: (page: AdminPageId) => void;
+}) {
+  const s = useRoleStore();
+  const pending = s.approvals.filter((a) => a.status === "待审批"),
+    suggestions = s.suggestions.filter((v) => v.status === "待处理");
+  const metrics = [
+    ["已发布岗位", s.roles.filter((r) => r.published && !r.disabled).length],
+    ["可用能力", s.resources.filter((r) => r.active).length],
+    ["待审批事项", pending.length],
+    ["运行记录", s.runs.length],
+  ];
+  return (
+    <div className="rc rc-shell">
+      <div className="rc-heading">
+        <div>
+          <h1>平台概览</h1>
+          <p>岗位发布、资源可用性与运行治理</p>
+        </div>
+        <button
+          onClick={() => {
+            actions.exportAudit("导出平台运行摘要");
+            download(
+              "平台运行摘要.json",
+              JSON.stringify(
+                {
+                  metrics: Object.fromEntries(metrics),
+                  pending: pending.map((a) => ({
+                    title: a.title,
+                    status: a.status,
+                  })),
+                  suggestions: suggestions.map((v) => ({
+                    title: v.title,
+                    status: v.status,
+                  })),
+                  resourceHealth: s.resources.map((r) => ({
+                    name: r.name,
+                    active: r.active,
+                  })),
+                },
+                null,
+                2,
+              ),
+            );
+          }}
+        >
+          <Download size={15} />
+          导出运行摘要
+        </button>
+      </div>
+      <div
+        className="rc-metrics"
+        style={{ gridTemplateColumns: "repeat(4,minmax(0,1fr))" }}
+      >
+        {metrics.map(([label, n]) => (
+          <article key={label}>
+            <span>{label}</span>
+            <b>{n}</b>
+          </article>
+        ))}
+      </div>
+      <div className="rc-grid">
+        <section className="rc-section">
+          <header>
+            <h2>待处理事项</h2>
+            <Badge tone="amber">{pending.length + suggestions.length} 项</Badge>
+          </header>
+          <div className="rc-stack">
+            <button onClick={() => onNavigate("approvals")}>
+              {pending.length} 项审批申请
+              <ArrowUpRight size={15} />
+            </button>
+          </div>
+        </section>
+        <section className="rc-section">
+          <header>
+            <h2>资源可用性</h2>
+            <Badge>
+              {s.resources.every((r) => r.active) ? "资源可用" : "存在停用资源"}
+            </Badge>
+          </header>
+          {[
+            ["skill", "技能"],
+            ["mcp", "MCP"],
+            ["expert", "专家智能体"],
+            ["model", "模型"],
+          ].map(([kind, label]) => (
+            <div className="rc-resource-row" key={kind}>
+              <div>{label}</div>
+              <strong>
+                {s.resources.filter((r) => r.kind === kind && r.active).length}{" "}
+                / {s.resources.filter((r) => r.kind === kind).length}
+              </strong>
+              <small>可用</small>
+            </div>
+          ))}
+        </section>
+      </div>
+      <section className="rc-section" style={{ marginTop: 20 }}>
+        <header>
+          <h2>最近操作</h2>
+          <button onClick={() => onNavigate("roleAgents")}>管理岗位</button>
+        </header>
+        <div className="rc-timeline">
+          {s.audit.slice(0, 10).map((a) => (
+            <article key={a.id}>
+              <strong>{a.action}</strong>
+              <p>{a.detail}</p>
+              <small>
+                {a.at} · {s.people.find((p) => p.id === a.by)?.name || a.by}
+              </small>
+            </article>
+          ))}
+          {!s.audit.length && <Empty title="暂无操作记录" />}
+        </div>
+      </section>
+    </div>
+  );
 }

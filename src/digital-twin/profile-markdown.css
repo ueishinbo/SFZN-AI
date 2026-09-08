@@ -20,6 +20,9 @@
 .top-identity-actions{display:flex;align-items:center;gap:10px}
 .top-identity-actions>button{height:32px;padding:0 13px;border:1px solid #cbdce9;border-radius:9px;color:#2873ad;background:#fff;cursor:pointer;font-size:12px;font-weight:700}
 .top-identity-actions>button:hover{border-color:#8eb9dc;background:#f4f9fd}
+.digital-twin-training .top{justify-content:flex-start}
+.digital-twin-training .top-identity-actions{margin-left:24px}
+.digital-twin-training .top-identity-actions .sync{display:none}
 .identity-detail{min-width:min(460px,calc(100vw - 68px));padding:28px 26px 30px}
 .identity-detail-avatar{width:58px;height:58px;margin:0 auto 22px;display:grid;place-items:center;border-radius:18px;color:#fff;background:linear-gradient(145deg,#265f9f,#39a2cd);box-shadow:0 9px 19px rgba(38,95,159,.22);font-size:22px;font-weight:800}
 .identity-detail .details{gap:0;border:1px solid #e1eaf1;border-radius:12px;overflow:hidden}
