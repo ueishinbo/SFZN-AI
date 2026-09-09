@@ -75,6 +75,13 @@ const featureDefinitions: Record<AssistantFeatureId, FeatureDefinition> = {
       { title: '校正分身回答', detail: '回顾最近回答并给出反馈', action: '查看回答' },
     ],
   },
+  a2a: {
+    eyebrow: 'A2A',
+    title: 'A2A 任务',
+    description: '查看跨分身协作的任务状态与待确认事项。',
+    icon: <Bot size={26} />,
+    items: [],
+  },
 }
 
 export default function AssistantFeaturePlaceholder({ featureId }: { featureId: AssistantFeatureId }) {

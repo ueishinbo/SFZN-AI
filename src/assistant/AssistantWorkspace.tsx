@@ -1127,7 +1127,7 @@ export default function AssistantWorkspace({
             >
               {message.role === 'assistant' && <div className="assistant-message-avatar"><Bot size={18} /></div>}
               <div className="assistant-message-body">
-                {message.role === 'assistant' && <strong className="assistant-message-name">COMAC AI</strong>}
+                {message.role === 'assistant' && <strong className="assistant-message-name">Comac Claw</strong>}
                 {message.notification ? (
                   <div className="assistant-inserted-notification">
                     <span>{notificationKindLabel(message.notification.kind)} · 来自消息通知</span>

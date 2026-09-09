@@ -19,7 +19,7 @@ export default function AdminSidebar({
       <header>
         <span className="admin-brand-mark">C</span>
         <div>
-          <small>COMAC AI</small>
+          <small>Comac Claw</small>
           <strong>后台管理</strong>
         </div>
       </header>

@@ -58,7 +58,7 @@ import {
 import WorkspaceWorkbench, { WorkspaceHeaderControls, type WorkspaceOutputItem } from './workspace/WorkspaceWorkbench'
 import ExternalAgentWorkspace from './external-agent/ExternalAgentWorkspace'
 import OrganizationWorkbench from './organization/OrganizationWorkbench'
-import DigitalTwinTrainingWorkspace from './digital-twin/DigitalTwinTrainingWorkspace'
+import DigitalTwinTrainingWorkspace, { A2ATaskBoard } from './digital-twin/DigitalTwinTrainingWorkspace'
 import { useWorkspaceWorkbench, type WorkspaceTab } from './workspace/useWorkspaceWorkbench'
 import type { WorkspaceTreeNode } from './workspace/workspaceTypes'
 import {
@@ -176,13 +176,13 @@ const generatedHtmlSource = `<!doctype html>
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <title>Hello COMAC AI</title>
+    <title>Hello Comac Claw</title>
   </head>
   <body>
     <main class="hero-card">
       <span>⚡</span>
       <h1>Hello World</h1>
-      <p>这是一个由 COMAC AI 生成的 HTML 页面。</p>
+      <p>这是一个由 Comac Claw 生成的 HTML 页面。</p>
       <time>2026.07.22</time>
     </main>
   </body>
@@ -193,7 +193,7 @@ const generatedHtmlDocument = `<!doctype html><html lang="zh-CN"><head><meta cha
 .card{width:min(520px,calc(100% - 48px));padding:58px 44px;border:1px solid rgba(255,255,255,.9);border-radius:30px;background:rgba(255,255,255,.78);box-shadow:0 30px 80px rgba(57,87,125,.18);text-align:center;backdrop-filter:blur(18px)}
 .icon{width:58px;height:58px;margin:0 auto 20px;border-radius:18px;display:grid;place-items:center;color:white;background:linear-gradient(135deg,#2e87e7,#765dde);font-size:28px;box-shadow:0 15px 30px rgba(76,103,210,.28)}
 h1{margin:0;color:#182334;font-size:46px;letter-spacing:-1.5px}p{margin:14px 0 28px;color:#647187;font-size:15px;line-height:1.7}time{color:#98a4b4;font-size:12px;letter-spacing:2px}
-</style></head><body><main class="card"><div class="icon">⚡</div><h1>Hello World</h1><p>这是一个简单的 HTML 页面，由 COMAC AI 为你生成。</p><time>2026.07.22</time></main></body></html>`
+</style></head><body><main class="card"><div class="icon">⚡</div><h1>Hello World</h1><p>这是一个简单的 HTML 页面，由 Comac Claw 为你生成。</p><time>2026.07.22</time></main></body></html>`
 
 function HtmlBrowserPreview({ artifact, onOpenSource }: { artifact: Artifact; onOpenSource: () => void }) {
   const [refreshKey, setRefreshKey] = useState(0)
@@ -241,7 +241,7 @@ function ArtifactPreview({ artifact }: { artifact: Artifact }) {
             <div className="ppt-scroll">
               <div className="slide-canvas">
                 <p>智能体应用介绍</p>
-                <h1>COMAC AI</h1>
+                <h1>Comac Claw</h1>
                 <span>面向业务流的智能体工作台</span>
                 <div className="slide-metrics">
                   <div><strong>任务</strong><em>统一入口</em></div>
@@ -268,7 +268,7 @@ function ArtifactPreview({ artifact }: { artifact: Artifact }) {
                 <span className="word-crop word-crop--bl" />
                 <span className="word-crop word-crop--br" />
                 <h1>输出物预览示例</h1>
-                <p className="word-author">由 COMAC AI 生成</p>
+                <p className="word-author">由 Comac Claw 生成</p>
                 <section>
                   <h2>一、文档内容</h2>
                   <p>这是一份用于演示 Word 预览形态的文档。页面保持固定尺寸，用户通过上下滚动浏览连续分页。</p>
@@ -393,7 +393,12 @@ function App() {
   const [downloadToast, setDownloadToast] = useState('')
   const [assistantBusy, setAssistantBusy] = useState(false)
   const [assistantWorkspaceVisible, setAssistantWorkspaceVisible] = useState(false)
-  const [assistantDestination, setAssistantDestination] = useState<AssistantDestination>(()=>new URLSearchParams(location.search).get('view')==='twin'?{type:'feature',featureId:'training'}:{ type: 'assistant' })
+  const [assistantDestination, setAssistantDestination] = useState<AssistantDestination>(() => {
+    const view = new URLSearchParams(location.search).get('view')
+    if (view === 'twin') return { type: 'feature', featureId: 'training' }
+    if (view === 'a2a') return { type: 'feature', featureId: 'a2a' }
+    return { type: 'assistant' }
+  })
   const [a2aConversations, setA2AConversations] = useState<A2AConversation[]>(seedA2AConversations)
   const [a2aCommands, setA2ACommands] = useState<A2AConversationCommand[]>([])
   const [notifications, setNotifications] = useState<AssistantNotification[]>(createSeedNotifications)
@@ -463,7 +468,7 @@ function App() {
   const navItems = useMemo(
     () => [
       { label: '新建任务', icon: Plus },
-      { label: '组织智能工作台', icon: LayoutGrid },
+      { label: '组织智能', icon: LayoutGrid },
       { label: '专家', icon: BriefcaseBusiness },
       { label: '自动化', icon: Clock3 },
     ],
@@ -738,7 +743,15 @@ function App() {
 
   useEffect(() => {
     const url = new URL(location.href)
-    const view = appMode === 'admin' ? 'admin' : appMode === 'assistant' ? assistantDestination.type === 'feature' && assistantDestination.featureId === 'training' ? 'twin' : 'assistant' : 'task'
+    const view = appMode === 'admin'
+      ? 'admin'
+      : appMode === 'assistant'
+        ? assistantDestination.type === 'feature' && assistantDestination.featureId === 'training'
+          ? 'twin'
+          : assistantDestination.type === 'feature' && assistantDestination.featureId === 'a2a'
+            ? 'a2a'
+            : 'assistant'
+        : 'task'
     url.searchParams.set('view', view)
     history.replaceState(null, '', url)
   }, [appMode, assistantDestination])
@@ -898,11 +911,11 @@ function App() {
           {hasPendingA2AConfirmation && <i className="global-assistant-confirmation-dot" title="有事项等待本人确认" />}
         </button>}
 
-        <main className={`workspace ${activeNav === '自动化' ? 'workspace--automation' : ''} ${surfaceMode === 'assistant' ? 'workspace--assistant' : ''} ${surfaceMode === 'admin' ? 'workspace--admin' : ''} ${activeNav === '外部 Agent' ? 'workspace--external-agent' : ''} ${activeNav === '组织智能工作台' ? 'workspace--organization' : ''}`}>
+        <main className={`workspace ${activeNav === '自动化' ? 'workspace--automation' : ''} ${surfaceMode === 'assistant' ? 'workspace--assistant' : ''} ${surfaceMode === 'admin' ? 'workspace--admin' : ''} ${activeNav === '外部 Agent' ? 'workspace--external-agent' : ''} ${activeNav === '组织智能' ? 'workspace--organization' : ''}`}>
           <div className={`app-mode-panel ${surfaceMode === 'task' ? '' : 'is-hidden'}`}>
             {activeNav === '外部 Agent' ? (
             <ExternalAgentWorkspace />
-          ) : activeNav === '组织智能工作台' ? (
+          ) : activeNav === '组织智能' ? (
             <OrganizationWorkbench />
           ) : activeNav === '自动化' ? (
             <AutomationWorkspace tasks={automationTasks} runs={automationRuns} setTasks={setAutomationTasks} setRuns={setAutomationRuns} />
@@ -911,7 +924,7 @@ function App() {
               <section className="chat-pane">
                 <header className="chat-header">
                   <div>
-                    <p className="chat-kicker">COMAC AI</p>
+                    <p className="chat-kicker">Comac Claw</p>
                     <h2>{openedTask ? openedTask.title : '新建任务'}</h2>
                   </div>
                   <div className="chat-header-actions">
@@ -932,7 +945,7 @@ function App() {
                 {messages.length === 0 ? (
                   <section className="welcome" aria-live="polite">
                     <div className="bot-mark"><Bot size={55} strokeWidth={1.8} /></div>
-                    <h1><span>COMAC AI</span>，我帮你</h1>
+                    <h1><span>Comac Claw</span>，我帮你</h1>
                     <p>从一个想法开始，让分析、文档与日常工作更进一步。</p>
                     <div className="welcome-prompts" aria-label="任务灵感">
                       <button className="welcome-prompt" type="button" onClick={() => setPrompt('帮我生成一份 WORD 工作总结，梳理本周进展与下周计划。')}><FileText size={15} />起草工作总结</button>
@@ -949,7 +962,7 @@ function App() {
                         )}
                         <div className="message-bubble">
                           {message.role === 'assistant' && (
-                            <div className="assistant-name">COMAC AI</div>
+                            <div className="assistant-name">Comac Claw</div>
                           )}
                           <p>{message.content}</p>
                           {message.artifact && (
@@ -1096,13 +1109,20 @@ function App() {
             </div>
             {assistantDestination.type === 'feature' && assistantDestination.featureId === 'training' && (
               <div className="assistant-destination-panel">
-                <DigitalTwinTrainingWorkspace
-                  a2aConversations={a2aConversations}
-                  onOpenA2AConversation={(conversationId) => setAssistantDestination({ type: 'conversation', conversationId })}
-                />
+                <DigitalTwinTrainingWorkspace />
               </div>
             )}
-            {assistantDestination.type === 'feature' && assistantDestination.featureId !== 'training' && (
+            {assistantDestination.type === 'feature' && assistantDestination.featureId === 'automation' && (
+              <div className="assistant-destination-panel">
+                <AutomationWorkspace tasks={automationTasks} runs={automationRuns} setTasks={setAutomationTasks} setRuns={setAutomationRuns} />
+              </div>
+            )}
+            {assistantDestination.type === 'feature' && assistantDestination.featureId === 'a2a' && (
+              <div className="assistant-destination-panel">
+                <A2ATaskBoard a2aConversations={a2aConversations} onOpenA2AConversation={(conversationId) => setAssistantDestination({ type: 'conversation', conversationId })} />
+              </div>
+            )}
+            {assistantDestination.type === 'feature' && !['training', 'automation', 'a2a'].includes(assistantDestination.featureId) && (
               <div className="assistant-destination-panel">
                 <AssistantFeaturePlaceholder featureId={assistantDestination.featureId} />
               </div>

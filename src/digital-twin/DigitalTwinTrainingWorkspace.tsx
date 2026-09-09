@@ -201,6 +201,69 @@ const cols: [TaskStatus, string, string][] = [
   ["confirm", "待我确认", "需要你做出决定"],
   ["done", "已完成", "已送达或协作已结束"],
 ];
+
+export function A2ATaskBoard({
+  a2aConversations,
+  onOpenA2AConversation,
+}: {
+  a2aConversations: A2AConversation[];
+  onOpenA2AConversation: (id: string) => void;
+}) {
+  const [taskId, setTaskId] = useState<string | null>(null);
+  const tasks = useMemo(() => a2aConversations.map(taskFrom), [a2aConversations]);
+  const selectedTask = tasks.find((task) => task.id === taskId);
+
+  return (
+    <section className="a2a-task-board">
+      <header className="a2a-task-board-heading">
+        <div>
+          <h1>A2A 任务</h1>
+          <p>集中查看协作进度、待确认事项与已完成任务。</p>
+        </div>
+      </header>
+      <div className="board a2a-task-board-grid">
+        {cols.map(([id, title, desc]) => {
+          const list = tasks.filter((task) => task.status === id);
+          return (
+            <section key={id}>
+              <header>
+                <div><i /><b>{title}</b><small>{desc}</small></div>
+                <em>{list.length}</em>
+              </header>
+              <div>
+                {list.length ? list.map((task) => (
+                  <button className="task" key={task.id} onClick={() => setTaskId(task.id)}>
+                    <span>{task.kind}</span>
+                    <b>{task.title}</b>
+                    <p>{task.detail}</p>
+                    <div>
+                      {task.people.map((person) => <i key={person}>{person.slice(0, 1)}</i>)}
+                      <small>{task.people.join(" · ")}</small>
+                    </div>
+                    <footer><span>{task.owner}</span><time>{task.update}</time></footer>
+                  </button>
+                )) : <div className="rc"><Empty title={`暂无${title}任务`} /></div>}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+      {selectedTask && (
+        <Dialog
+          title={selectedTask.title}
+          onClose={() => setTaskId(null)}
+          footer={<><button onClick={() => setTaskId(null)}>关闭</button><button className="rc-primary" onClick={() => { onOpenA2AConversation(selectedTask.conversationId); setTaskId(null); }}>进入对应会话</button></>}
+        >
+          <div className="rc-stack">
+            <p>{selectedTask.detail}</p>
+            <p>执行人：{selectedTask.owner}</p>
+            <p>参与分身：{selectedTask.people.join("、")}</p>
+          </div>
+        </Dialog>
+      )}
+    </section>
+  );
+}
 function changeDate(d: string, mode: string, n: number) {
   const v = new Date(`${d}T12:00:00`);
   if (mode === "month") {
@@ -446,7 +509,7 @@ function AssessmentPanel() {
       <div className="heading">
         <div>
           <span className="twin-eyebrow">ROLE ASSESSMENT</span>
-          <h2>智能体评测</h2>
+          <h2>分身评测</h2>
         </div>
         <div className="assessment-actions">
           <button onClick={() => setView("history")}>
@@ -548,7 +611,7 @@ function AssessmentPanel() {
                 ? "岗位准备度检查依据"
                 : view === "performance"
                   ? "任务反馈依据"
-                  : "智能体评测报告"
+                  : "分身评测报告"
           }
           eyebrow="ROLE ASSESSMENT"
           close={() => setView(null)}
@@ -594,7 +657,7 @@ function AssessmentPanel() {
                   <button
                     onClick={() =>
                       download(
-                        "个人智能体评测.json",
+                        "个人分身评测.json",
                         JSON.stringify(report, null, 2),
                       )
                     }
@@ -708,30 +771,18 @@ function AssessmentPanel() {
     </section>
   );
 }
-export default function DigitalTwinTrainingWorkspace({
-  a2aConversations,
-  onOpenA2AConversation,
-}: {
-  a2aConversations: A2AConversation[];
-  onOpenA2AConversation: (id: string) => void;
-}) {
+export default function DigitalTwinTrainingWorkspace() {
   const store = useRoleStore();
   const [profile, setProfile] = useState<ProfileTab | null>(null),
     [resource, setResource] = useState<ResourceTab | null>(null),
     [identityOpen, setIdentityOpen] = useState(false),
-    [taskId, setTaskId] = useState<string | null>(null),
     [event, setEvent] = useState<Event | null>(null),
     [selectedGrowthEventId, setSelectedGrowthEventId] = useState<string | null>(null),
     [day, setDay] = useState(() =>
       new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Shanghai" }),
     ),
     [mode, setMode] = useState("week");
-  const tasks = useMemo(
-    () => a2aConversations.map(taskFrom),
-    [a2aConversations],
-  );
-  const user = store.people.find((p) => p.id === CURRENT_USER)!.name,
-    selectedTask = tasks.find((t) => t.id === taskId);
+  const user = store.people.find((p) => p.id === CURRENT_USER)!.name;
   const resources = effectiveResources(store);
   const allEvents: Event[] = [
     ...store.growth
@@ -955,60 +1006,6 @@ export default function DigitalTwinTrainingWorkspace({
                 </button>)}
               </div> : <Empty title="所选周期暂无成长事件" />}
             </section>
-            <section>
-              <div className="heading">
-                <div>
-                  <span className="twin-eyebrow">A2A TASK BOARD</span>
-                  <h2>A2A 任务</h2>
-                </div>
-              </div>
-              <div className="board">
-                {cols.map(([id, title, desc]) => {
-                  const list = tasks.filter((t) => t.status === id);
-                  return (
-                    <section key={id}>
-                      <header>
-                        <div>
-                          <i />
-                          <b>{title}</b>
-                          <small>{desc}</small>
-                        </div>
-                        <em>{list.length}</em>
-                      </header>
-                      <div>
-                        {list.length ? (
-                          list.map((t) => (
-                            <button
-                              className="task"
-                              key={t.id}
-                              onClick={() => setTaskId(t.id)}
-                            >
-                              <span>{t.kind}</span>
-                              <b>{t.title}</b>
-                              <p>{t.detail}</p>
-                              <div>
-                                {t.people.map((x) => (
-                                  <i key={x}>{x.slice(0, 1)}</i>
-                                ))}
-                                <small>{t.people.join(" · ")}</small>
-                              </div>
-                              <footer>
-                                <span>{t.owner}</span>
-                                <time>{t.update}</time>
-                              </footer>
-                            </button>
-                          ))
-                        ) : (
-                          <div className="rc">
-                            <Empty title={`暂无${title}任务`} />
-                          </div>
-                        )}
-                      </div>
-                    </section>
-                  );
-                })}
-              </div>
-            </section>
             <PersonalLogs />
           </div>
         </div>
@@ -1070,32 +1067,6 @@ export default function DigitalTwinTrainingWorkspace({
               }
             />
           )}
-        </Dialog>
-      )}
-      {selectedTask && (
-        <Dialog
-          title={selectedTask.title}
-          onClose={() => setTaskId(null)}
-          footer={
-            <>
-              <button onClick={() => setTaskId(null)}>关闭</button>
-              <button
-                className="rc-primary"
-                onClick={() => {
-                  onOpenA2AConversation(selectedTask.conversationId);
-                  setTaskId(null);
-                }}
-              >
-                进入对应会话
-              </button>
-            </>
-          }
-        >
-          <div className="rc-stack">
-            <p>{selectedTask.detail}</p>
-            <p>执行人：{selectedTask.owner}</p>
-            <p>参与分身：{selectedTask.people.join("、")}</p>
-          </div>
         </Dialog>
       )}
       {event && (

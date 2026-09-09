@@ -234,5 +234,5 @@ export function relativeFuture(value: string | null): string {
 export function createMockResult(task: AutomationTask): string {
   if (task.name.includes('适航') || task.prompt.includes('适航')) return airworthinessResult
   if (task.name.includes('AOG') || task.prompt.includes('供应商')) return aogResult
-  return `“${task.name}”已完成模拟执行\n\n执行摘要\nCOMAC AI 已按照任务提示词完成信息整理、要点提取和结果组织。\n\n本次任务要求\n${task.prompt}\n\n模拟输出\n1. 已识别任务目标与输出范围。\n2. 已完成相关信息的汇总与结构化整理。\n3. 已形成可供后续业务确认的结果草稿。\n\n说明：当前为纯前端演示结果，正式产品将由后端智能体生成真实内容。`
+  return `“${task.name}”已完成模拟执行\n\n执行摘要\nComac Claw 已按照任务提示词完成信息整理、要点提取和结果组织。\n\n本次任务要求\n${task.prompt}\n\n模拟输出\n1. 已识别任务目标与输出范围。\n2. 已完成相关信息的汇总与结构化整理。\n3. 已形成可供后续业务确认的结果草稿。\n\n说明：当前为纯前端演示结果，正式产品将由后端智能体生成真实内容。`
 }

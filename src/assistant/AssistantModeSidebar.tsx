@@ -1,14 +1,16 @@
 import {
   Bot,
   ChevronRight,
+  Clock3,
   Settings2,
   LayoutPanelLeft,
   Search,
+  UsersRound,
 } from 'lucide-react'
 import { useState } from 'react'
 import './a2a-groups.css'
 
-type AssistantFeatureId = 'automation' | 'experts' | 'skills' | 'mcp' | 'training'
+type AssistantFeatureId = 'automation' | 'experts' | 'skills' | 'mcp' | 'training' | 'a2a'
 
 type AssistantDestination =
   | { type: 'assistant' }
@@ -61,6 +63,19 @@ export default function AssistantModeSidebar({
           <strong>我的助理</strong>
         </span>
       </button>
+
+      <nav className="assistant-feature-nav" aria-label="助理功能">
+        <button className={destination.type === 'feature' && destination.featureId === 'automation' ? 'active' : ''} type="button" onClick={() => onSelectFeature('automation')}>
+          <Clock3 size={18} />
+          <span>定时器</span>
+          <ChevronRight size={14} />
+        </button>
+        <button className={destination.type === 'feature' && destination.featureId === 'a2a' ? 'active' : ''} type="button" onClick={() => onSelectFeature('a2a')}>
+          <UsersRound size={18} />
+          <span>A2A 任务</span>
+          <ChevronRight size={14} />
+        </button>
+      </nav>
 
       <div className="assistant-sidebar-footer">
         <button className="assistant-training-card" type="button" onClick={() => onSelectFeature('training')}>

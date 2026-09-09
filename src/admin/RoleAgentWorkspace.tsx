@@ -1,5 +1,8 @@
+import type { Position } from "./positionModels";
+import type { AdminPageId } from "./mockAdminData";
+import { PositionTree, PositionCapabilityMap } from "./PositionCapabilityMap";
 import { useFeedback } from "../role-center/feedback";
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   Bot,
@@ -30,7 +33,6 @@ import {
   sections,
   uid,
   type Definition,
-  type Asset,
   type ResourceKind,
   type RoleAgent,
   type Scope,
@@ -54,8 +56,10 @@ const KINDS: [ResourceKind, string][] = [
   ["mcp", "MCP"],
 ];
 const anchors = [
+  ["map", "能力地图"],
   ["summary", "岗位画像"],
-  ["assets", "能力与资产"],
+  ["assets", "能力配置"],
+  ["release", "评测与发布"],
   ["versions", "版本记录"],
 ];
 type PositionSource = Pick<
@@ -146,10 +150,10 @@ const POSITION_SOURCES: PositionSource[] = [
 ];
 export default function RoleAgentWorkspace({
   onDirtyChange,
-  requestNavigate,
+  onNavigate,
 }: {
   onDirtyChange: (dirty: boolean) => void;
-  requestNavigate: (run: () => void) => void;
+  onNavigate: (page: AdminPageId) => void;
 }) {
   const store = useRoleStore();
   const initial = new URLSearchParams(location.search);
@@ -240,17 +244,6 @@ export default function RoleAgentWorkspace({
       store.suggestions.filter((s) => s.status === "待处理").length,
     ],
   ];
-  if (creating)
-    return (
-      <div className="rc rc-shell">
-        <CreateRole
-          copyId={copyId}
-          onDirtyChange={onDirtyChange}
-          onCancel={() => requestNavigate(() => setCreating(false))}
-        />
-        {feedback}
-      </div>
-    );
   if (selected)
     return (
       <div className="rc rc-shell">
@@ -259,6 +252,7 @@ export default function RoleAgentWorkspace({
           role={selected}
           onDirtyChange={onDirtyChange}
           onBack={() => setSelectedId("")}
+          onApproval={() => onNavigate("approvals")}
         />
       </div>
     );
@@ -483,6 +477,7 @@ export default function RoleAgentWorkspace({
           />
         </Dialog>
       )}
+      {creating && <CreateRole copyId={copyId} onCancel={() => setCreating(false)} onCreated={(id) => { setCreating(false); open(id); }} />}
       {deleteId && (
         <Confirm
           title="删除岗位智能体草稿"
@@ -503,391 +498,46 @@ export default function RoleAgentWorkspace({
     </div>
   );
 }
-function OrganizationTreePicker({
-  selected,
-  people,
-  onChange,
-}: {
-  selected: string[];
-  people: { org: string; active: boolean }[];
-  onChange: (orgs: string[]) => void;
-}) {
-  const [expanded, setExpanded] = useState(() => new Set(["comac"]));
-  const childrenOf = (id: string) =>
-    ORGS.filter(
-      (org) =>
-        org.id.startsWith(`${id}/`) &&
-        !org.id.slice(id.length + 1).includes("/"),
-    );
-  const memberCount = (id: string) =>
-    people.filter(
-      (person) =>
-        person.active && (person.org === id || person.org.startsWith(`${id}/`)),
-    ).length;
-  const toggleExpanded = (id: string) =>
-    setExpanded((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  const toggleSelected = (id: string) =>
-    onChange(
-      selected.includes(id)
-        ? selected.filter((orgId) => orgId !== id)
-        : [...selected, id],
-    );
-  const renderNode = (org: (typeof ORGS)[number], level = 0): ReactNode => {
-    const children = childrenOf(org.id);
-    const hasChildren = children.length > 0;
-    const open = expanded.has(org.id);
-    const label = org.name.split(" / ").at(-1) || org.name;
-    return (
-      <li key={org.id}>
-        <div className="rc-org-tree-node" style={{ "--org-depth": level } as CSSProperties}>
-          {hasChildren ? (
-            <button
-              className="rc-org-tree-toggle"
-              type="button"
-              aria-label={open ? `收起${label}` : `展开${label}`}
-              aria-expanded={open}
-              onClick={() => toggleExpanded(org.id)}
-            >
-              <ChevronRight size={15} />
-            </button>
-          ) : <span className="rc-org-tree-spacer" aria-hidden="true" />}
-          <label>
-            <input
-              type="checkbox"
-              checked={selected.includes(org.id)}
-              onChange={() => toggleSelected(org.id)}
-            />
-            <span className="rc-org-tree-copy">
-              <strong>{label}</strong>
-              <small>{memberCount(org.id)} 人</small>
-            </span>
-          </label>
-        </div>
-        {hasChildren && open && (
-          <ul>{children.map((child) => renderNode(child, level + 1))}</ul>
-        )}
-      </li>
-    );
-  };
-  const roots = ORGS.filter((org) => !org.id.includes("/"));
-  return <ul className="rc-org-tree">{roots.map((root) => renderNode(root))}</ul>;
-}
-
-function CreateRole({
-  copyId,
-  onDirtyChange,
-  onCancel,
-}: {
-  copyId: string;
-  onDirtyChange: (dirty: boolean) => void;
-  onCancel: () => void;
-}) {
+function CreateRole({ copyId, onCancel, onCreated }: { copyId: string; onCancel: () => void; onCreated: (id: string) => void }) {
   const store = useRoleStore();
-  const original = store.roles.find((r) => r.id === copyId);
-  const initialDefinition = (): Definition => {
-    if (original) {
-      const definition = structuredClone(currentDefinition(original));
-      definition.name = `${definition.name}副本`;
-      definition.owner = store.adminId;
-      definition.scope = emptyScope();
-      return definition;
-    }
-    return {
-      ...baseDefinition("", store.adminId),
-      resourceIds: [],
-      scope: emptyScope(),
-      responsibilities: "",
-      capabilityMap: [],
-      knowledgeMap: [],
-      permissionRules: "",
-      templates: [],
-      tests: [],
-    };
-  };
-  const [form, setForm] = useState<Definition>(initialDefinition),
-    [savedId, setSavedId] = useState(""),
-    [savedSnapshot, setSavedSnapshot] = useState("");
-  const selectedScopeCount = form.scope.orgs.length;
-  const dirty = savedId
-    ? JSON.stringify(form) !== savedSnapshot
-    : Boolean(form.name.trim() || selectedScopeCount || form.responsibilities.trim() || form.permissionRules.trim() || form.resourceIds.length || form.capabilityMap.length || form.knowledgeMap.length || form.templates.length);
-  useEffect(() => {
-    onDirtyChange(dirty);
-  }, [dirty, onDirtyChange]);
-  useEffect(() => () => onDirtyChange(false), [onDirtyChange]);
-  useEffect(() => {
-    const listener = (event: BeforeUnloadEvent) => {
-      if (dirty) event.preventDefault();
-    };
-    window.addEventListener("beforeunload", listener);
-    return () => window.removeEventListener("beforeunload", listener);
-  }, [dirty]);
+  const [position, setPosition] = useState<Position>();
   const { perform, feedback } = useFeedback();
-  const update = (next: Definition) => setForm(next);
-  const updateAsset = (
-    key: "capabilityMap" | "knowledgeMap" | "templates",
-    id: string,
-    patch: Partial<Asset>,
-  ) =>
-    update({
-      ...form,
-      [key]: form[key].map((asset) =>
-        asset.id === id ? { ...asset, ...patch } : asset,
-      ),
-    });
-  const addAsset = (key: "capabilityMap" | "knowledgeMap" | "templates") =>
-    update({
-      ...form,
-      [key]: [...form[key], { id: uid(key), name: "", content: "" }],
-    });
-  const removeAsset = (
-    key: "capabilityMap" | "knowledgeMap" | "templates",
-    id: string,
-  ) => update({ ...form, [key]: form[key].filter((asset) => asset.id !== id) });
-  const save = () => {
-    const next = { ...form, name: form.name.trim(), owner: store.adminId };
-    const id = perform(() => {
-      if (savedId) {
-        actions.save(savedId, next);
-        return savedId;
-      }
-      return actions.create(
-        next.name,
-        store.adminId,
-        next.scope,
-        copyId || undefined,
-        next,
-      );
-    }, savedId ? "草稿已保存" : "已创建 V0.1 草稿");
-    if (typeof id === "string") {
-      update(next);
-      setSavedId(id);
-      setSavedSnapshot(JSON.stringify(next));
-    }
-  };
-  return (
-    <div className="rc-create-shell">
-      <div className="rc-heading">
-        <div>
-          <button className="rc-link" onClick={onCancel}>
-            <ArrowLeft size={15} />
-            返回列表
-          </button>
-          <h1 style={{ marginTop: 12 }}>
-            {savedId ? "岗位智能体配置" : original ? "复制岗位智能体" : "新建岗位智能体"}
-          </h1>
-          <p>
-            {savedId
-              ? "V0.1 草稿 · 在同一工作台中持续维护适用人员与岗位配置"
-              : "先定义适用人员，再在右侧完成岗位工作方法与能力配置。"}
-          </p>
-        </div>
-        {savedId && <Badge tone="gray">V0.1 草稿</Badge>}
-      </div>
-      {original && !savedId && (
-        <Notice>
-          已预填“{currentDefinition(original).name}
-          ”的岗位画像、能力与工作资产；适用人员需在左侧重新选择。
-        </Notice>
-      )}
-      <div className="rc-create-layout">
-        <aside className="rc-create-scope" aria-label="适用组织">
-          <header>
-            <div>
-              <small>APPLICABILITY</small>
-              <h2>适用组织</h2>
-              <p>决定哪些成员可在个人前台添加此智能体。</p>
-            </div>
-            <Badge tone={selectedScopeCount ? "blue" : "gray"}>
-              {selectedScopeCount ? `${selectedScopeCount} 项已选` : "待选择"}
-            </Badge>
-          </header>
-          <OrganizationTreePicker
-            selected={form.scope.orgs}
-            people={store.people}
-            onChange={(orgs) =>
-              update({ ...form, scope: { orgs, groups: [], users: [] } })
-            }
-          />
-          <Notice>
-            仅按组织选择适用范围。选中上级组织时，将覆盖其下级组织成员；保存草稿前至少选择一个组织。
-          </Notice>
-        </aside>
-        <main className="rc-create-config">
-          <section className="rc-section rc-stack">
-            <header>
-              <div>
-                <small>ROLE PROFILE</small>
-                <h2>岗位画像</h2>
-                <p>沿用详情页原有顺序：名称、岗位职责、能力地图、知识地图与行为规则。</p>
-              </div>
-            </header>
-            <label className="rc-field">
-              岗位智能体名称
-              <input
-                autoFocus={!original}
-                maxLength={40}
-                value={form.name}
-                onChange={(event) => update({ ...form, name: event.target.value })}
-                placeholder="例如：功能型产品经理智能体"
-              />
-              <small>{form.name.trim().length}/40 个字符，至少填写 2 个字符。</small>
-            </label>
-            <label className="rc-field">
-              岗位职责
-              <textarea
-                className="rc-editor"
-                value={form.responsibilities}
-                onChange={(event) => update({ ...form, responsibilities: event.target.value })}
-                placeholder="建议包含岗位目标、核心职责、关键交付物和工作边界。"
-              />
-            </label>
-            {([
-              ["capabilityMap", "能力地图", "描述该岗位的工作方法、步骤与异常分支"],
-              ["knowledgeMap", "知识地图", "说明需要掌握的规范、流程与资料范围"],
-            ] as const).map(([key, label, hint]) => (
-              <section className="rc-create-assets" key={key}>
-                <header>
-                  <div><h3>{label}</h3><p>{hint}</p></div>
-                  <button type="button" onClick={() => addAsset(key)}><Plus size={14} />添加</button>
-                </header>
-                {form[key].map((asset) => (
-                  <div className="rc-create-asset" key={asset.id}>
-                    <input
-                      aria-label={`${label}名称`}
-                      value={asset.name}
-                      onChange={(event) => updateAsset(key, asset.id, { name: event.target.value })}
-                      placeholder={`${label}名称`}
-                    />
-                    <textarea
-                      aria-label={`${label}内容`}
-                      value={asset.content}
-                      onChange={(event) => updateAsset(key, asset.id, { content: event.target.value })}
-                      placeholder={hint}
-                    />
-                    <button className="rc-icon" type="button" aria-label={`移除${label}`} onClick={() => removeAsset(key, asset.id)}><Trash2 size={15} /></button>
-                  </div>
-                ))}
-                {!form[key].length && <p className="rc-create-empty">尚未配置{label}，可稍后补充。</p>}
-              </section>
-            ))}
-            <label className="rc-field">
-              行为规则
-              <textarea
-                className="rc-editor rc-editor--compact"
-                value={form.permissionRules}
-                onChange={(event) => update({ ...form, permissionRules: event.target.value })}
-                placeholder="例如：涉及对外承诺、资源调整或敏感数据时，必须由责任人确认。"
-              />
-            </label>
-          </section>
-          <section className="rc-section rc-stack">
-            <header>
-              <div>
-                <small>CAPABILITIES & ASSETS</small>
-                <h2>岗位能力包与工作资产</h2>
-                <p>选择可复用技能、MCP，并补充岗位专属的输出模板。</p>
-              </div>
-            </header>
-            <div className="rc-create-resource-grid">
-              {KINDS.map(([kind, label]) => {
-                const resources = store.resources.filter((resource) => resource.kind === kind && resource.active);
-                return (
-                  <section className="rc-create-resource-group" key={kind}>
-                    <h3>{label}</h3>
-                    {resources.map((resource) => (
-                      <label key={resource.id}>
-                        <input
-                          type="checkbox"
-                          checked={form.resourceIds.includes(resource.id)}
-                          onChange={() => update({
-                            ...form,
-                            resourceIds: form.resourceIds.includes(resource.id)
-                              ? form.resourceIds.filter((id) => id !== resource.id)
-                              : [...form.resourceIds, resource.id],
-                          })}
-                        />
-                        <span><strong>{resource.name}</strong><small>{resource.description}</small></span>
-                      </label>
-                    ))}
-                  </section>
-                );
-              })}
-            </div>
-            {([
-              ["templates", "输出模板", "定义常用交付物的结构和质量标准"],
-            ] as const).map(([key, label, hint]) => (
-              <section className="rc-create-assets" key={key}>
-                <header>
-                  <div><h3>{label}</h3><p>{hint}</p></div>
-                  <button type="button" onClick={() => addAsset(key)}><Plus size={14} />添加</button>
-                </header>
-                {form[key].map((asset) => (
-                  <div className="rc-create-asset" key={asset.id}>
-                    <input
-                      aria-label={`${label}名称`}
-                      value={asset.name}
-                      onChange={(event) => updateAsset(key, asset.id, { name: event.target.value })}
-                      placeholder={`${label}名称`}
-                    />
-                    <textarea
-                      aria-label={`${label}内容`}
-                      value={asset.content}
-                      onChange={(event) => updateAsset(key, asset.id, { content: event.target.value })}
-                      placeholder={hint}
-                    />
-                    <button className="rc-icon" type="button" aria-label={`移除${label}`} onClick={() => removeAsset(key, asset.id)}><Trash2 size={15} /></button>
-                  </div>
-                ))}
-                {!form[key].length && <p className="rc-create-empty">尚未配置{label}，可稍后补充。</p>}
-              </section>
-            ))}
-          </section>
-          <section className="rc-section rc-create-version-placeholder">
-            <header>
-              <div>
-                <small>VERSION HISTORY</small>
-                <h2>版本与变更记录</h2>
-                <p>创建草稿后，在这里持续记录保存、修改和后续版本变更。</p>
-              </div>
-              <Badge tone="gray">{savedId ? "V0.1 草稿" : "待创建"}</Badge>
-            </header>
-            <p>{savedId ? "当前草稿已建立，后续保存会更新变更记录。" : "保存草稿后将生成 V0.1，并开始记录配置变更。"}</p>
-          </section>
-          <footer className="rc-create-actions">
-            <div>
-              {dirty ? <small>当前修改尚未保存</small> : savedId ? <small>所有修改已保存</small> : <small>保存后创建 V0.1 草稿</small>}
-            <span>适用人员：{selectedScopeCount || "未选择"}</span>
-          </div>
-          <div className="rc-actions">
-            <button type="button" onClick={onCancel}>取消</button>
-            <button className="rc-primary" type="button" onClick={save} disabled={!dirty && Boolean(savedId)}>
-              {savedId ? "保存草稿" : "创建草稿并继续配置"}
-            </button>
-          </div>
-          </footer>
-        </main>
-      </div>
-      {feedback}
-    </div>
-  );
+  const original = store.roles.find(r => r.id === copyId);
+  return <Dialog title={original ? "复制岗位智能体 · 选择所属岗位" : "新建岗位智能体"} onClose={onCancel} footer={<><button onClick={onCancel}>取消</button><button className="rc-primary" disabled={!position} onClick={() => {
+    if (!position) return;
+    const source = POSITION_SOURCES.find(p => p.name === position.name);
+    const definition: Definition = original ? structuredClone(currentDefinition(original)) : { ...baseDefinition(`${position.name}智能体`, store.adminId), resourceIds: [], responsibilities: source?.responsibilities || "", capabilityMap: [], knowledgeMap: source?.knowledgeMap || [], permissionRules: source?.permissionRules || "", templates: [], tests: [] };
+    definition.name = original ? `${definition.name}副本` : `${position.name}智能体`;
+    definition.position = position;
+    definition.owner = store.adminId;
+    definition.scope = { orgs: [position.org], groups: [], users: [] };
+    const result = perform(() => actions.create(definition.name, store.adminId, definition.scope, copyId || undefined, definition), "已创建草稿");
+    if (typeof result === "string") onCreated(result);
+  }}>确认岗位，进入配置<ChevronRight size={15}/></button></>}>
+    <div className="pc-create-steps"><strong><span>1</span>选择岗位</strong><i/><span>2 配置智能体</span></div>
+    <p className="pc-dialog-intro">展开组织，选择这个智能体所属的具体岗位。</p>
+    <PositionTree value={position} onChange={setPosition}/>
+    <div className="pc-selection-summary">{position ? <><CheckCircle2 size={17}/><span>{ORGS.find(o => o.id === position.org)?.name} / <strong>{position.name}</strong></span></> : "请选择一个岗位，组织节点仅用于展开。"}</div>
+    {feedback}
+  </Dialog>;
 }
 function RoleDetail({
   role,
   onDirtyChange,
   onBack,
+  onApproval,
 }: {
   role: RoleAgent;
   onDirtyChange: (dirty: boolean) => void;
   onBack: () => void;
+  onApproval: () => void;
 }) {
   const store = useRoleStore();
   const d = currentDefinition(role);
+  const [activeTab, setActiveTab] = useState("map");
+  const [associateOpen, setAssociateOpen] = useState(false);
+  const [pendingPosition, setPendingPosition] = useState<Position>();
+  const [editingProfile, setEditingProfile] = useState(false);
   const [form, setForm] = useState<Definition>(() => structuredClone(d)),
     [picker, setPicker] = useState<ResourceKind | null>(null),
     [assetEditor, setAssetEditor] = useState<{
@@ -950,7 +600,6 @@ function RoleDetail({
     update({
       ...form,
       responsibilities: source.responsibilities,
-      capabilityMap: structuredClone(source.capabilityMap),
       knowledgeMap: structuredClone(source.knowledgeMap),
       permissionRules: source.permissionRules,
     });
@@ -963,10 +612,6 @@ function RoleDetail({
       form.knowledgeMap.length ||
       form.permissionRules.trim(),
   );
-  const anchor = (id: string) =>
-    document
-      .getElementById(id)
-      ?.scrollIntoView({ behavior: "smooth", block: "start" });
   return (
     <>
       <div className="rc-detail-head">
@@ -1062,22 +707,16 @@ function RoleDetail({
           </Notice>
         )}
       </div>
-      <nav className="rc-anchor-nav">
-        {anchors.map(([id, label]) => (
-          <a
-            key={id}
-            href={`#${id}`}
-            onClick={(e) => {
-              e.preventDefault();
-              anchor(id);
-            }}
-          >
-            {label}
-          </a>
-        ))}
-      </nav>
-      <div className="rc-stack">
-        <section id="summary" className="rc-section rc-role-profile">
+      <div className="pc-config-layout">
+        <aside className="pc-config-sidebar"><header><span className="pc-eyebrow">ORGANIZATION</span><h3>组织架构</h3></header>
+          <PositionTree key={form.position?.id || "unlinked"} value={form.position}/>
+          <div className="pc-sidebar-current"><small>当前配置岗位</small><strong>{form.position?.name || "尚未关联组织岗位"}</strong>{editable && !form.position && <button onClick={() => {setPendingPosition(undefined); setAssociateOpen(true);}}>关联岗位</button>}</div>
+        </aside>
+        <main className="pc-config-main">
+          <nav className="pc-tabs" aria-label="岗位配置模块">{anchors.map(([id,label]) => <button key={id} aria-current={activeTab === id ? "page" : undefined} className={activeTab === id ? "active" : ""} onClick={() => setActiveTab(id)}>{label}</button>)}</nav>
+          <div className="pc-tab-content">
+          {activeTab === "map" && <PositionCapabilityMap key={form.position?.id || "unlinked"} definition={form} onAssociate={editable ? () => {setPendingPosition(undefined);setAssociateOpen(true);} : undefined}/>}
+        <section id="summary" hidden={activeTab !== "summary"} className="rc-section rc-role-profile">
           <header>
             <h2>岗位画像</h2>
             <div className="rc-actions">
@@ -1088,13 +727,14 @@ function RoleDetail({
                     setExtractionOpen(true);
                   }}
                 >
-                  本体抽取
+                  导入岗位资料
                 </button>
               )}
-              <small>岗位职责、能力地图、知识地图与行为规则</small>
+              <small>岗位职责、知识地图与行为规则</small>
+              {editable && <button onClick={() => setEditingProfile(!editingProfile)}>{editingProfile ? "完成编辑" : "编辑画像"}</button>}
             </div>
           </header>
-          {editable && (
+          {editable && editingProfile && (
             <div className="rc-grid" style={{ marginBottom: 24 }}>
               <label className="rc-field">
                 岗位智能体名称
@@ -1121,10 +761,10 @@ function RoleDetail({
               </label>
             </div>
           )}
-          <div className={!editable ? "rc-profile-grid" : undefined}>
-          <div className={`rc-assets ${!editable ? "rc-profile-card rc-profile-responsibilities" : ""}`}>
+          <div className={!(editable && editingProfile) ? "rc-profile-grid" : undefined}>
+          <div className={`rc-assets ${!(editable && editingProfile) ? "rc-profile-card rc-profile-responsibilities" : ""}`}>
             <header><h3>岗位职责</h3></header>
-            {editable ? (
+            {editable && editingProfile ? (
               <textarea
                 className="rc-editor"
                 aria-label="岗位职责"
@@ -1136,11 +776,10 @@ function RoleDetail({
           </div>
           {(
             [
-              ["capabilityMap", "能力地图"],
               ["knowledgeMap", "知识地图"],
             ] as const
           ).map(([kind, label]) => (
-            <div className={`rc-assets ${!editable ? "rc-profile-card" : ""}`} key={kind}>
+            <div className={`rc-assets ${!(editable && editingProfile) ? "rc-profile-card" : ""}`} key={kind}>
               <header>
                 <h3>{label}</h3>
                 {editable && <button onClick={() => newAsset(kind)}><Plus size={14} />添加{label}</button>}
@@ -1156,20 +795,20 @@ function RoleDetail({
               {!form[kind].length && <small>尚未配置{label}</small>}
             </div>
           ))}
-          <div className={`rc-assets ${!editable ? "rc-profile-card rc-profile-rules" : ""}`}>
+          <div className={`rc-assets ${!(editable && editingProfile) ? "rc-profile-card rc-profile-rules" : ""}`}>
             <header><h3>行为规则</h3></header>
-            {editable ? (
+            {editable && editingProfile ? (
               <textarea className="rc-editor" aria-label="行为规则" value={form.permissionRules} onChange={(e) => update({ ...form, permissionRules: e.target.value })} />
             ) : <Markdown content={form.permissionRules} />}
             {!form.permissionRules.trim() && <Notice error>请补充行为规则</Notice>}
           </div>
           </div>
         </section>
-        <section id="assets" className="rc-section">
+        <section id="assets" hidden={activeTab !== "assets"} className="rc-section">
           <header>
             <div>
-              <h2>岗位能力包与工作资产</h2>
-              <p>选择可用资源，并配置岗位执行方法与质量标准</p>
+              <h2>能力配置</h2>
+              <p>配置岗位执行时可调用的技能与 MCP</p>
             </div>
           </header>
           {KINDS.map(([kind, label]) => (
@@ -1228,67 +867,8 @@ function RoleDetail({
               ) && <small>尚未配置{label}</small>}
             </div>
           ))}
-          {(
-            [
-              ["templates", "输出模板"],
-              ["tests", "评测用例"],
-            ] as const
-          ).map(([kind, label]) => (
-            <div className="rc-assets" key={kind}>
-              <header>
-                <h3>{label}</h3>
-                {editable && (
-                  <button onClick={() => newAsset(kind)}>
-                    <Plus size={14} />
-                    添加{label}
-                  </button>
-                )}
-              </header>
-              {form[kind].map((asset) => (
-                <div className="rc-asset" key={asset.id}>
-                  <FileText size={18} />
-                  <div>
-                    <strong>{asset.name}</strong>
-                    {"redline" in asset && asset.redline && (
-                      <Badge tone="amber">红线</Badge>
-                    )}
-                    <small>{asset.content}</small>
-                  </div>
-                  <button
-                    onClick={() =>
-                      setAssetEditor({
-                        kind,
-                        asset: {
-                          ...asset,
-                          redline: "redline" in asset ? asset.redline : false,
-                        },
-                        isNew: false,
-                      })
-                    }
-                  >
-                    {editable ? "编辑" : "查看"}
-                  </button>
-                  {editable && (
-                    <button
-                      className="rc-icon"
-                      aria-label={`移除${asset.name}`}
-                      onClick={() =>
-                        update({
-                          ...form,
-                          [kind]: form[kind].filter((a) => a.id !== asset.id),
-                        })
-                      }
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  )}
-                </div>
-              ))}
-              {!form[kind].length && <small>尚未配置{label}</small>}
-            </div>
-          ))}
         </section>
-        <section id="versions" className="rc-section">
+        <section id="versions" hidden={activeTab !== "versions"} className="rc-section">
           <header>
             <div>
               <h2>版本与变更记录</h2>
@@ -1380,7 +960,17 @@ function RoleDetail({
             </button>
           )}
         </section>
+        {activeTab === "release" && (
+          <ReleasePanel
+            role={role}
+            dirty={dirty}
+            onApproval={onApproval}
+          />
+        )}
+          </div>
+        </main>
       </div>
+      {associateOpen && <Dialog title="关联组织岗位" onClose={() => setAssociateOpen(false)} footer={<><button onClick={() => setAssociateOpen(false)}>取消</button><button className="rc-primary" disabled={!pendingPosition} onClick={() => {if (pendingPosition) update({...form, position: pendingPosition});setAssociateOpen(false);}}>确认关联</button></>}><PositionTree value={pendingPosition} onChange={setPendingPosition}/></Dialog>}
       {editable && (
         <div className="rc-sticky-save">
           <span>{dirty ? "有未保存的修改" : "草稿已保存"}</span>
@@ -1399,6 +989,18 @@ function RoleDetail({
               }
             >
               保存草稿
+            </button>
+            <button
+              className="rc-primary"
+              disabled={dirty || !canEdit(store)}
+              onClick={() =>
+                perform(
+                  () => actions.startEvaluation(role.id),
+                  "已生成评测检查结果",
+                )
+              }
+            >
+              发起评测
             </button>
           </div>
         </div>
@@ -1451,7 +1053,7 @@ function RoleDetail({
       {overwriteSource && (
         <Confirm
           title="覆盖当前岗位画像？"
-          description={`将以“${overwriteSource.org} / ${overwriteSource.name}”的抽取结果覆盖岗位职责、能力地图、知识地图和权限规则；岗位名称、维护人和可添加范围不会变化。`}
+          description={`将以“${overwriteSource.org} / ${overwriteSource.name}”的抽取结果覆盖岗位职责、知识地图和行为规则；岗位名称、维护人和可添加范围不会变化。`}
           label="确认覆盖并填充"
           onClose={() => setOverwriteSource(null)}
           onConfirm={() => applyExtraction(overwriteSource)}
@@ -1666,7 +1268,7 @@ function PositionTreeDialog({
     >
       <div className="rc-stack">
         <Notice>
-          选择一个具体岗位节点，系统将以 Mock 数据填充当前岗位画像的四个模块。
+          选择一个具体岗位节点，将导入对应示例岗位的职责、知识与行为规则，能力地图仍以当前关联岗位为准。
         </Notice>
         <div className="rc-position-tree" role="radiogroup" aria-label="岗位组织树">
           <strong className="rc-tree-root">商飞智能</strong>

@@ -27,6 +27,7 @@ export type TestCase = Asset & {
 };
 export type Definition = {
   name: string;
+  position?: { id: string; org: string; name: string };
   owner: string;
   /** 已废弃的说明书兼容字段；仅用于读取旧版浏览器数据。 */
   markdown: string;
@@ -386,12 +387,9 @@ export function validateDefinition(
       const r = store.resources.find((r) => r.id === id);
       if (!r?.active) errors.push(`能力不可用：${r?.name || id}`);
     });
-    if (!definition.capabilityMap.length) errors.push("请配置至少一项能力地图");
-    if (!definition.templates.length) errors.push("请配置至少一项输出模板");
-    if (!definition.tests.some((t) => t.redline))
-      errors.push("请配置至少一条红线评测用例");
+    if (!definition.position && !definition.capabilityMap.length) errors.push("请配置至少一项能力地图");
     if (
-      [...definition.capabilityMap, ...definition.knowledgeMap, ...definition.templates, ...definition.tests].some(
+      [...definition.capabilityMap, ...definition.knowledgeMap].some(
         (a) => !a.name.trim() || !a.content.trim(),
       )
     )
@@ -433,16 +431,7 @@ export function evaluate(store: Store, role: RoleAgent): Evaluation {
         detail: "检查正式动作确认、越权限制和超出岗位职责时的升级路径",
       },
     ],
-    cases: d.tests.map((test) => ({
-      ...test,
-      passed:
-        test.content.trim().length >= 12 &&
-        (!test.redline ||
-          (/确认/.test(boundary) && /升级|负责人|专家/.test(boundary))),
-      evidence: test.redline
-        ? "岗位边界包含人工确认与升级路径；用例的实际输出须由复核人确认。"
-        : "输入场景与预期结果已定义，等待人工核对输出质量。",
-    })),
+    cases: [], // 岗位配置已移除评测用例；保留独立规则校验与人工复核。
   };
 }
 export function readyForApproval(role: RoleAgent) {
@@ -453,7 +442,6 @@ export function readyForApproval(role: RoleAgent) {
     e &&
     e.fingerprint === fingerprint(d.definition) &&
     e.checks.every((c) => c.passed) &&
-    e.cases.length &&
     e.cases.every((c) => c.passed) &&
     e.review?.note.trim()
   );

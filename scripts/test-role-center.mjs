@@ -18,6 +18,22 @@ for (const name of ["domain", "store"]) {
     .outputText.replace(/from ["']\.\/domain["']/g, 'from "./domain.mjs"');
   await writeFile(resolve(dir, `${name}.mjs`), output);
 }
+const modelSource = await readFile("src/admin/positionModels.ts", "utf8");
+await writeFile(resolve(dir, "positionModels.mjs"), ts.transpileModule(modelSource, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText);
+const { POSITIONS, modelsForPosition } = await import(pathToFileURL(resolve(dir, "positionModels.mjs")));
+for (const position of POSITIONS) {
+  const flows = modelsForPosition(position);
+  assert(flows.length >= 2);
+  for (const flow of flows) {
+    const ids = new Set(flow.nodes.map(n => n.id));
+    assert.equal(ids.size, flow.nodes.length);
+    assert(flow.nodes.filter(n => n.owner === position.name).length >= 2);
+    assert(flow.edges.every(e => ids.has(e.from) && ids.has(e.to) && e.condition));
+    assert(flow.nodes.every(n => n.input && n.output && n.owner));
+  }
+}
+assert.deepEqual(modelsForPosition({ id: "unknown", org: "unknown", name: "产品经理" }), []);
+console.log("PASS 本体示例多流程、多岗位节点、有效边与未知岗位空状态");
 const memory = new Map();
 globalThis.localStorage = {
   getItem: (key) => memory.get(key) ?? null,
@@ -43,6 +59,20 @@ async function test(name, run) {
   }
 }
 try {
+  await test("移除模板用例后，岗位关联可保存且审批仍需独立复核", ({ actions, getStore }) => {
+    actions.newDraft("functional-pm");
+    const d = structuredClone(getStore().roles.find(r => r.id === "functional-pm").draft.definition);
+    d.position = { id: "comac/product/position-0", org: "comac/product", name: "产品经理" };
+    d.capabilityMap = [];
+    d.templates = [];
+    d.tests = [];
+    actions.save("functional-pm", d);
+    assert.deepEqual(getStore().roles.find(r => r.id === "functional-pm").draft.definition.position, d.position);
+    actions.startEvaluation("functional-pm");
+    assert.equal(domain.readyForApproval(getStore().roles.find(r => r.id === "functional-pm")), false);
+    actions.review("functional-pm", "核对岗位职责、能力与工作边界", true);
+    assert.equal(domain.readyForApproval(getStore().roles.find(r => r.id === "functional-pm")), true);
+  });
   await test("组织、小组和指定人员按或关系命中，父组织覆盖子组织", () => {
     const s = domain.seedStore(),
       p = s.people.find((p) => p.id === domain.CURRENT_USER);
@@ -147,7 +177,7 @@ try {
       "已通过",
     );
   });
-  await test("草稿修改不影响线上，可添加范围只能在新建时配置", ({
+  await test("草稿修改可添加范围不影响当前线上版本", ({
     actions,
     getStore,
   }) => {
@@ -158,10 +188,9 @@ try {
     const d = structuredClone(before.definition);
     const changedScope = structuredClone(d);
     changedScope.scope = { orgs: ["comac/finance"], groups: [], users: [] };
-    assert.throws(
-      () => actions.save("functional-pm", changedScope),
-      /仅可在新建或复制岗位时配置/,
-    );
+    actions.save("functional-pm", changedScope);
+    assert.deepEqual(getStore().roles.find(r => r.id === "functional-pm").published, before);
+    assert.deepEqual(getStore().roles.find(r => r.id === "functional-pm").draft.definition.scope, changedScope.scope);
     d.responsibilities += "\n\n## 变更说明\n补充交付验收口径。";
     actions.save("functional-pm", d);
     assert(

@@ -1,109 +1,81 @@
-import { ArrowLeft, Bot, CalendarDays, CheckCircle2, ChevronRight, CircleDashed, Clock3, FileCheck2, FileText, FolderKanban, MessageSquareText, MoreHorizontal, PlayCircle, Search, Sparkles, UsersRound } from 'lucide-react'
-import { useState } from 'react'
+import { CheckCircle2, CircleDashed, Clock3, FolderKanban, MoreHorizontal, PlayCircle } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import './organization.css'
 
-type WorkbenchItem = {
-  id: string
-  title: string
-  description: string
-  icon: typeof Sparkles
-  tone: 'blue' | 'violet' | 'orange' | 'green'
+type TaskStatus = 'pending' | 'progress' | 'completed'
+type TaskCard = { title: string; due: string; priority: '高' | '中' | '低' | '已完成'; owner: string }
+type TaskColumn = { id: TaskStatus; title: string; description: string; icon: typeof CircleDashed; cards: TaskCard[] }
+
+const taskBoards: Record<'brain' | 'project', { title: string; description: string; columns: TaskColumn[] }> = {
+  brain: {
+    title: 'C大脑任务', description: '由 C大脑发起并跟踪的组织协同事项，聚焦计划、分析与管理闭环。', columns: [
+      { id: 'pending', title: '待开始', description: '等待负责人启动', icon: CircleDashed, cards: [
+        { title: '梳理设计输入与约束条件', due: '9月10日', priority: '高', owner: '李明' },
+        { title: '组织总体方案评审会', due: '9月12日', priority: '中', owner: '陈琳' },
+        { title: '确认交付物清单与责任人', due: '9月15日', priority: '中', owner: '王伟' },
+      ] },
+      { id: 'progress', title: '进行中', description: '正在推进与反馈', icon: PlayCircle, cards: [
+        { title: '汇总各专业本周进展', due: '今天', priority: '高', owner: '李明' },
+        { title: '识别关键节点风险项', due: '9月8日', priority: '高', owner: '陈琳' },
+      ] },
+      { id: 'completed', title: '已完成', description: '已形成可追溯结果', icon: CheckCircle2, cards: [
+        { title: '建立项目协同工作台', due: '9月4日', priority: '已完成', owner: '李明' },
+        { title: '明确周报编制模板', due: '9月3日', priority: '已完成', owner: '陈琳' },
+        { title: '收集各专业基础资料', due: '9月2日', priority: '已完成', owner: '王伟' },
+      ] },
+    ],
+  },
+  project: {
+    title: '项目任务', description: '由项目 AI 协助拆解和推进的执行任务，聚焦具体交付与跨角色协同。', columns: [
+      { id: 'pending', title: '待开始', description: '等待负责人启动', icon: CircleDashed, cards: [
+        { title: '补齐试验验证计划', due: '9月11日', priority: '高', owner: '赵敏' },
+        { title: '准备供应商评审材料', due: '9月13日', priority: '中', owner: '周航' },
+      ] },
+      { id: 'progress', title: '进行中', description: '正在推进与反馈', icon: PlayCircle, cards: [
+        { title: '跟进结构件交付风险', due: '今天', priority: '高', owner: '孙捷' },
+        { title: '核对设计变更影响范围', due: '9月9日', priority: '中', owner: '赵敏' },
+        { title: '编制项目阶段汇报材料', due: '9月10日', priority: '中', owner: '周航' },
+      ] },
+      { id: 'completed', title: '已完成', description: '已形成可追溯结果', icon: CheckCircle2, cards: [
+        { title: '完成项目启动信息同步', due: '9月5日', priority: '已完成', owner: '孙捷' },
+        { title: '归档首轮需求澄清记录', due: '9月4日', priority: '已完成', owner: '赵敏' },
+      ] },
+    ],
+  },
 }
 
-const workbenches: WorkbenchItem[] = [
-  { id: 'weekly', title: '周报智能编制', description: '汇总本周进展、风险与下周重点', icon: FileText, tone: 'blue' },
-  { id: 'risk', title: '项目风险识别', description: '识别关键节点与潜在交付风险', icon: Sparkles, tone: 'orange' },
-  { id: 'meeting', title: '会议纪要落实', description: '将会议结论自动拆解为行动计划', icon: MessageSquareText, tone: 'violet' },
-  { id: 'review', title: '需求评审协同', description: '组织跨角色评审与意见归集', icon: UsersRound, tone: 'blue' },
-  { id: 'delivery', title: '交付物检查', description: '检查交付材料的完整性与一致性', icon: FileCheck2, tone: 'green' },
-  { id: 'knowledge', title: '项目知识问答', description: '快速定位项目资料与历史决策', icon: Bot, tone: 'violet' },
-]
-
-const planColumns = [
-  {
-    id: 'pending', title: '待开始', count: 3, icon: CircleDashed,
-    cards: [
-      ['梳理设计输入与约束条件', '9月10日', '高'],
-      ['组织总体方案评审会', '9月12日', '中'],
-      ['确认交付物清单与责任人', '9月15日', '中'],
-    ],
-  },
-  {
-    id: 'progress', title: '进行中', count: 2, icon: PlayCircle,
-    cards: [
-      ['汇总各专业本周进展', '今天', '高'],
-      ['识别关键节点风险项', '9月8日', '高'],
-    ],
-  },
-  {
-    id: 'completed', title: '已完成', count: 3, icon: CheckCircle2,
-    cards: [
-      ['建立项目协同工作台', '9月4日', '已完成'],
-      ['明确周报编制模板', '9月3日', '已完成'],
-      ['收集各专业基础资料', '9月2日', '已完成'],
-    ],
-  },
-]
+const priorityClass = (priority: TaskCard['priority']) => priority === '高' ? 'is-high' : priority === '中' ? 'is-medium' : priority === '低' ? 'is-low' : 'is-done'
 
 export default function OrganizationWorkbench() {
-  const [selected, setSelected] = useState<WorkbenchItem | null>(null)
-  const [tab, setTab] = useState<'plan' | 'tasks'>('plan')
-
-  if (selected) {
-    return (
-      <section className="organization-workbench organization-workbench--detail">
-        <header className="org-detail-header">
-          <button type="button" className="org-crumb" onClick={() => setSelected(null)}><ArrowLeft size={18} /><span>组织智能工作台</span></button>
-          <ChevronRight size={16} className="org-crumb-separator" />
-          <strong>{selected.title}</strong>
-          <span className="org-demo-badge">演示任务</span>
-        </header>
-
-        <div className="org-detail-content">
-          <div className="org-detail-title-row">
-            <div><span className={`org-icon org-icon--${selected.tone}`}><selected.icon size={23} /></span><div><h1>{selected.title}</h1><p>{selected.description}，由 AI 协助完成计划编排和过程跟踪。</p></div></div>
-            <div className="org-detail-meta"><CalendarDays size={16} />更新于今天 09:30</div>
-          </div>
-
-          <div className="org-tabs" role="tablist">
-            <button className={tab === 'plan' ? 'active' : ''} type="button" onClick={() => setTab('plan')}>计划</button>
-            <button className={tab === 'tasks' ? 'active' : ''} type="button" onClick={() => setTab('tasks')}>任务</button>
-          </div>
-
-          {tab === 'plan' ? (
-            <div className="org-plan-board">
-              {planColumns.map((column) => {
-                const StatusIcon = column.icon
-                return <section className={`org-plan-column org-plan-column--${column.id}`} key={column.id}>
-                  <header><span><StatusIcon size={19} /><strong>{column.title}</strong><em>{column.count}</em></span><button type="button" aria-label={`${column.title}更多操作`}><MoreHorizontal size={19} /></button></header>
-                  <div className="org-plan-cards">
-                    {column.cards.map(([title, date, tag], index) => <article className="org-plan-card" key={title}>
-                      <div className="org-plan-card-title"><span className="org-card-index">{index + 1}</span><strong>{title}</strong></div>
-                      <div><span className={`org-priority ${tag === '高' ? 'is-high' : tag === '中' ? 'is-medium' : 'is-done'}`}>{tag}</span><span className="org-card-date"><Clock3 size={13} />{date}</span></div>
-                      <footer><span className="org-avatar">{['李', '陈', '王'][index]}</span><small>{index === 0 ? '李明' : index === 1 ? '陈琳' : '王伟'}</small></footer>
-                    </article>)}
-                  </div>
-                </section>
-              })}
-            </div>
-          ) : (
-            <div className="org-task-list-view">
-              <div className="org-task-list-head"><span>任务名称</span><span>状态</span><span>负责人</span><span>计划完成时间</span></div>
-              {planColumns.flatMap((column) => column.cards).map(([title, date, tag], index) => <div className="org-task-list-row" key={title}><strong>{title}</strong><span className={`org-priority ${tag === '高' ? 'is-high' : tag === '中' ? 'is-medium' : 'is-done'}`}>{tag === '已完成' ? '已完成' : tag === '高' ? '进行中' : '待开始'}</span><span className="org-person"><i>{['李', '陈', '王'][index % 3]}</i>{['李明', '陈琳', '王伟'][index % 3]}</span><span>{date}</span></div>)}
-            </div>
-          )}
-        </div>
-        <div className="org-ai-composer"><div><Sparkles size={18} /><span>请输入任务指令，AI 将协助拆解计划与推进事项</span></div><button type="button" disabled title="演示版暂不支持发送"><ArrowLeft size={18} /></button></div>
-      </section>
-    )
-  }
+  const [source, setSource] = useState<'brain' | 'project'>('brain')
+  const board = taskBoards[source]
+  const summary = useMemo(() => board.columns.reduce((total, column) => total + column.cards.length, 0), [board])
 
   return (
-    <section className="organization-workbench">
-      <header className="org-home-header"><div><span className="org-eyebrow">ORGANIZATION WORKBENCH</span><h1>组织智能工作台</h1><p>围绕组织目标，快速进入常用协同任务，让 AI 帮助团队有序推进。</p></div><div className="org-header-icon"><FolderKanban size={28} /></div></header>
-      <div className="org-overview"><article><span className="org-overview-icon blue"><PlayCircle size={19} /></span><div><strong>8</strong><span>进行中任务</span></div></article><article><span className="org-overview-icon orange"><Clock3 size={19} /></span><div><strong>12</strong><span>本周待处理</span></div></article><article><span className="org-overview-icon green"><CheckCircle2 size={19} /></span><div><strong>24</strong><span>本月已完成</span></div></article></div>
-      <div className="org-section-title"><div><h2>任务入口</h2><p>选择一个场景，开始组织协同工作。</p></div><label><Search size={17} /><input placeholder="搜索任务入口" readOnly /></label></div>
-      <div className="org-entry-grid">{workbenches.map((item) => { const Icon = item.icon; return <button className="org-entry-card" type="button" key={item.id} onClick={() => setSelected(item)}><span className={`org-icon org-icon--${item.tone}`}><Icon size={22} /></span><span className="org-entry-main"><strong>{item.title}</strong><small>{item.description}</small></span><ChevronRight size={19} /></button> })}</div>
+    <section className="organization-workbench organization-workbench--task-center">
+      <header className="org-task-center-header">
+        <div><span className="org-task-center-kicker">组织智能</span><h1>任务协同</h1><p>在同一个工作台查看组织管理事项与项目 AI 执行任务。</p></div>
+        <span className="org-header-icon"><FolderKanban size={27} /></span>
+      </header>
+      <div className="org-task-source-tabs" role="tablist" aria-label="任务来源">
+        <button className={source === 'brain' ? 'active' : ''} type="button" role="tab" aria-selected={source === 'brain'} onClick={() => setSource('brain')}>C大脑任务</button>
+        <button className={source === 'project' ? 'active' : ''} type="button" role="tab" aria-selected={source === 'project'} onClick={() => setSource('project')}>项目任务</button>
+      </div>
+      <section className="org-task-board-intro"><div><h2>{board.title}</h2><p>{board.description}</p></div><span>{summary} 项任务</span></section>
+      <div className="org-plan-board org-task-source-board">
+        {board.columns.map((column) => {
+          const StatusIcon = column.icon
+          return <section className={`org-plan-column org-plan-column--${column.id}`} key={column.id}>
+            <header><span><StatusIcon size={20} /><strong>{column.title}</strong><em>{column.cards.length}</em></span><button type="button" aria-label={`${column.title}更多操作`}><MoreHorizontal size={19} /></button></header>
+            <small className="org-column-description">{column.description}</small>
+            <div className="org-plan-cards">{column.cards.map((card, index) => <article className="org-plan-card" key={card.title}>
+              <div className="org-plan-card-title"><span className="org-card-index">{index + 1}</span><strong>{card.title}</strong></div>
+              <div><span className={`org-priority ${priorityClass(card.priority)}`}>{card.priority}</span><span className="org-card-date"><Clock3 size={13} />{card.due}</span></div>
+              <footer><span className="org-avatar">{card.owner.slice(0, 1)}</span><small>{card.owner}</small></footer>
+            </article>)}</div>
+          </section>
+        })}
+      </div>
     </section>
   )
 }

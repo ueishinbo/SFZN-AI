@@ -246,7 +246,7 @@ function AutomationWorkspace({ tasks, runs, setTasks, setRuns }: AutomationWorks
             <div className="automation-empty">
               <div className="empty-icon"><AlarmClock size={34} /></div>
               <h2>{query ? '未找到相关自动化任务' : '还没有自动化任务'}</h2>
-              <p>{query ? '请尝试更换关键词。' : '创建自动化任务，让 COMAC AI 按计划替你完成重复工作。'}</p>
+              <p>{query ? '请尝试更换关键词。' : '创建自动化任务，让 Comac Claw 按计划替你完成重复工作。'}</p>
               <button className="secondary-action" type="button" onClick={() => query ? setQuery('') : openCreate()}>{query ? '清除搜索' : '添加自动化'}</button>
             </div>
           ) : (
@@ -437,7 +437,7 @@ function AutomationForm({ initialTask, onCancel, onSave }: { initialTask: Automa
         <div className="form-field">
           <label htmlFor="automation-prompt">提示词 <em>*</em></label>
           <div className={`prompt-editor ${errors.prompt ? 'has-error' : ''}`}>
-            <textarea id="automation-prompt" value={draft.prompt} maxLength={10001} onChange={(event) => { setDraft({ ...draft, prompt: event.target.value }); setErrors({ ...errors, prompt: undefined }) }} placeholder="描述需要 COMAC AI 定时完成的任务、输入范围和输出要求" />
+            <textarea id="automation-prompt" value={draft.prompt} maxLength={10001} onChange={(event) => { setDraft({ ...draft, prompt: event.target.value }); setErrors({ ...errors, prompt: undefined }) }} placeholder="描述需要 Comac Claw 定时完成的任务、输入范围和输出要求" />
             <div className="prompt-config-bar">
               <label>模型<select value={draft.model} onChange={(event) => setDraft({ ...draft, model: event.target.value })}><option>商飞大模型 L1-S1</option><option>商飞大模型 L1-S2</option></select></label>
               <label>技能<select value={draft.skill} onChange={(event) => setDraft({ ...draft, skill: event.target.value })}><option value="">不使用技能</option><option>适航信息检索</option><option>供应链风险分析</option><option>材料生成</option></select></label>
@@ -512,7 +512,7 @@ function RunDetail({ run, task, onClose, onRerun }: { run: AutomationRun; task?:
             <div><dt>完成时间</dt><dd>{formatDateTime(run.finishedAt)}</dd></div>
           </dl>
           {(run.status === 'queued' || run.status === 'running') && (
-            <div className="run-progress"><LoaderCircle size={20} /><div><strong>{run.status === 'queued' ? '等待执行资源' : 'COMAC AI 正在执行任务'}</strong><span>演示环境将在几秒内生成模拟结果</span></div></div>
+            <div className="run-progress"><LoaderCircle size={20} /><div><strong>{run.status === 'queued' ? '等待执行资源' : 'Comac Claw 正在执行任务'}</strong><span>演示环境将在几秒内生成模拟结果</span></div></div>
           )}
           <section className="detail-section">
             <h3>输入快照</h3>

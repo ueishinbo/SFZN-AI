@@ -52,7 +52,7 @@ export default function AdminWorkspace({ onReturn }: { onReturn: () => void }) {
           <RoleAgentWorkspace
             key={viewKey}
             onDirtyChange={setDirty}
-            requestNavigate={navigate}
+            onNavigate={(page) => navigate(() => setActivePage(page))}
           />
         ) : activePage === "approvals" ? (
           <ApprovalCenter />
