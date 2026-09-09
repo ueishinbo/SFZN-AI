@@ -151,14 +151,17 @@ const POSITION_SOURCES: PositionSource[] = [
 export default function RoleAgentWorkspace({
   onDirtyChange,
   onNavigate,
+  initialPosition,
 }: {
+  initialPosition?: Position;
   onDirtyChange: (dirty: boolean) => void;
   onNavigate: (page: AdminPageId) => void;
 }) {
   const store = useRoleStore();
   const initial = new URLSearchParams(location.search);
-  const [selectedId, setSelectedId] = useState(initial.get("role") || ""),
-    [creating, setCreating] = useState(false),
+  const linkedRole = initialPosition && store.roles.find(r => currentDefinition(r).position?.id === initialPosition.id);
+  const [selectedId, setSelectedId] = useState(initialPosition ? (linkedRole ? linkedRole.id : "") : initial.get("role") || ""),
+    [creating, setCreating] = useState(!!initialPosition && !linkedRole),
     [copyId, setCopyId] = useState(""),
     [query, setQuery] = useState(initial.get("rq") || ""),
     [status, setStatus] = useState(initial.get("rs") || ""),
@@ -477,7 +480,7 @@ export default function RoleAgentWorkspace({
           />
         </Dialog>
       )}
-      {creating && <CreateRole copyId={copyId} onCancel={() => setCreating(false)} onCreated={(id) => { setCreating(false); open(id); }} />}
+      {creating && <CreateRole initialPosition={initialPosition} copyId={copyId} onCancel={() => setCreating(false)} onCreated={(id) => { setCreating(false); open(id); }} />}
       {deleteId && (
         <Confirm
           title="删除岗位智能体草稿"
@@ -498,9 +501,9 @@ export default function RoleAgentWorkspace({
     </div>
   );
 }
-function CreateRole({ copyId, onCancel, onCreated }: { copyId: string; onCancel: () => void; onCreated: (id: string) => void }) {
+function CreateRole({ copyId, onCancel, onCreated, initialPosition }: { initialPosition?: Position; copyId: string; onCancel: () => void; onCreated: (id: string) => void }) {
   const store = useRoleStore();
-  const [position, setPosition] = useState<Position>();
+  const [position, setPosition] = useState<Position | undefined>(initialPosition);
   const { perform, feedback } = useFeedback();
   const original = store.roles.find(r => r.id === copyId);
   return <Dialog title={original ? "复制岗位智能体 · 选择所属岗位" : "新建岗位智能体"} onClose={onCancel} footer={<><button onClick={onCancel}>取消</button><button className="rc-primary" disabled={!position} onClick={() => {

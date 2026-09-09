@@ -26,3 +26,26 @@ export function modelsForPosition(position: Position): Model[] {
   });
 }
 
+
+// One shared, manually defined project workflow for the demo.
+export const DEMO_ORGANIZATION = '场景验证小组';
+export const DEMO_POSITIONS = POSITIONS.filter(p => p.name === '产品经理' || p.name === '项目经理');
+export const LOCAL_PROCESS: Model = {
+  id: 'local-scenario-validation', name: '场景验证流程',
+  description: '场景验证小组 · 从验证需求到结果确认，明确各岗位协作与交付物',
+  nodes: [
+    { id: 'n0', name: '明确验证需求', owner: '产品经理', input: '业务场景与验证目标', output: '验证需求清单', knowledge: '场景需求说明', rule: '明确验证范围与验收标准。' },
+    { id: 'n1', name: '组织验证执行', owner: '项目经理', input: '验证需求清单', output: '验证记录与问题清单', knowledge: '验证计划与操作规范', rule: '记录验证证据，异常事项明确责任人。' },
+    { id: 'n2', name: '确认验证结果', owner: '产品经理', input: '验证记录与问题清单', output: '验证结论与改进建议', knowledge: '验证验收标准', rule: '未通过时退回补充验证，结论由负责人确认。' },
+    { id: 'n3', name: '归档与闭环', owner: '项目经理', input: '验证结论与改进建议', output: '验证报告与闭环记录', knowledge: '项目归档要求', rule: '确认问题闭环后归档。' },
+  ],
+  edges: [
+    { from: 'n0', to: 'n1', condition: '需求确认' },
+    { from: 'n1', to: 'n2', condition: '验证完成' },
+    { from: 'n2', to: 'n3', condition: '验证通过' },
+    { from: 'n2', to: 'n1', condition: '未通过 · 退回补充' },
+  ],
+};
+export function localModelsForPosition(position: Position): Model[] {
+  return DEMO_POSITIONS.some(p => p.id === position.id) ? [LOCAL_PROCESS] : [];
+}

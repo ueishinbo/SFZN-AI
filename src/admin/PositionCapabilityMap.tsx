@@ -3,7 +3,7 @@ import { ArrowRight, Check, ChevronDown, ChevronRight, GitBranch, Network, Searc
 import { ORGS, type Definition } from '../role-center/domain';
 import { Badge } from '../role-center/ui';
 
-import { catalog, POSITIONS, modelsForPosition, type Position } from "./positionModels";
+import { catalog, POSITIONS, modelsForPosition, localModelsForPosition, type Position } from "./positionModels";
 export function PositionTree({ value, onChange }: { value?: Position; onChange?: (p: Position) => void }) {
   const [query, setQuery] = useState('');
   const [expanded, setExpanded] = useState<string[]>(value ? ['comac', value.org] : ['comac']);
@@ -24,16 +24,18 @@ export function PositionTree({ value, onChange }: { value?: Position; onChange?:
   </div>;
 }
 
-export function PositionCapabilityMap({ definition, onAssociate }: { definition: Definition; onAssociate?: () => void }) {
-  const models = definition.position ? modelsForPosition(definition.position) : [];
+export function PositionCapabilityMap({ definition, onAssociate, initialSource = "ontology", processView = false }: { definition: Definition; onAssociate?: () => void; initialSource?: "ontology" | "local"; processView?: boolean }) {
+  const [source, setSource] = useState(initialSource);
+  const models = definition.position ? (source === "ontology" ? modelsForPosition : localModelsForPosition)(definition.position) : [];
   const [flowId, setFlowId] = useState('');
   const [nodeId, setNodeId] = useState('n1');
   const model = models.find(m => m.id === flowId) || models[0];
   const node = model?.nodes.find(n => n.id === nodeId) || model?.nodes[1];
   return <section className="rc-section pc-map">
-    <header><div><div className="pc-eyebrow">CAPABILITY MAP</div><h2>能力地图</h2><p>从业务流程理解岗位职责与上下游协作</p></div><Badge tone="blue">C 大脑 · 本体流程</Badge></header>
-    {!model || !node ? <div className="pc-empty-state"><Network size={36}/><h3>尚未关联岗位流程</h3><p>关联组织岗位后，查看该岗位在业务流程中的位置。</p>{onAssociate && <button onClick={onAssociate}>关联组织岗位</button>}{definition.capabilityMap.length > 0 && <details><summary>查看原有能力资料（待关联流程）</summary>{definition.capabilityMap.map(a => <article key={a.id}><strong>{a.name}</strong><p>{a.content}</p></article>)}</details>}</div> : <>
-      <div className="pc-model-meta"><span><span className="pc-live-dot"/>本体示例模型 · v1.0</span><span>{models.length} 条参与流程</span><span>当前岗位：{definition.position!.name}</span></div>
+    <header><div><div className="pc-eyebrow">CAPABILITY MAP</div><h2>{processView ? "流程节点与岗位协作" : "能力地图"}</h2><p>从业务流程理解岗位职责与上下游协作</p></div><Badge tone={source === "ontology" ? "blue" : "green"}>{source === "ontology" ? "本体平台 · 关联价值流" : "当前后台 · 组织流程"}</Badge></header>
+    {!processView && <div className="rc-actions" style={{ marginBottom: 18 }}><button className={source === "ontology" ? "rc-primary" : ""} aria-pressed={source === "ontology"} onClick={() => { setSource("ontology"); setFlowId(""); setNodeId("n1"); }}>本体平台</button><button className={source === "local" ? "rc-primary" : ""} aria-pressed={source === "local"} onClick={() => { setSource("local"); setFlowId(""); setNodeId("n1"); }}>当前后台</button></div>}
+    {!model || !node ? <div className="pc-empty-state"><Network size={36}/><h3>尚未关联岗位流程</h3><p>{source === "local" ? "当前岗位暂无后台定义的组织流程。" : "关联组织岗位后，查看该岗位在业务流程中的位置。"}</p>{onAssociate && <button onClick={onAssociate}>关联组织岗位</button>}{definition.capabilityMap.length > 0 && <details><summary>查看原有能力资料（待关联流程）</summary>{definition.capabilityMap.map(a => <article key={a.id}><strong>{a.name}</strong><p>{a.content}</p></article>)}</details>}</div> : <>
+      <div className="pc-model-meta"><span><span className="pc-live-dot"/>{source === "ontology" ? "本体示例模型 · v1.0" : "场景验证小组 · 手动定义"}</span><span>{models.length} 条参与流程</span><span>当前岗位：{definition.position!.name}</span></div>
       <div className="pc-map-layout"><aside className="pc-flows"><h3>参与的业务流程</h3>{models.map(m => <button key={m.id} className={model.id === m.id ? 'active' : ''} onClick={() => {setFlowId(m.id); setNodeId('n1');}}><GitBranch size={17}/><span><strong>{m.name}</strong><small>{m.nodes.filter(n => n.owner === definition.position?.name).length} 个本岗节点 · {m.nodes.length} 个流程节点</small></span><ChevronRight size={14}/></button>)}</aside>
         <div className="pc-flow-workspace"><div className="pc-flow-title"><div><h3>{model.name}</h3><p>{model.description}</p></div><small><span className="pc-position-dot"/> 本岗位节点</small></div>
           <div className="pc-canvas"><div className="pc-node-row">{model.nodes.map((n, i) => <div className="pc-node-slot" key={n.id}><button aria-pressed={node.id === n.id} className={`pc-node ${n.owner === definition.position?.name ? 'owned' : ''} ${node.id === n.id ? 'active' : ''}`} onClick={() => setNodeId(n.id)}><small>{String(i+1).padStart(2,'0')} · {n.owner === definition.position?.name ? '本岗位' : n.owner}</small><strong>{n.name}</strong><span>{n.owner}</span></button>{i < model.nodes.length - 1 && <ArrowRight className="pc-edge" size={19}/>}</div>)}</div><div className="pc-return-edge">↶ {model.nodes[2].name} → {model.nodes[1].name} · 未通过时退回补充</div></div>

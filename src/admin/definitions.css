@@ -1,0 +1,22 @@
+.definition-layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 20px; align-items: start; }
+.definition-main { min-width: 0; display: grid; gap: 20px; }
+.definition-tree { min-height: 530px; }
+.definition-tree > small { display: block; margin: 22px 0 10px; color: #8290a2; }
+.definition-tree > button { width: 100%; justify-content: flex-start; margin-bottom: 6px; border-color: transparent; text-align: left; }
+.definition-tree > button.selected { color: #2878c7; background: #edf5fd; }
+.definition-tree > button.definition-child { padding-left: 30px; }
+.definition-table-scroll { overflow-x: auto; }
+.definition-table { width: 100%; border-collapse: collapse; white-space: nowrap; text-align: left; }
+.definition-table th { padding: 13px 12px; background: #f6f8fb; color: #778599; font-size: 12px; font-weight: 500; }
+.definition-table td { padding: 20px 12px; border-bottom: 1px solid #edf0f4; font-size: 13px; }
+.definition-table tbody tr:last-child td { border-bottom: 0; }
+.definition-tags { display: grid; gap: 6px; justify-items: start; }
+.definition-note { margin-bottom: 0; color: #8290a2; font-size: 12px; }
+.definition-field { display: grid; gap: 10px; }
+.definition-placeholder { text-align: center; padding: 30px; color: #718299; }
+.definition-placeholder svg { color: #4388c7; }
+.definition-flow-summary { display: flex; align-items: center; gap: 16px; color: #7c8b9d; font-size: 12px; }
+@media (max-width: 1000px) { .definition-layout { grid-template-columns: 200px minmax(0, 1fr); gap: 12px; } }
+@media (max-width: 700px) { .definition-layout { grid-template-columns: 1fr; } .definition-tree { min-height: auto; } .definition-steps { flex-wrap: wrap; } }.definition-main > .rc-section { min-width: 0; }
+.admin-content:has(.definition-shell) { padding: 28px; }
+.definition-shell { max-width: 1380px; }

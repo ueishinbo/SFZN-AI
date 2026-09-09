@@ -1,5 +1,7 @@
 import { useFeedback } from "../role-center/feedback";
 import { useEffect, useState } from "react";
+import DefinitionWorkspace from "./DefinitionWorkspace";
+import type { Position } from "./positionModels";
 import AdminOverview from "./AdminOverview";
 import RoleAgentWorkspace from "./RoleAgentWorkspace";
 import AdminSidebar from "./AdminSidebar";
@@ -25,6 +27,7 @@ export default function AdminWorkspace({ onReturn }: { onReturn: () => void }) {
         (p) => p.id === new URLSearchParams(location.search).get("page"),
       )?.id || "roleAgents",
   );
+  const [entryPosition, setEntryPosition] = useState<Position>();
   const [dirty, setDirty] = useState(false),
     [pending, setPending] = useState<{ run: () => void } | null>(null),
     [viewKey, setViewKey] = useState(0);
@@ -40,17 +43,24 @@ export default function AdminWorkspace({ onReturn }: { onReturn: () => void }) {
       <AdminSidebar
         activePage={activePage}
         onSelect={(page) => {
-          if (page !== activePage) navigate(() => setActivePage(page));
+          if (page !== activePage) navigate(() => { setEntryPosition(undefined); setActivePage(page); });
         }}
         onBack={() => navigate(onReturn)}
         onAccount={(id) => navigate(() => actions.setAdmin(id))}
       />
       <main className="admin-content">
-        {activePage === "overview" ? (
+        {activePage === "organizationDefinition" || activePage === "processDefinition" ? (
+          <DefinitionWorkspace page={activePage} onConfigure={(position) => {
+            setEntryPosition(position);
+            setViewKey(n => n + 1);
+            setActivePage("roleAgents");
+          }} />
+        ) : activePage === "overview" ? (
           <AdminOverview onNavigate={setActivePage} />
         ) : activePage === "roleAgents" ? (
           <RoleAgentWorkspace
             key={viewKey}
+            initialPosition={entryPosition}
             onDirtyChange={setDirty}
             onNavigate={(page) => navigate(() => setActivePage(page))}
           />
@@ -82,7 +92,7 @@ function ResourceConsole({
 }: {
   pageId: Exclude<
     AdminPageId,
-    "overview" | "roleAgents" | "approvals" | "logs"
+    "overview" | "roleAgents" | "approvals" | "logs" | "organizationDefinition" | "processDefinition"
   >;
 }) {
   const store = useRoleStore();
