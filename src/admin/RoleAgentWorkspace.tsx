@@ -734,33 +734,6 @@ function RoleDetail({
               {editable && <button onClick={() => setEditingProfile(!editingProfile)}>{editingProfile ? "完成编辑" : "编辑画像"}</button>}
             </div>
           </header>
-          {editable && editingProfile && (
-            <div className="rc-grid" style={{ marginBottom: 24 }}>
-              <label className="rc-field">
-                岗位智能体名称
-                <input
-                  maxLength={40}
-                  value={form.name}
-                  onChange={(e) => update({ ...form, name: e.target.value })}
-                />
-              </label>
-              <label className="rc-field">
-                维护人
-                <select
-                  value={form.owner}
-                  onChange={(e) => update({ ...form, owner: e.target.value })}
-                >
-                  {store.people
-                    .filter((p) => p.role === "resource_admin" && p.active)
-                    .map((p) => (
-                      <option value={p.id} key={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                </select>
-              </label>
-            </div>
-          )}
           <div className={!(editable && editingProfile) ? "rc-profile-grid" : undefined}>
           <div className={`rc-assets ${!(editable && editingProfile) ? "rc-profile-card rc-profile-responsibilities" : ""}`}>
             <header><h3>岗位职责</h3></header>

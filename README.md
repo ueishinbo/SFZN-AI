@@ -41,6 +41,7 @@ npm run dev
 - 助理目录：规则、用户偏好、长期记忆、每日工作记忆、任务文件与输出物
 - 通过自然语言从协作任务创建自动催办
 - 宽屏、窄屏和移动端适配
+- 岗位智能体前后台闭环：岗位创建与配置、能力地图、评测发布、审批、个人添加/启停、运行治理与受控进化
 
 ## 工程结构
 
@@ -52,6 +53,7 @@ npm run dev
 
 ## 项目文档
 
+- [文档导航与权威层级](./docs/README.md)
 - [项目概要与新会话接续说明](./PROJECT_CONTEXT.md)
 - [Workspace 工作台交互规范 PRD](./docs/PRD-Workspace工作台交互规范.md)
 - [双模式会话与统一 Workspace PRD](./docs/PRD-双模式会话与统一Workspace.md)
@@ -61,3 +63,4 @@ npm run dev
 - [A2A 用户决策与确认机制 PRD](./docs/PRD-A2A用户决策与确认机制.md)
 - [助理 SubAgent 协同执行过程 PRD](./docs/PRD-助理SubAgent协同执行过程.md)
 - [A2A 用户决策与确认机制完整方案（独立 HTML）](./docs/A2A用户决策与确认机制-完整方案.html)
+- [岗位智能体前后台方案索引](./docs/岗位智能体前后台方案/README.md)
