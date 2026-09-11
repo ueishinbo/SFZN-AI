@@ -6,23 +6,47 @@ import ts from "typescript";
 const cache = resolve("node_modules/.cache");
 await mkdir(cache, { recursive: true });
 const dir = await mkdtemp(resolve(cache, "role-tests-"));
-for (const name of ["domain", "store"]) {
-  const source = await readFile(`src/role-center/${name}.ts`, "utf8");
-  const output = ts
-    .transpileModule(source, {
-      compilerOptions: {
-        module: ts.ModuleKind.ESNext,
-        target: ts.ScriptTarget.ES2022,
-      },
-    })
-    .outputText.replace(/from ["']\.\/domain["']/g, 'from "./domain.mjs"');
+for (const [name, sourcePath] of Object.entries({ domain: 'src/role-center/domain.ts', store: 'src/role-center/store.ts', positionModels: 'src/admin/positionModels.ts', procurementDemo: 'src/admin/procurementDemo.ts' })) {
+  const source = await readFile(sourcePath, 'utf8');
+  const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText
+    .replace(/from ["'][^"']*\/(domain|procurementDemo|positionModels)["']/g, 'from "./$1.mjs"');
   await writeFile(resolve(dir, `${name}.mjs`), output);
 }
-const modelSource = await readFile("src/admin/positionModels.ts", "utf8");
-await writeFile(resolve(dir, "positionModels.mjs"), ts.transpileModule(modelSource, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText);
+const purchase = await import(pathToFileURL(resolve(dir, 'procurementDemo.mjs')));
+let trial = purchase.createTrial(purchase.DEFAULT_PURCHASE);
+trial = purchase.advanceTrial(trial);
+assert.equal(trial.stage, 'blocked');
+assert.equal(trial.artifacts.length, 0);
+assert.equal(purchase.resumeTrial(trial, '-1'), trial);
+trial = purchase.resumeTrial(trial, '30');
+trial = purchase.advanceTrial(trial);
+assert.equal(trial.step, 1);
+assert.match(trial.artifacts[0], /30 万元/);
+trial = purchase.advanceTrial(trial);
+assert.equal(trial.stage, 'approval');
+assert.equal(trial.artifacts[2], undefined);
+assert.equal(purchase.advanceTrial(trial), trial);
+trial = purchase.advanceTrial(purchase.approveTrial(trial));
+assert.equal(trial.stage, 'complete');
+assert.equal(trial.artifacts.length, 3);
+assert.equal(trial.hadBlock, true);
+let normal = purchase.createTrial({ ...purchase.DEFAULT_PURCHASE, item: '测试工装', quantity: 3, budget: '20' });
+normal = purchase.advanceTrial(purchase.advanceTrial(normal));
+assert.equal(normal.stage, 'approval');
+assert.match(normal.artifacts[0], /测试工装/);
+assert.match(normal.artifacts[0], /3 台/);
+normal = purchase.advanceTrial(purchase.approveTrial(normal));
+assert.equal(normal.hadBlock, false);
+assert.equal(normal.stage, 'complete');
+console.log('PASS 采购试运行：缺失预算阻塞、补充重跑、人工确认门禁、正常路径与输入传递');
 const { POSITIONS, modelsForPosition } = await import(pathToFileURL(resolve(dir, "positionModels.mjs")));
 for (const position of POSITIONS) {
   const flows = modelsForPosition(position);
+  if (position.org === purchase.PROCUREMENT_ORG) {
+    assert.equal(flows.length, 0);
+    assert(purchase.PROCUREMENT_PROCESS.nodes.some(n => n.owner === position.name));
+    continue;
+  }
   assert(flows.length >= 2);
   for (const flow of flows) {
     const ids = new Set(flow.nodes.map(n => n.id));

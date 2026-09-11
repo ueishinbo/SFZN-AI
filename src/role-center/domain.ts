@@ -173,6 +173,7 @@ export type Store = {
 };
 export const CURRENT_USER = "zhangsan";
 export const ORGS = [
+  { id: "comac/procurement", name: "商飞智能 / 采购管理部" },
   { id: "comac", name: "商飞智能" },
   { id: "comac/product", name: "商飞智能 / 产品研发部" },
   { id: "comac/marketing", name: "商飞智能 / 市场与营销部" },

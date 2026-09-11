@@ -1,8 +1,8 @@
 import { useFeedback } from "../role-center/feedback";
 import { useEffect, useState } from "react";
+import ProcessSimulationPage from "../process-simulation/ProcessSimulationPage";
 import DefinitionWorkspace from "./DefinitionWorkspace";
 import type { Position } from "./positionModels";
-import AdminOverview from "./AdminOverview";
 import RoleAgentWorkspace from "./RoleAgentWorkspace";
 import AdminSidebar from "./AdminSidebar";
 import {
@@ -50,13 +50,11 @@ export default function AdminWorkspace({ onReturn }: { onReturn: () => void }) {
       />
       <main className="admin-content">
         {activePage === "organizationDefinition" || activePage === "processDefinition" ? (
-          <DefinitionWorkspace page={activePage} onConfigure={(position) => {
+          <DefinitionWorkspace page={activePage} onTrial={() => setActivePage("processSimulation")} onConfigure={(position) => {
             setEntryPosition(position);
             setViewKey(n => n + 1);
             setActivePage("roleAgents");
           }} />
-        ) : activePage === "overview" ? (
-          <AdminOverview onNavigate={setActivePage} />
         ) : activePage === "roleAgents" ? (
           <RoleAgentWorkspace
             key={viewKey}
@@ -66,6 +64,8 @@ export default function AdminWorkspace({ onReturn }: { onReturn: () => void }) {
           />
         ) : activePage === "approvals" ? (
           <ApprovalCenter />
+        ) : activePage === "processSimulation" ? (
+          <ProcessSimulationPage />
         ) : (
           <ResourceConsole key={activePage} pageId={activePage} />
         )}
@@ -92,7 +92,7 @@ function ResourceConsole({
 }: {
   pageId: Exclude<
     AdminPageId,
-    "overview" | "roleAgents" | "approvals" | "logs" | "organizationDefinition" | "processDefinition"
+    "roleAgents" | "approvals" | "logs" | "organizationDefinition" | "processDefinition" | "processSimulation"
   >;
 }) {
   const store = useRoleStore();

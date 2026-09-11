@@ -6,27 +6,22 @@ import {
   GraduationCap,
   Plus,
   Search,
-  X,
 } from "lucide-react";
 import {
   CURRENT_USER,
   availableRole,
   effectiveResources,
-  roleDefinitionMarkdown,
   roleGoal,
   type Resource,
   type ResourceKind,
   type RoleAgent,
 } from "./domain";
 import { actions, useRoleStore } from "./store";
-import { Badge, Confirm, Dialog, Empty, Markdown, Notice } from "./ui";
+import { Badge, Dialog, Empty, Markdown, Notice } from "./ui";
 
 export default function PersonalRoles() {
   const store = useRoleStore();
-  const [hub, setHub] = useState(false),
-    [query, setQuery] = useState(""),
-    [selectedId, setSelectedId] = useState(""),
-    [removeId, setRemoveId] = useState("");
+  const [selectedId, setSelectedId] = useState("");
   const { perform, feedback } = useFeedback();
   const members = store.memberships[CURRENT_USER] || [];
   const roles = members
@@ -38,14 +33,6 @@ export default function PersonalRoles() {
       (x): x is { member: (typeof members)[number]; role: RoleAgent } =>
         !!x.role,
     );
-  const available = store.roles.filter(
-    (r) =>
-      availableRole(store, r) &&
-      !members.some((m) => m.roleId === r.id) &&
-      `${r.published!.definition.name}${roleDefinitionMarkdown(r.published!.definition)}`.includes(
-        query,
-      ),
-  );
   const selected = store.roles.find((r) => r.id === selectedId);
   return (
     <section className="rc rc-personal">
@@ -53,16 +40,7 @@ export default function PersonalRoles() {
         <div>
           <h2>岗位智能体</h2>
         </div>
-        <button
-          className="rc-primary"
-          onClick={() => {
-            setHub(true);
-            setQuery("");
-          }}
-        >
-          <Plus size={16} />
-          添加岗位智能体
-        </button>
+
       </div>
       <div className="rc-cards">
         {roles.map(({ role, member }) => {
@@ -78,13 +56,7 @@ export default function PersonalRoles() {
                   <small>{role.published!.version}</small>
                   <h3>{d.name}</h3>
                 </div>
-                <button
-                  className="rc-icon"
-                  aria-label={`移除${d.name}`}
-                  onClick={() => setRemoveId(role.id)}
-                >
-                  <X size={16} />
-                </button>
+
               </header>
               <p className="rc-goal">{roleGoal(d)}</p>
               {!valid && (
@@ -92,7 +64,7 @@ export default function PersonalRoles() {
                   {role.disabled
                     ? "该岗位已由组织停用"
                     : "你已不在当前可添加范围内"}
-                  ，可移除后选择其他岗位。
+                  ，请联系管理员确认岗位配置。
                 </Notice>
               )}
               <footer>
@@ -124,73 +96,9 @@ export default function PersonalRoles() {
           );
         })}
         {!roles.length && (
-          <Empty title="尚未添加岗位智能体">
-            <button onClick={() => setHub(true)}>选择岗位智能体</button>
-          </Empty>
+          <Empty title="暂无岗位智能体" />
         )}
       </div>
-      {hub && (
-        <Dialog title="添加岗位智能体" onClose={() => setHub(false)} wide>
-          <div className="rc-stack">
-            <label className="rc-search">
-              <Search size={16} />
-              <input
-                autoFocus
-                aria-label="搜索可添加岗位"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="搜索岗位名称或职责"
-              />
-            </label>
-            <div className="rc-cards">
-              {available.map((role) => (
-                <article className="rc-role-card" key={role.id}>
-                  <header>
-                    <i className="rc-role-icon">
-                      <Bot size={22} />
-                    </i>
-                    <div>
-                      <h3>{role.published!.definition.name}</h3>
-                      <small>{role.published!.version}</small>
-                    </div>
-                  </header>
-                  <p className="rc-goal">
-                    {roleGoal(role.published!.definition)}
-                  </p>
-                  <footer>
-                    <button
-                      className="rc-link"
-                      onClick={() => {
-                        setHub(false);
-                        setSelectedId(role.id);
-                      }}
-                    >
-                      查看岗位说明
-                    </button>
-                    <button
-                      className="rc-primary"
-                      onClick={() =>
-                        perform(
-                          () => actions.member(role.id, "add"),
-                          "已添加到我的数字分身",
-                        )
-                      }
-                    >
-                      <Plus size={14} />
-                      添加
-                    </button>
-                  </footer>
-                </article>
-              ))}
-            </div>
-            {!available.length && (
-              <Empty
-                title={query ? "未找到匹配岗位" : "当前可用岗位均已添加"}
-              />
-            )}
-          </div>
-        </Dialog>
-      )}
       {selected?.published && (
         <PersonalRoleDetail
           role={selected}
@@ -203,24 +111,6 @@ export default function PersonalRoles() {
           }
         />
       )}{" "}
-      {removeId && (
-        <Confirm
-          title="移除岗位智能体"
-          description="该岗位将退出你的数字分身。由个人或其他已启用岗位保留的能力仍可继续使用，个人画像与知识不受影响。"
-          label="确认移除"
-          danger
-          onClose={() => setRemoveId("")}
-          onConfirm={() => {
-            if (
-              perform(
-                () => actions.member(removeId, "remove"),
-                "岗位已移除",
-              ) !== false
-            )
-              setRemoveId("");
-          }}
-        />
-      )}
       {feedback}
     </section>
   );

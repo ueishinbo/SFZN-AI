@@ -1,0 +1,114 @@
+/* Shared navigation rhythm. Loaded after the feature styles so route imports
+   cannot change sidebar sizing. Content typography stays scoped to admin. */
+:root {
+  --app-nav-width: 280px;
+  --app-nav-font: 16px;
+  --app-nav-row: 48px;
+}
+.sidebar:not(.sidebar--closed),
+.assistant-mode-sidebar:not(.sidebar--closed),
+.admin-workspace > .admin-sidebar {
+  width: var(--app-nav-width);
+  flex-basis: var(--app-nav-width);
+  flex-shrink: 0;
+  background: var(--sidebar-bg);
+}
+.assistant-mode-sidebar-top { padding: 22px 16px 16px; gap: 8px; }
+.assistant-mode-sidebar .search-box { height: 44px; padding-inline: 10px; gap: 8px; }
+.assistant-mode-sidebar .search-box input { width: 100%; font-size: 14px; }
+.assistant-mode-sidebar .panel-toggle { width: 40px; height: 44px; flex: 0 0 40px; }
+.assistant-navigation-scroll { min-height: 0; flex: 1; overflow-y: auto; scrollbar-width: thin; }
+.assistant-feature-nav { padding: 0 12px 16px; gap: 4px; }
+.assistant-home-row { width: calc(100% - 24px); margin: 0 12px 4px; }
+.assistant-home-row,
+.assistant-feature-nav button,
+.assistant-sidebar-footer .assistant-management-link,
+.admin-sidebar nav button {
+  min-height: var(--app-nav-row);
+  height: auto;
+  padding: 10px 14px;
+  gap: 12px;
+  border-radius: 10px;
+  color: #526173;
+  font-size: var(--app-nav-font);
+  font-weight: 550;
+  line-height: 1.5;
+}
+.assistant-home-row strong { font-size: var(--app-nav-font); font-weight: 600; }
+.assistant-feature-nav button,
+.assistant-sidebar-footer .assistant-management-link,
+.admin-sidebar nav button { grid-template-columns: 24px minmax(0, 1fr) 16px; }
+.assistant-feature-nav button > svg:first-child,
+.assistant-management-link > svg:first-child { width: 20px; height: 20px; }
+.assistant-home-row.active,
+.assistant-feature-nav button.active,
+.admin-sidebar nav button.active {
+  color: #244f79;
+  background: #e1eaf2;
+  box-shadow: inset 3px 0 #376c99;
+}
+.assistant-home-row:hover:not(.active),
+.assistant-feature-nav button:hover:not(.active),
+.admin-sidebar nav button:hover:not(.active) { background: #e8edf1; }
+.assistant-sidebar-footer { padding: 12px; gap: 8px; }
+.assistant-training-card strong { font-size: 14px; }
+.assistant-training-card small { font-size: 12px; line-height: 1.5; }
+.assistant-search-empty { margin: 12px 24px; color: #6b7b8f; font-size: 14px; line-height: 1.6; }
+.admin-workspace > .admin-sidebar { padding: 22px 12px 12px; }
+.admin-sidebar > header { padding: 0 14px 20px; flex: 0 0 auto; }
+.admin-sidebar header strong { font-size: 18px; }
+.admin-sidebar header small { font-size: 11px; }
+.admin-brand-mark { width: 38px; height: 38px; flex: 0 0 38px; font-size: 20px; }
+.admin-sidebar .admin-return { min-height: 42px; flex-shrink: 0; margin: 0 2px 16px; font-size: 14px; font-weight: 550; }
+.admin-sidebar nav { min-height: 0; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 4px; scrollbar-width: thin; padding-bottom: 12px; }
+.admin-sidebar nav button { flex-shrink: 0; }
+.admin-sidebar .rc-user-select { flex: 0 0 auto; margin-top: 0; padding: 14px 8px 10px; }
+.admin-sidebar .rc-user-select select { font-size: 14px; }
+.admin-sidebar footer { flex: 0 0 auto; margin-top: 0; padding: 10px 8px 0; font-size: 11px; }
+.admin-sidebar footer small { font-size: 11px; line-height: 1.5; }
+:is(.admin-sidebar, .assistant-mode-sidebar) :is(button, input, select):focus-visible { outline: 2px solid #528abe; outline-offset: -2px; }
+
+/* Keep the existing 14px body / 18–28px heading hierarchy. Raise secondary
+   copy selectively; small numeric indicators and legacy unused screens stay as-is. */
+.admin-content .definition-table th { font-size: 13px; }
+.admin-content .definition-table td { font-size: 14px; }
+.admin-workspace :is(.rc-org-tree-copy small, .rc-create-scope-tip, .rc-create-resource-group small,
+  .pc-eyebrow, .pc-sidebar-current small, .pc-model-meta, .pc-flows h3,
+  .pc-flows button small, .pc-flow-title p, .pc-flow-title > small,
+  .pc-node small, .pc-node span, .pc-return-edge, .pc-io-grid small, .pc-node-rule) {
+  font-size: 12px;
+  color: #6b7b8f;
+}
+.admin-workspace .rc-create-scope > header small,
+.admin-workspace .rc-create-config .rc-section > header small { font-size: 12px; letter-spacing: .06em; }
+.admin-workspace .rc :is(.pc-org-root, .pc-org, .pc-leaves button, .pc-search input) { font-size: 13px; }
+.admin-workspace :is(.pc-flows button strong, .pc-node strong, .pc-io-grid p) { font-size: 13px; }
+.admin-workspace .rc .pc-tabs button { font-size: 14px; }
+.admin-workspace .pc-node-row { min-width: 640px; }
+.admin-workspace .pc-flow-title { flex-wrap: wrap; }
+.admin-workspace .pc-flows { overflow-x: auto; }
+.admin-workspace .pc-flows button { white-space: normal; min-width: 140px; }
+
+@media (min-width: 761px) and (max-width: 1100px) {
+  :root { --app-nav-width: 240px; }
+}
+@media (max-width: 760px) {
+  .assistant-mode-sidebar:not(.sidebar--closed) { width: min(280px, 90vw); flex-basis: auto; }
+  .admin-workspace { display: block; overflow-y: auto; }
+  .admin-workspace > .admin-sidebar { width: 100%; padding: 16px 12px; }
+  .admin-sidebar > header { padding-bottom: 12px; }
+  .admin-sidebar nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: visible; }
+  .admin-sidebar nav button { font-size: 14px; gap: 8px; padding-inline: 10px; grid-template-columns: 20px minmax(0, 1fr); }
+  .admin-sidebar nav button > svg:last-child { display: none; }
+  .admin-sidebar footer { display: none; }
+  .admin-sidebar .rc-user-select { padding-bottom: 0; }
+}
+
+/* Account for the navigation's width before keeping two content columns. */
+@media (max-width: 1100px) {
+  .admin-content .pc-config-layout,
+  .admin-content .definition-layout { grid-template-columns: minmax(0, 1fr); }
+  .admin-content .pc-config-sidebar { position: static; }
+  .admin-content .pc-config-sidebar .pc-tree { max-height: 220px; overflow-y: auto; }
+  .admin-content .definition-tree { min-height: 0; max-height: 300px; overflow-y: auto; }
+}

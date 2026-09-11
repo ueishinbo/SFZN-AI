@@ -1,81 +1,59 @@
-import { CheckCircle2, CircleDashed, Clock3, FolderKanban, MoreHorizontal, PlayCircle } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { ArrowLeft, CheckCircle2, ChevronRight, CircleDashed, Clock3, Factory, FolderKanban, FlaskConical, PlayCircle, Search, ShieldCheck, Truck } from 'lucide-react'
+import { useState } from 'react'
+import type { A2AConversation } from '../assistant/a2aConversationTypes'
+import { projects, conversationIdFor, taskStatus, type ProjectTask } from './projectData'
 import './organization.css'
 
-type TaskStatus = 'pending' | 'progress' | 'completed'
-type TaskCard = { title: string; due: string; priority: '高' | '中' | '低' | '已完成'; owner: string }
-type TaskColumn = { id: TaskStatus; title: string; description: string; icon: typeof CircleDashed; cards: TaskCard[] }
+const icons = { production: Factory, supply: Truck, quality: ShieldCheck, engineering: FlaskConical }
+const columns = [
+  { id: 'pending', title: '待开始', icon: CircleDashed },
+  { id: 'progress', title: '进行中', icon: PlayCircle },
+  { id: 'completed', title: '已完成', icon: CheckCircle2 },
+] as const
 
-const taskBoards: Record<'brain' | 'project', { title: string; description: string; columns: TaskColumn[] }> = {
-  brain: {
-    title: 'C大脑任务', description: '由 C大脑发起并跟踪的组织协同事项，聚焦计划、分析与管理闭环。', columns: [
-      { id: 'pending', title: '待开始', description: '等待负责人启动', icon: CircleDashed, cards: [
-        { title: '梳理设计输入与约束条件', due: '9月10日', priority: '高', owner: '李明' },
-        { title: '组织总体方案评审会', due: '9月12日', priority: '中', owner: '陈琳' },
-        { title: '确认交付物清单与责任人', due: '9月15日', priority: '中', owner: '王伟' },
-      ] },
-      { id: 'progress', title: '进行中', description: '正在推进与反馈', icon: PlayCircle, cards: [
-        { title: '汇总各专业本周进展', due: '今天', priority: '高', owner: '李明' },
-        { title: '识别关键节点风险项', due: '9月8日', priority: '高', owner: '陈琳' },
-      ] },
-      { id: 'completed', title: '已完成', description: '已形成可追溯结果', icon: CheckCircle2, cards: [
-        { title: '建立项目协同工作台', due: '9月4日', priority: '已完成', owner: '李明' },
-        { title: '明确周报编制模板', due: '9月3日', priority: '已完成', owner: '陈琳' },
-        { title: '收集各专业基础资料', due: '9月2日', priority: '已完成', owner: '王伟' },
-      ] },
-    ],
-  },
-  project: {
-    title: '项目任务', description: '由项目 AI 协助拆解和推进的执行任务，聚焦具体交付与跨角色协同。', columns: [
-      { id: 'pending', title: '待开始', description: '等待负责人启动', icon: CircleDashed, cards: [
-        { title: '补齐试验验证计划', due: '9月11日', priority: '高', owner: '赵敏' },
-        { title: '准备供应商评审材料', due: '9月13日', priority: '中', owner: '周航' },
-      ] },
-      { id: 'progress', title: '进行中', description: '正在推进与反馈', icon: PlayCircle, cards: [
-        { title: '跟进结构件交付风险', due: '今天', priority: '高', owner: '孙捷' },
-        { title: '核对设计变更影响范围', due: '9月9日', priority: '中', owner: '赵敏' },
-        { title: '编制项目阶段汇报材料', due: '9月10日', priority: '中', owner: '周航' },
-      ] },
-      { id: 'completed', title: '已完成', description: '已形成可追溯结果', icon: CheckCircle2, cards: [
-        { title: '完成项目启动信息同步', due: '9月5日', priority: '已完成', owner: '孙捷' },
-        { title: '归档首轮需求澄清记录', due: '9月4日', priority: '已完成', owner: '赵敏' },
-      ] },
-    ],
-  },
-}
-
-const priorityClass = (priority: TaskCard['priority']) => priority === '高' ? 'is-high' : priority === '中' ? 'is-medium' : priority === '低' ? 'is-low' : 'is-done'
-
-export default function OrganizationWorkbench() {
-  const [source, setSource] = useState<'brain' | 'project'>('brain')
-  const board = taskBoards[source]
-  const summary = useMemo(() => board.columns.reduce((total, column) => total + column.cards.length, 0), [board])
-
-  return (
-    <section className="organization-workbench organization-workbench--task-center">
-      <header className="org-task-center-header">
-        <div><span className="org-task-center-kicker">组织智能</span><h1>任务协同</h1><p>在同一个工作台查看组织管理事项与项目 AI 执行任务。</p></div>
-        <span className="org-header-icon"><FolderKanban size={27} /></span>
-      </header>
-      <div className="org-task-source-tabs" role="tablist" aria-label="任务来源">
-        <button className={source === 'brain' ? 'active' : ''} type="button" role="tab" aria-selected={source === 'brain'} onClick={() => setSource('brain')}>C大脑任务</button>
-        <button className={source === 'project' ? 'active' : ''} type="button" role="tab" aria-selected={source === 'project'} onClick={() => setSource('project')}>项目任务</button>
-      </div>
-      <section className="org-task-board-intro"><div><h2>{board.title}</h2><p>{board.description}</p></div><span>{summary} 项任务</span></section>
-      <div className="org-plan-board org-task-source-board">
-        {board.columns.map((column) => {
-          const StatusIcon = column.icon
+export default function OrganizationWorkbench({ conversations, onOpenConversation }: {
+  conversations: A2AConversation[]
+  onOpenConversation: (id: string) => void
+}) {
+  const [projectId, setProjectId] = useState<string | null>(null)
+  const [tab, setTab] = useState<'plan' | 'tasks'>('plan')
+  const [query, setQuery] = useState('')
+  const selected = projects.find(project => project.id === projectId)
+  const statusOf = (task: ProjectTask) => taskStatus(task, conversations.find(c => c.id === conversationIdFor(task)))
+  const open = (task: ProjectTask) => onOpenConversation(conversationIdFor(task))
+  if (selected) {
+    const Icon = icons[selected.id as keyof typeof icons]
+    return <section className="organization-workbench organization-workbench--detail org-project-detail">
+      <header className="org-detail-header"><button type="button" className="org-crumb" onClick={() => setProjectId(null)}><ArrowLeft size={18}/><span>系统智能</span></button><ChevronRight size={16}/><strong>{selected.title}</strong></header>
+      <div className="org-detail-content">
+        <div className="org-detail-title-row"><div><span className={`org-icon org-icon--${selected.tone}`}><Icon size={23}/></span><div><h1>{selected.title}</h1><p>{selected.description}</p></div></div></div>
+        <div className="org-tabs" role="tablist" aria-label="项目任务视图">
+          <button type="button" role="tab" aria-selected={tab==='plan'} className={tab==='plan'?'active':''} onClick={()=>setTab('plan')}>计划</button>
+          <button type="button" role="tab" aria-selected={tab==='tasks'} className={tab==='tasks'?'active':''} onClick={()=>setTab('tasks')}>任务</button>
+        </div>
+        {tab === 'plan' ? <div className="org-plan-board">{columns.map(column=>{
+          const StatusIcon=column.icon, tasks=selected.tasks.filter(task=>statusOf(task)===column.id)
           return <section className={`org-plan-column org-plan-column--${column.id}`} key={column.id}>
-            <header><span><StatusIcon size={20} /><strong>{column.title}</strong><em>{column.cards.length}</em></span><button type="button" aria-label={`${column.title}更多操作`}><MoreHorizontal size={19} /></button></header>
-            <small className="org-column-description">{column.description}</small>
-            <div className="org-plan-cards">{column.cards.map((card, index) => <article className="org-plan-card" key={card.title}>
-              <div className="org-plan-card-title"><span className="org-card-index">{index + 1}</span><strong>{card.title}</strong></div>
-              <div><span className={`org-priority ${priorityClass(card.priority)}`}>{card.priority}</span><span className="org-card-date"><Clock3 size={13} />{card.due}</span></div>
-              <footer><span className="org-avatar">{card.owner.slice(0, 1)}</span><small>{card.owner}</small></footer>
-            </article>)}</div>
+            <header><span><StatusIcon size={19}/><strong>{column.title}</strong><em>{tasks.length}</em></span></header>
+            <div className="org-plan-cards">{tasks.map(task=><button type="button" className="org-plan-card org-task-card-button" key={task.id} onClick={()=>open(task)}>
+              <div className="org-plan-card-title"><strong>{task.title}</strong><ChevronRight size={16}/></div>
+              <p className="org-task-goal">{task.goal}</p>
+              <div><span className={`org-priority ${task.priority==='高'?'is-high':'is-medium'}`}>{task.priority}优先级</span><span className="org-card-date"><Clock3 size={13}/>{task.due}</span></div>
+              <footer><span className="org-avatar">{task.owner.slice(0,1)}</span><small>{task.owner} · 负责人</small><span className="org-a2a-link">A2A 协作</span></footer>
+            </button>)}{!tasks.length && <p className="org-empty-column">暂无{column.title}任务</p>}</div>
           </section>
-        })}
+        })}</div> : <div className="org-task-list-view">
+          <div className="org-task-list-head"><span>任务名称</span><span>状态</span><span>负责人</span><span>计划完成时间</span></div>
+          {selected.tasks.map(task=><button type="button" key={task.id} className="org-task-list-row org-task-row-button" onClick={()=>open(task)}><strong>{task.title}</strong><span>{columns.find(c=>c.id===statusOf(task))?.title}</span><span>{task.owner}</span><span>{task.due}</span></button>)}
+        </div>}
       </div>
     </section>
-  )
+  }
+  const filtered = projects.filter(project=>`${project.title}${project.description}`.includes(query.trim()))
+  return <section className="organization-workbench">
+    <header className="org-home-header"><div><span className="org-eyebrow">SYSTEM INTELLIGENCE</span><h1>系统智能</h1><p>围绕生产、供应链、质量与研发，跟踪项目任务和跨岗位协作。</p></div><div className="org-header-icon"><FolderKanban size={28}/></div></header>
+    <div className="org-section-title"><div><h2>项目</h2><p>进入项目查看任务，跟进数字分身的协作进展。</p></div><label><Search size={17}/><input aria-label="搜索项目" placeholder="搜索项目" value={query} onChange={event=>setQuery(event.target.value)}/></label></div>
+    <div className="org-entry-grid org-project-grid">{filtered.map(project=>{const Icon=icons[project.id as keyof typeof icons];return <button className="org-entry-card" type="button" key={project.id} onClick={()=>{setProjectId(project.id);setTab('plan')}}><span className={`org-icon org-icon--${project.tone}`}><Icon size={24}/></span><span className="org-entry-main"><strong>{project.title}</strong><small>{project.description}</small></span><ChevronRight size={19}/></button>})}</div>
+    {!filtered.length && <p className="org-empty-column">没有匹配的项目，请调整搜索内容。</p>}
+  </section>
 }

@@ -100,7 +100,7 @@ function createRoundCompletionConfirmation(conversation: A2AConversation): A2AUs
   return {
     id: `a2a-confirm-round-${conversation.id}-${Date.now()}`,
     question: `“${conversation.title}”本轮回复已经收齐，接下来怎么处理？`,
-    description: '会话会保持挂起，只有你完成确认后，分身才会执行下一步。',
+    description: conversation.demo?.completionSummary ?? '会话会保持挂起，只有你完成确认后，分身才会执行下一步。',
     resumeStatus: 'response_received',
     resumePreview: `本轮已收到全部回复 · ${conversation.members.length}/${conversation.members.length}`,
     choices: [
@@ -116,7 +116,7 @@ function createRoundCompletionConfirmation(conversation: A2AConversation): A2AUs
         label: '确认完成',
         description: '结束当前目标协作，不再自动发起下一轮。',
         commandAction: 'complete',
-        commandContent: `确认“${conversation.title}”当前目标已经完成。`,
+        commandContent: conversation.demo?.completionSummary ?? `确认“${conversation.title}”当前目标已经完成。`,
       },
     ],
   }
@@ -251,7 +251,7 @@ export default function A2AConversationView({
         actorUserId: member.userId,
         actorName: member.name,
         origin: 'participant_twin',
-        content: speakerReply(member.name, previousMember?.name),
+        content: conversation.demo?.replies[member.userId] ?? speakerReply(member.name, previousMember?.name),
         sequence: Date.now(),
         createdAt: '刚刚',
       })

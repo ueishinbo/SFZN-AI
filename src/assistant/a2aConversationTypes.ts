@@ -44,6 +44,8 @@ export type A2AConversation = {
   createdAt: string
   updatedAt: string
   preview: string
+  /** Optional local demo scenario; never sent to a backend. */
+  demo?: { messages: A2AConversationMessage[]; replies: Record<string, string>; completionSummary: string }
   pendingCurrentUserConfirmation?: A2AUserConfirmation
 }
 
@@ -339,6 +341,7 @@ export function buildA2ACommand(value: string, conversations: A2AConversation[])
 }
 
 export function createSeedConversationMessages(conversation: A2AConversation): A2AConversationMessage[] {
+  if (conversation.demo) return conversation.demo.messages
   const baseMessage = {
     conversationId: conversation.id,
     actorUserId: conversation.hostUserId,

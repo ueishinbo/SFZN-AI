@@ -1,23 +1,31 @@
 import type { LucideIcon } from 'lucide-react'
-import { BadgeCheck, Boxes, BrainCircuit, CalendarClock, Cpu, KeyRound, LayoutDashboard, Network, ShieldCheck, UsersRound } from 'lucide-react'
+import { BadgeCheck, Boxes, BrainCircuit, CalendarClock, Cpu, GitBranch, KeyRound, Network, ShieldCheck, UsersRound } from 'lucide-react'
 
-export type AdminPageId = 'organizationDefinition' | 'processDefinition' | 'overview' | 'roleAgents' | 'experts' | 'skills' | 'mcp' | 'models' | 'automation' | 'approvals' | 'organization' | 'roles'
+export type AdminPageId = 'organizationDefinition' | 'processDefinition' | 'processSimulation' | 'roleAgents' | 'experts' | 'skills' | 'mcp' | 'models' | 'automation' | 'approvals' | 'organization' | 'roles'
 
 export type AdminNavItem = { id: AdminPageId; label: string; icon: LucideIcon; description: string }
 
 export const adminNavigation: AdminNavItem[] = [
-  { id: 'overview', label: '概览', icon: LayoutDashboard, description: '平台运行与资源概况' },
-  { id: 'organizationDefinition', label: '组织定义', icon: UsersRound, description: '定义项目组织、岗位与人员' },
-  { id: 'processDefinition', label: '流程定义', icon: Network, description: '管理组织内的业务流程与岗位协作关系' },
-  { id: 'roleAgents', label: '岗位智能体管理', icon: BrainCircuit, description: '维护岗位定义、能力与可添加范围' },
   { id: 'experts', label: '专家管理', icon: UsersRound, description: '维护可调用的业务专家' },
   { id: 'skills', label: '技能管理', icon: Boxes, description: '维护专项能力与授权范围' },
   { id: 'mcp', label: 'MCP 连接', icon: Network, description: '管理外部业务系统连接' },
   { id: 'models', label: '模型管理', icon: Cpu, description: '配置可用模型与策略' },
+  { id: 'organizationDefinition', label: '组织定义', icon: UsersRound, description: '定义项目组织、岗位与人员' },
+  { id: 'processDefinition', label: '流程定义', icon: Network, description: '管理组织内的业务流程与岗位协作关系' },
+  { id: 'roleAgents', label: '岗位智能体管理', icon: BrainCircuit, description: '维护岗位定义、能力与可添加范围' },
+  { id: 'processSimulation', label: '流程试运行', icon: GitBranch, description: '验证流程协作、调试阻塞并查看运行结果' },
   { id: 'automation', label: '自动化管理', icon: CalendarClock, description: '查看定时任务与运行状态' },
   { id: 'approvals', label: '审批中心', icon: BadgeCheck, description: '处理待审批的访问与执行申请' },
   { id: 'organization', label: '组织与成员', icon: UsersRound, description: '维护组织、成员与归属关系' },
   { id: 'roles', label: '角色与权限', icon: ShieldCheck, description: '配置角色权限边界' },
+]
+
+export const adminNavigationGroups: Array<{ label: string; items: AdminPageId[] }> = [
+  { label: '资源管理', items: ['experts', 'skills', 'mcp', 'models'] },
+  { label: '组织智能', items: ['organizationDefinition', 'processDefinition', 'roleAgents', 'processSimulation'] },
+  { label: '运行管理', items: ['automation'] },
+  { label: '审批管理', items: ['approvals'] },
+  { label: '权限管理', items: ['organization', 'roles'] },
 ]
 
 export const overviewMetrics = [
@@ -34,7 +42,7 @@ export const overviewActivities = [
   ['张敏', '提交了“项目管理专家”启用申请', '2 小时前'],
 ]
 
-export const managementRows: Record<Exclude<AdminPageId, 'overview' | 'roleAgents' | 'organizationDefinition' | 'processDefinition'>, Array<[string, string, string]>> = {
+export const managementRows: Record<Exclude<AdminPageId, 'roleAgents' | 'organizationDefinition' | 'processDefinition' | 'processSimulation'>, Array<[string, string, string]>> = {
   experts: [['航空结构设计专家', '机体结构 · 复合材料 · 适航', '已启用'], ['供应链质量专家', '供应商审核 · 质量闭环', '已启用'], ['项目管理专家', '计划管理 · 风险控制', '待审批']],
   skills: [['经营指标分析', '企业数据分析 · 只读', '已启用'], ['方案文档生成', '文档与模板生成', '已启用'], ['风险识别与闭环', '项目风险提取与跟踪', '已启用']],
   mcp: [['C 项目管理平台', '6 个工具 · 受控写入', '已连接'], ['C 大脑知识库', '8 个工具 · 只读', '已连接'], ['经营数据平台', '5 个工具 · 待授权', '待审批']],

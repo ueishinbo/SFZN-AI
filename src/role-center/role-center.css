@@ -1507,7 +1507,7 @@
 .rc .pc-leaves button { margin: 3px 0; }
 .rc .pc-leaves button.selected { background: #eaf3ff; color: #2469bb; font-weight: 600; }
 .rc .pc-leaves button:disabled { opacity: .7; cursor: default; }
-.pc-position-dot { width: 6px; height: 6px; flex-shrink: 0; border-radius: 50%; background: #5090de; display: inline-block; }
+.pc-position-dot { width: 6px; height: 6px; flex-shrink: 0; border-radius: 50%; background: #62ad7e; display: inline-block; }
 .pc-leaves svg { margin-left: auto; }
 .pc-sidebar-current { padding: 16px 18px; border-top: 1px solid #edf1f6; background: #fafcfe; display: grid; gap: 7px; }
 .pc-sidebar-current small { font-size: 11px; color: #8a99aa; }
@@ -1541,8 +1541,8 @@
 .pc-node-row { display: flex; min-width: max-content; }
 .pc-node-slot { display: flex; align-items: center; }
 .rc .pc-node { width: 132px; min-height: 99px; padding: 13px 12px; display: flex; align-items: flex-start; flex-direction: column; gap: 9px; background: white; border: 1px solid #dce4ee; border-radius: 9px; text-align: left; }
-.rc .pc-node.owned { background: #f0f6ff; border-color: #b5d1f4; }
-.rc .pc-node.active { border-color: #448be0; box-shadow: 0 0 0 3px #448be019; }
+.rc .pc-node.owned { background: #f0faf3; border-color: #b9dfc7; }
+.rc .pc-node.active { border-color: #70b98a; box-shadow: 0 0 0 3px #70b98a1f; }
 .pc-node small { font-size: 9px; color: #8495a9; }
 .pc-node strong { font-size: 12px; color: #3b506c; }
 .pc-node span { font-size: 10px; color: #7c91a9; }
@@ -1590,3 +1590,7 @@
 .pc-node small, .pc-node span { line-height: 1.5; }
 .rc .pc-node { white-space: normal; }
 .pc-node strong, .pc-node small, .pc-node span { max-width: 100%; overflow-wrap: anywhere; }
+
+/* Keep conversation history bounded while filters stay outside the scroll area. */
+.rc-conversation-log-scroll { max-height: 480px; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.rc-conversation-log-scroll thead th { position: sticky; top: 0; z-index: 1; }
