@@ -36,6 +36,10 @@ export default function AssistantModeSidebar({
 }: AssistantModeSidebarProps) {
   const [query, setQuery] = useState('')
 
+  const normalizedQuery = query.trim().toLocaleLowerCase()
+  const matches = (label: string) => label.toLocaleLowerCase().includes(normalizedQuery)
+  const hasResults = ['我的助理', '定时器', 'A2A 任务', '数字分身', '后台管理'].some(matches)
+
   return (
     <aside className={`sidebar assistant-mode-sidebar ${open ? '' : 'sidebar--closed'}`}>
       <div className="sidebar-top assistant-mode-sidebar-top">
@@ -53,40 +57,53 @@ export default function AssistantModeSidebar({
         </button>
       </div>
 
-      <button
-        className={`assistant-home-row ${destination.type === 'assistant' ? 'active' : ''}`}
-        type="button"
-        onClick={onSelectAssistant}
-      >
-        <span className="assistant-home-avatar"><Bot size={21} /></span>
-        <span>
-          <strong>我的助理</strong>
-        </span>
-      </button>
+      <div className="assistant-navigation-scroll">
+        {matches('我的助理') && (
+          <button
+            aria-current={destination.type === 'assistant' ? 'page' : undefined}
+            className={`assistant-home-row ${destination.type === 'assistant' ? 'active' : ''}`}
+            type="button"
+            onClick={onSelectAssistant}
+          >
+            <span className="assistant-home-avatar"><Bot size={21} /></span>
+            <span><strong>我的助理</strong></span>
+          </button>
+        )}
 
-      <nav className="assistant-feature-nav" aria-label="助理功能">
-        <button className={destination.type === 'feature' && destination.featureId === 'automation' ? 'active' : ''} type="button" onClick={() => onSelectFeature('automation')}>
-          <Clock3 size={18} />
-          <span>定时器</span>
-          <ChevronRight size={14} />
-        </button>
-        <button className={destination.type === 'feature' && destination.featureId === 'a2a' ? 'active' : ''} type="button" onClick={() => onSelectFeature('a2a')}>
-          <UsersRound size={18} />
-          <span>A2A 任务</span>
-          <ChevronRight size={14} />
-        </button>
-      </nav>
+        <nav className="assistant-feature-nav" aria-label="助理功能">
+          {([
+            { id: 'automation', label: '定时器', icon: Clock3 },
+            { id: 'a2a', label: 'A2A 任务', icon: UsersRound },
+          ] as const).filter(({ label }) => matches(label)).map(({ id, label, icon: Icon }) => {
+            const active = destination.type === 'feature' && destination.featureId === id
+            return (
+              <button
+                key={id}
+                aria-current={active ? 'page' : undefined}
+                className={active ? 'active' : ''}
+                type="button"
+                onClick={() => onSelectFeature(id)}
+              >
+                <Icon size={20} />
+                <span>{label}</span>
+                <ChevronRight size={14} />
+              </button>
+            )
+          })}
+        </nav>
+        {!hasResults && <p className="assistant-search-empty" role="status">未找到匹配功能，请换个关键词。</p>}
+      </div>
 
       <div className="assistant-sidebar-footer">
-        <button className="assistant-training-card" type="button" onClick={() => onSelectFeature('training')}>
+        {matches('数字分身') && <button className="assistant-training-card" type="button" onClick={() => onSelectFeature('training')}>
           <span><strong>数字分身</strong><small>身份、能力与 A2A 任务</small></span>
           <ChevronRight className="assistant-training-arrow" size={21} />
-        </button>
-        <button className="assistant-management-link" type="button" onClick={onEnterAdmin}>
+        </button>}
+        {matches('后台管理') && <button className="assistant-management-link" type="button" onClick={onEnterAdmin}>
           <Settings2 size={18} />
           <span>后台管理</span>
           <ChevronRight size={14} />
-        </button>
+        </button>}
       </div>
     </aside>
   )

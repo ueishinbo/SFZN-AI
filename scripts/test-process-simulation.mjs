@@ -1,5 +1,5 @@
 /**
- * 流程仿真 · 剧本结构校验
+ * 流程仿真V2 · 剧本结构校验（导出给同事的版本）
  *
  * 运行：node scripts/test-process-simulation.mjs
  *
@@ -16,10 +16,7 @@ const cache = resolve('node_modules/.cache')
 await mkdir(cache, { recursive: true })
 const dir = await mkdtemp(resolve(cache, 'process-simulation-tests-'))
 
-const MODULES = [
-  { dir: 'process-simulation', withExchange: false, label: 'V1' },
-  { dir: 'process-simulation-v2', withExchange: true, label: 'V2' },
-]
+const MODULES = [{ dir: 'process-simulation', withExchange: true, label: 'V2' }]
 const loaded = []
 for (const m of MODULES) {
   const source = await readFile(`src/${m.dir}/script.ts`, 'utf8')
@@ -216,6 +213,5 @@ for (const run of runs) {
 }
 
 validateRuns(loaded[0].runs, loaded[0].withExchange, loaded[0].label)
-validateRuns(loaded[1].runs, loaded[1].withExchange, loaded[1].label)
 
 console.log(`\n${checks} 项剧本校验通过。`)

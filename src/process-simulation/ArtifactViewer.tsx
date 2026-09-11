@@ -29,9 +29,9 @@ export default function ArtifactViewer({
         </button>
       }
     >
-      <div className="ps-viewer">
-        <div className="ps-viewer-meta">
-          <span className="ps-viewer-badge">
+      <div className="ps2-viewer">
+        <div className="ps2-viewer-meta">
+          <span className="ps2-viewer-badge">
             <Icon size={13} />
             {ARTIFACT_LABEL[artifact.kind]}
           </span>
@@ -39,7 +39,7 @@ export default function ArtifactViewer({
           <span>产出方：{producer}</span>
         </div>
 
-        <div className="ps-viewer-canvas">
+        <div className="ps2-viewer-canvas">
           <Icon size={30} />
           <strong>【示例产物】</strong>
           <p>{artifact.summary}</p>

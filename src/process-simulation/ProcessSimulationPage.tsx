@@ -48,14 +48,14 @@ export default function ProcessSimulationPage() {
     () =>
       Object.values(pb.progress).reduce(
         (a, p) =>
-          a + p.thinking + p.conclusion + p.risks + p.work + p.artifact + p.handoff,
+          a + p.exchange + p.exchangeChars + p.thinking + p.conclusion + p.risks + p.work + p.artifact + p.handoff,
         0,
       ),
     [pb.progress],
   )
 
   const scrollToNode = useCallback((id: string, block: ScrollLogicalPosition = 'start') => {
-    document.getElementById(`ps-node-${id}`)?.scrollIntoView({ behavior: 'smooth', block })
+    document.getElementById(`ps2-node-${id}`)?.scrollIntoView({ behavior: 'smooth', block })
   }, [])
 
   /** 左栏的滚动高度上限：实测滚动容器高度，并扣掉页头占掉的那一段。
@@ -67,11 +67,11 @@ export default function ProcessSimulationPage() {
     const scroller = root.closest('.admin-content') as HTMLElement | null
     if (!scroller) return
     const apply = () => {
-      const header = root.querySelector('.ps-top') as HTMLElement | null
+      const header = root.querySelector('.ps2-top') as HTMLElement | null
       const padTop = parseFloat(getComputedStyle(scroller).paddingTop) || 0
       const topGap = padTop + (header?.offsetHeight ?? 0) + 18
       const max = Math.max(240, Math.floor(scroller.clientHeight - topGap - 8))
-      root.style.setProperty('--ps-left-max', `${max}px`)
+      root.style.setProperty('--ps2-left-max', `${max}px`)
     }
     apply()
     const ro = new ResizeObserver(apply)
@@ -90,7 +90,7 @@ export default function ProcessSimulationPage() {
     if (!scroller) return
     const stop = (e: Event) => {
       // 在左侧栏里滚动不算「离开执行区」
-      if (e.target instanceof Element && e.target.closest('.ps-left')) return
+      if (e.target instanceof Element && e.target.closest('.ps2-left')) return
       if (followRef.current) setFollow(false)
     }
     const onKey = (e: KeyboardEvent) => {
@@ -120,7 +120,7 @@ export default function ProcessSimulationPage() {
 
     const now = Date.now()
     if (now - lastFollowRef.current < 700) return
-    const el = document.getElementById(`ps-node-${runningId}`)
+    const el = document.getElementById(`ps2-node-${runningId}`)
     if (!el) return
     const gap = scroller.getBoundingClientRect().bottom - el.getBoundingClientRect().bottom
     if (gap >= 96) return
@@ -133,6 +133,8 @@ export default function ProcessSimulationPage() {
     (id: string): SimMember | undefined => run.members.find((m) => m.id === id),
     [run],
   )
+  /** 给 FlowMap 的稳定回调 —— 内联箭头会让 memo 失效 */
+  const memberName = useCallback((id: string) => memberOf(id)?.person ?? '', [memberOf])
   const positionLabelOf = useCallback(
     (node: SimNode) => {
       if (node.confirm) return '人工介入'
@@ -142,12 +144,12 @@ export default function ProcessSimulationPage() {
     [memberOf],
   )
 
-  const pickNode = (id: string) => {
+  const pickNode = useCallback((id: string) => {
     setActiveNodeId(id)
     setFocusMember(null)
     setFollow(false)
     window.requestAnimationFrame(() => scrollToNode(id, 'center'))
-  }
+  }, [scrollToNode])
 
   const send = () => {
     setStarted(true)
@@ -166,15 +168,15 @@ export default function ProcessSimulationPage() {
   const progress = pb.total ? Math.round((pb.doneCount / pb.total) * 100) : 0
 
   return (
-    <div className="ps" ref={rootRef}>
-      <header className="ps-top">
-        <div className="ps-top-text">
-          <p className="ps-eyebrow">PROCESS SIMULATION</p>
-          <h1>流程仿真</h1>
+    <div className="ps2" ref={rootRef}>
+      <header className="ps2-top">
+        <div className="ps2-top-text">
+          <p className="ps2-eyebrow">PROCESS SIMULATION</p>
+          <h1>流程试运行</h1>
         </div>
 
-        <div className="ps-top-controls">
-          <label className="ps-field">
+        <div className="ps2-top-controls">
+          <label className="ps2-field">
             <small>执行流程</small>
             <select value={run.id} onChange={(e) => setRunId(e.target.value)}>
               {simulationRuns.map((r) => (
@@ -187,38 +189,38 @@ export default function ProcessSimulationPage() {
         </div>
       </header>
 
-      <div className="ps-body">
-        <aside className="ps-left">
-          <section className="ps-panel">
-            <header className="ps-panel-head">
+      <div className="ps2-body">
+        <aside className="ps2-left">
+          <section className="ps2-panel">
+            <header className="ps2-panel-head">
               <h2>岗位与人员</h2>
               <small>{run.members.length} 人参与 · 分身持有岗位智能体</small>
             </header>
-            <div className="ps-members">
+            <div className="ps2-members">
               {run.members.map((m) => (
                 <button
                   key={m.id}
                   type="button"
-                  className={`ps-member tone-${m.tone}${focusMember === m.id ? ' is-active' : ''}`}
+                  className={`ps2-member tone-${m.tone}${focusMember === m.id ? ' is-active' : ''}`}
                   onClick={() => {
                     setFocusMember(focusMember === m.id ? null : m.id)
                     setFollow(false)
                   }}
                 >
-                  <span className="ps-member-avatar">
+                  <span className="ps2-member-avatar">
                     {m.human ? <Sparkles size={14} /> : m.person.slice(0, 1)}
                   </span>
-                  <span className="ps-member-body">
-                    <span className="ps-member-line">
+                  <span className="ps2-member-body">
+                    <span className="ps2-member-line">
                       <strong>{m.person}</strong>
                       <i>{m.org}</i>
                     </span>
                     {m.human ? (
-                      <span className="ps-member-tags">
+                      <span className="ps2-member-tags">
                         <em className="is-human">人工介入</em>
                       </span>
                     ) : (
-                      <span className="ps-member-tags">
+                      <span className="ps2-member-tags">
                         {m.positions.map((p) => (
                           <em key={p.id} className="is-agent">
                             {p.name}
@@ -232,8 +234,8 @@ export default function ProcessSimulationPage() {
             </div>
           </section>
 
-          <section className="ps-panel">
-            <header className="ps-panel-head">
+          <section className="ps2-panel">
+            <header className="ps2-panel-head">
               <h2>工作流</h2>
               <small>
                 {run.nodes.length} 个节点 · 线性流程
@@ -246,21 +248,21 @@ export default function ProcessSimulationPage() {
               statuses={pb.statuses}
               activeNodeId={activeNodeId}
               onPickNode={pickNode}
-              memberName={(id) => memberOf(id)?.person ?? ''}
+              memberName={memberName}
               positionName={positionLabelOf}
             />
           </section>
         </aside>
 
-        <main className="ps-right">
-          <section className="ps-compose">
-            <header className="ps-compose-head">
+        <main className="ps2-right">
+          <section className="ps2-compose">
+            <header className="ps2-compose-head">
               <div>
                 <h2>任务内容</h2>
                 <small>工作流已既定，填写本次任务内容后发起协同执行</small>
               </div>
-              <div className="ps-playback">
-                <span className="ps-progress">
+              <div className="ps2-playback">
+                <span className="ps2-progress">
                   <i style={{ width: `${progress}%` }} />
                 </span>
                 <em>
@@ -271,7 +273,7 @@ export default function ProcessSimulationPage() {
                       : `进行中 ${pb.doneCount}/${pb.total}`}
                 </em>
                 {started && (
-                  <button type="button" className="ps-icon-btn" onClick={pb.togglePause}>
+                  <button type="button" className="ps2-icon-btn" onClick={pb.togglePause}>
                     {pb.paused ? <Play size={14} /> : <Pause size={14} />}
                     {pb.paused ? '继续' : '暂停'}
                   </button>
@@ -279,18 +281,18 @@ export default function ProcessSimulationPage() {
               </div>
             </header>
             <textarea
-              className="ps-task-input"
+              className="ps2-task-input"
               value={task}
               onChange={(e) => setTask(e.target.value)}
               placeholder="输入本次任务内容，例如：把「工单智能分派」做成可上线版本…"
             />
-            <div className="ps-compose-actions">
+            <div className="ps2-compose-actions">
               <small>
                 {started
                   ? '执行中可直接查看各节点，点击左侧人员或流程节点可切换视角'
                   : '发送后数字分身将按所选工作流自动执行，全过程可查看'}
               </small>
-              <button type="button" className="ps-btn-primary" onClick={send}>
+              <button type="button" className="ps2-btn-primary" onClick={send}>
                 <Send size={15} />
                 {started ? '重新发送' : '发送任务'}
               </button>
@@ -312,6 +314,7 @@ export default function ProcessSimulationPage() {
             memberOf={memberOf}
             positionLabelOf={positionLabelOf}
             contentOf={pb.contentFor}
+            exchangeOf={pb.exchangeFor}
             onApprove={pb.approve}
             onReject={pb.reject}
             isComplete={pb.isComplete}
@@ -321,7 +324,7 @@ export default function ProcessSimulationPage() {
       </div>
 
       {started && !follow && runningId && (
-        <button type="button" className="ps-follow" onClick={backToRunning}>
+        <button type="button" className="ps2-follow" onClick={backToRunning}>
           <Play size={13} />
           跟随执行 · 回到当前节点
         </button>

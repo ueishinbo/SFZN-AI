@@ -58,6 +58,7 @@ import {
 import WorkspaceWorkbench, { WorkspaceHeaderControls, type WorkspaceOutputItem } from './workspace/WorkspaceWorkbench'
 import ExternalAgentWorkspace from './external-agent/ExternalAgentWorkspace'
 import OrganizationWorkbench from './organization/OrganizationWorkbench'
+import { projectConversations, projects, conversationIdFor } from './organization/projectData'
 import DigitalTwinTrainingWorkspace, { A2ATaskBoard } from './digital-twin/DigitalTwinTrainingWorkspace'
 import { useWorkspaceWorkbench, type WorkspaceTab } from './workspace/useWorkspaceWorkbench'
 import type { WorkspaceTreeNode } from './workspace/workspaceTypes'
@@ -399,7 +400,7 @@ function App() {
     if (view === 'a2a') return { type: 'feature', featureId: 'a2a' }
     return { type: 'assistant' }
   })
-  const [a2aConversations, setA2AConversations] = useState<A2AConversation[]>(seedA2AConversations)
+  const [a2aConversations, setA2AConversations] = useState<A2AConversation[]>(() => [...seedA2AConversations, ...projectConversations])
   const [a2aCommands, setA2ACommands] = useState<A2AConversationCommand[]>([])
   const [notifications, setNotifications] = useState<AssistantNotification[]>(createSeedNotifications)
   const [selectedNotificationId, setSelectedNotificationId] = useState<string | null>(null)
@@ -468,7 +469,7 @@ function App() {
   const navItems = useMemo(
     () => [
       { label: '新建任务', icon: Plus },
-      { label: '组织智能', icon: LayoutGrid },
+      { label: '系统智能', icon: LayoutGrid },
       { label: '专家', icon: BriefcaseBusiness },
       { label: '自动化', icon: Clock3 },
     ],
@@ -756,6 +757,9 @@ function App() {
     history.replaceState(null, '', url)
   }, [appMode, assistantDestination])
 
+  const conversationProject = assistantDestination.type === 'conversation'
+    ? projects.find(project => project.tasks.some(task => conversationIdFor(task) === assistantDestination.conversationId))
+    : undefined
   const surfaceMode = appMode
 
   return (
@@ -911,12 +915,17 @@ function App() {
           {hasPendingA2AConfirmation && <i className="global-assistant-confirmation-dot" title="有事项等待本人确认" />}
         </button>}
 
-        <main className={`workspace ${activeNav === '自动化' ? 'workspace--automation' : ''} ${surfaceMode === 'assistant' ? 'workspace--assistant' : ''} ${surfaceMode === 'admin' ? 'workspace--admin' : ''} ${activeNav === '外部 Agent' ? 'workspace--external-agent' : ''} ${activeNav === '组织智能' ? 'workspace--organization' : ''}`}>
+        <main className={`workspace ${activeNav === '自动化' ? 'workspace--automation' : ''} ${surfaceMode === 'assistant' ? 'workspace--assistant' : ''} ${surfaceMode === 'admin' ? 'workspace--admin' : ''} ${activeNav === '外部 Agent' ? 'workspace--external-agent' : ''} ${activeNav === '系统智能' ? 'workspace--organization' : ''}`}>
           <div className={`app-mode-panel ${surfaceMode === 'task' ? '' : 'is-hidden'}`}>
             {activeNav === '外部 Agent' ? (
             <ExternalAgentWorkspace />
-          ) : activeNav === '组织智能' ? (
-            <OrganizationWorkbench />
+          ) : activeNav === '系统智能' ? (
+            <OrganizationWorkbench conversations={a2aConversations} onOpenConversation={(conversationId) => {
+              setTaskSidebarOpenBeforeAssistant(sidebarOpen);
+              setAssistantDestination({ type: 'conversation', conversationId });
+              setAppMode('assistant');
+              setSidebarOpen(true);
+            }} />
           ) : activeNav === '自动化' ? (
             <AutomationWorkspace tasks={automationTasks} runs={automationRuns} setTasks={setAutomationTasks} setRuns={setAutomationRuns} />
           ) : (
@@ -1097,7 +1106,8 @@ function App() {
                 onWorkspaceVisibilityChange={setAssistantWorkspaceVisible}
               />
             </div>
-            <div className={`assistant-destination-panel ${assistantDestination.type === 'conversation' ? '' : 'is-hidden'}`}>
+            <div className={`assistant-destination-panel ${conversationProject ? 'org-conversation-panel' : ''} ${assistantDestination.type === 'conversation' ? '' : 'is-hidden'}`}>
+              {conversationProject && <div className="org-conversation-back"><button type="button" onClick={() => { setActiveNav('系统智能'); returnToTaskMode(); }}><ArrowLeft size={16}/>返回{conversationProject.title}项目</button><span>系统智能 · {conversationProject.title}</span></div>}
               <A2AConversationView
                 conversations={a2aConversations}
                 selectedConversationId={assistantDestination.type === 'conversation' ? assistantDestination.conversationId : null}

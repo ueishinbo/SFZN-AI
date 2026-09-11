@@ -1,6 +1,6 @@
 import { ArrowLeft, ChevronRight } from "lucide-react";
 import { useRoleStore } from "../role-center/store";
-import { adminNavigation, type AdminPageId } from "./mockAdminData";
+import { adminNavigation, adminNavigationGroups, type AdminPageId } from "./mockAdminData";
 
 export default function AdminSidebar({
   activePage,
@@ -28,17 +28,26 @@ export default function AdminSidebar({
         返回助理
       </button>
       <nav aria-label="后台管理导航">
-        {adminNavigation.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            className={activePage === id ? "active" : ""}
-            type="button"
-            onClick={() => onSelect(id)}
-          >
-            <Icon size={17} />
-            <span>{label}</span>
-            {activePage === id && <ChevronRight size={14} />}
-          </button>
+        {adminNavigationGroups.map(({ label: groupLabel, items }) => (
+          <section className="admin-nav-group" key={groupLabel} aria-label={groupLabel}>
+            <h2>{groupLabel}</h2>
+            {items.map((id) => {
+              const { label, icon: Icon } = adminNavigation.find((item) => item.id === id)!;
+              return (
+                <button
+                  key={id}
+                  className={activePage === id ? "active" : ""}
+                  aria-current={activePage === id ? "page" : undefined}
+                  type="button"
+                  onClick={() => onSelect(id)}
+                >
+                  <Icon size={20} />
+                  <span>{label}</span>
+                  {activePage === id && <ChevronRight size={14} />}
+                </button>
+              );
+            })}
+          </section>
         ))}
       </nav>
       <div className="rc rc-user-select">

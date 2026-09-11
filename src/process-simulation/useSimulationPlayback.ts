@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { SimNode, SimNodeStatus, SimRun, SimRunContent } from './types'
+import type { SimExchangeTurn, SimNode, SimNodeStatus, SimRun, SimRunContent } from './types'
 
 // ── 1 倍速的基础节奏 ───────────────────────────────────────────
-// 每个节点按「思维链 → 整理结论 → 逐字结论 → 逐条风险 → 生成交付物 → 整理下游要求」推进，
-// 每一步都留出可感知的等待，避免内容"啪一下"整块出现。
+// 每个节点先播「沟通过程」（分身 ↔ 子代理往返），播完自动切到「执行过程」。
+// 执行过程内部按「思维链 → 整理结论 → 逐字结论 → 逐条风险 → 生成交付物 → 整理下游要求」推进。
+const EXCHANGE_LEAD = 320 // 换人说话前的停顿（此时显示"正在输入"）
+const EXCHANGE_CHAR_STEP = 3 // 沟通每步码出几个字
+const EXCHANGE_CHAR_DELAY = 68 // 沟通每步间隔 → 约 44 字/秒（与逐字观感一致，但 tick 数更少）
+const EXCHANGE_GAP = 280 // 一句码完后的停顿
 const THINKING_DELAY = 1800 // 思维链每条
 const WORK_GEN_DELAY = 600 // 「正在整理结论」的等待
 const CONTENT_STEP = 2 // 结论每步字数
@@ -20,6 +24,10 @@ const ORCH_STEP_GAP = 760 // 每步之间的停顿
 
 /** 一个节点的生成进度 */
 export type NodeProgress = {
+  /** 已完整码出的沟通句数 */
+  exchange: number
+  /** 当前这一句已码出的字符数 */
+  exchangeChars: number
   /** 已展示的思维链条数 */
   thinking: number
   /** 0 未开始 / 1 整理中 / 2 已完成 */
@@ -35,6 +43,8 @@ export type NodeProgress = {
 }
 
 export const emptyProgress = (): NodeProgress => ({
+  exchange: 0,
+  exchangeChars: 0,
   thinking: 0,
   work: 0,
   conclusion: 0,
@@ -42,6 +52,12 @@ export const emptyProgress = (): NodeProgress => ({
   artifact: 0,
   handoff: 0,
 })
+
+/**
+ * 空进度的单例。渲染时给没有进度的节点兜底必须用它，
+ * 不能每次 render 现造一个新对象 —— 那会让 React.memo 失效（见 NodeCard）。
+ */
+export const EMPTY_PROGRESS = emptyProgress()
 
 /** 编排阶段的进度：走到第几步、这一步已展开几条 */
 export type OrchProgress = { step: number; item: number }
@@ -51,6 +67,12 @@ export const emptyOrch = (): OrchProgress => ({ step: 0, item: 0 })
 export function contentFor(node: SimNode, visit: number): SimRunContent | undefined {
   if (node.confirm) return undefined
   return visit > 0 && node.revisit ? node.revisit : node.run
+}
+
+/** 取节点本次要播的沟通过程（人工介入节点是分身向「你」请示） */
+export function exchangeFor(node: SimNode, visit: number): SimExchangeTurn[] {
+  if (node.confirm) return node.confirmExchange ?? []
+  return contentFor(node, visit)?.exchange ?? []
 }
 
 /** cursor 位置所在的一组节点（当前剧本为纯线性，一组即一个节点） */
@@ -81,6 +103,7 @@ export function useSimulationPlayback(run: SimRun, enabled = true) {
   const [paused, setPaused] = useState(false)
   const [orch, setOrch] = useState<OrchProgress>(emptyOrch)
   const [orchDone, setOrchDone] = useState(false)
+  const [resetVersion, setResetVersion] = useState(0)
 
   // 定时器与状态快照（供回调读取最新值，避免闭包过期）
   const timersRef = useRef<number[]>([])
@@ -90,6 +113,7 @@ export function useSimulationPlayback(run: SimRun, enabled = true) {
   const orchRef = useRef<OrchProgress>(emptyOrch())
   const visitsRef = useRef<Record<string, number>>({})
   const pausedRef = useRef(false)
+  const statusesRef = useRef<Record<string, SimNodeStatus>>({})
   /** 已启动过的节点，防止 StrictMode 双跑 effect 导致流式重复启动 */
   const startedRef = useRef<Set<string>>(new Set())
   const orchStartedRef = useRef(false)
@@ -97,6 +121,7 @@ export function useSimulationPlayback(run: SimRun, enabled = true) {
   orchRef.current = orch
   visitsRef.current = visits
   pausedRef.current = paused
+  statusesRef.current = statuses
 
   const clearTimers = useCallback(() => {
     timersRef.current.forEach((t) => window.clearTimeout(t))
@@ -121,20 +146,46 @@ export function useSimulationPlayback(run: SimRun, enabled = true) {
     timersRef.current.push(t)
   }, [])
 
-  /** 单步推进：每次只往前一格，然后排下一次 */
+  /** 单步推进：先播沟通过程，播完再进执行过程（每次只往前一格，然后排下一次） */
   const tick = useCallback(
     (id: string) => {
       if (pausedRef.current) return
       const node = run.nodes.find((n) => n.id === id)
-      if (!node || node.confirm) return
-      const content = contentFor(node, visitsRef.current[id] ?? 0)
-      if (!content) return
-
+      if (!node) return
+      const visit = visitsRef.current[id] ?? 0
       const p = progressRef.current[id] ?? emptyProgress()
       const next: NodeProgress = { ...p }
+      let delay = 0
+
+      // ① 沟通过程：逐字码出，一句一句来（不是整句弹出）
+      const exchange = exchangeFor(node, visit)
+      if (p.exchange < exchange.length) {
+        const cur = exchange[p.exchange].text
+        if (p.exchangeChars < cur.length) {
+          next.exchangeChars = Math.min(p.exchangeChars + EXCHANGE_CHAR_STEP, cur.length)
+          delay = next.exchangeChars >= cur.length ? EXCHANGE_GAP : EXCHANGE_CHAR_DELAY
+        } else {
+          // 这一句码完了 → 换下一句，中间留一段"正在输入"
+          next.exchange = p.exchange + 1
+          next.exchangeChars = 0
+          delay = EXCHANGE_LEAD
+        }
+        setProgress((prev) => ({ ...prev, [id]: next }))
+        schedule(id, delay)
+        return
+      }
+
+      // 人工介入节点：请示播完就停下等人工操作
+      if (node.confirm) {
+        setStatuses((prev) => (prev[id] === 'awaiting' ? prev : { ...prev, [id]: 'awaiting' }))
+        return
+      }
+
+      const content = contentFor(node, visit)
+      if (!content) return
+
       const riskCount = content.risks?.length ?? 0
       const conclusionLen = content.conclusion?.length ?? 0
-      let delay = 0
 
       if (p.thinking < content.thinking.length) {
         next.thinking = p.thinking + 1
@@ -203,6 +254,11 @@ export function useSimulationPlayback(run: SimRun, enabled = true) {
 
   const reset = useCallback(() => {
     clearTimers()
+    progressRef.current = {}
+    visitsRef.current = {}
+    orchRef.current = emptyOrch()
+    pausedRef.current = false
+    statusesRef.current = initialStatuses(run)
     startedRef.current = new Set()
     orchStartedRef.current = false
     setStatuses(initialStatuses(run))
@@ -213,6 +269,8 @@ export function useSimulationPlayback(run: SimRun, enabled = true) {
     setPaused(false)
     setOrch(emptyOrch())
     setOrchDone(false)
+    // Restart orchestration even when the page was already enabled.
+    setResetVersion((version) => version + 1)
   }, [clearTimers, run])
 
   // 切换剧本时整体重置；卸载时清定时器
@@ -229,7 +287,7 @@ export function useSimulationPlayback(run: SimRun, enabled = true) {
     orchStartedRef.current = true
     scheduleOrch(ORCH_ITEM_DELAY)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled])
+  }, [enabled, resetVersion, scheduleOrch])
 
   /** 编排跑完才开始执行第一个节点 */
   useEffect(() => {
@@ -243,10 +301,7 @@ export function useSimulationPlayback(run: SimRun, enabled = true) {
       if (!n) return
       if (startedRef.current.has(id)) return
       startedRef.current.add(id)
-      if (n.confirm) {
-        setStatuses((prev) => ({ ...prev, [id]: 'awaiting' }))
-        return
-      }
+      // 人工介入节点也先走沟通过程（分身向「你」请示），播完才进入待确认
       setProgress((prev) => (prev[id] ? prev : { ...prev, [id]: emptyProgress() }))
       setStatuses((prev) => ({ ...prev, [id]: 'running' }))
       tick(id)
@@ -327,6 +382,22 @@ export function useSimulationPlayback(run: SimRun, enabled = true) {
       .forEach(([nodeId]) => tickRef.current(nodeId))
   }, [clearTimers, statuses, orchDone])
 
+  /**
+   * 自愈兜底。正常情况下每个节点始终有一个待触发的定时器；
+   * 万一链路断了（progressRef/定时器在并发渲染下极小概率丢失），
+   * 节点会永久停在「进行中」——这里每 1.5s 检查一次，断了就把它重新踢起来。
+   */
+  useEffect(() => {
+    if (!enabled) return
+    const h = window.setInterval(() => {
+      if (timersRef.current.length > 0) return
+      Object.entries(statusesRef.current).forEach(([nodeId, st]) => {
+        if (st === 'running') tickRef.current(nodeId)
+      })
+    }, 1500)
+    return () => window.clearInterval(h)
+  }, [enabled])
+
   const doneCount = run.nodes.filter((n) => statuses[n.id] === 'done').length
 
   return {
@@ -353,5 +424,6 @@ export function useSimulationPlayback(run: SimRun, enabled = true) {
       orchDone ||
       Object.values(statuses).some((s) => s !== 'pending'),
     contentFor: (node: SimNode) => contentFor(node, visits[node.id] ?? 0),
+    exchangeFor: (node: SimNode) => exchangeFor(node, visits[node.id] ?? 0),
   }
 }

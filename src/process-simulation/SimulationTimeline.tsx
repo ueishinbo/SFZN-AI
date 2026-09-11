@@ -1,8 +1,11 @@
 import { CheckCircle2, Layers } from 'lucide-react'
 import NodeCard from './NodeCard'
 import SimulationOrchestration from './SimulationOrchestration'
-import { emptyProgress, type NodeProgress, type OrchProgress } from './useSimulationPlayback'
-import type { SimMember, SimNode, SimNodeStatus, SimRun, SimRunContent } from './types'
+import { EMPTY_PROGRESS, type NodeProgress, type OrchProgress } from './useSimulationPlayback'
+import type { SimExchangeTurn, SimMember, SimNode, SimNodeStatus, SimRun, SimRunContent } from './types'
+
+/** 空数组单例：给 confirm 节点兜底。每次 render 现造新数组会让 NodeCard 的 memo 失效 */
+const NO_ASSETS: string[] = []
 
 export default function SimulationTimeline({
   run,
@@ -19,6 +22,7 @@ export default function SimulationTimeline({
   memberOf,
   positionLabelOf,
   contentOf,
+  exchangeOf,
   onApprove,
   onReject,
   isComplete,
@@ -38,6 +42,7 @@ export default function SimulationTimeline({
   memberOf: (id: string) => SimMember | undefined
   positionLabelOf: (node: SimNode) => string
   contentOf: (node: SimNode) => SimRunContent | undefined
+  exchangeOf: (node: SimNode) => SimExchangeTurn[]
   onApprove: (id: string) => void
   onReject: (id: string, reason?: string) => void
   isComplete: boolean
@@ -49,7 +54,7 @@ export default function SimulationTimeline({
 
   if (!hasRun && !focusMember) {
     return (
-      <div className="ps-timeline-empty">
+      <div className="ps2-timeline-empty">
         <Layers size={26} />
         <strong>尚未开始执行</strong>
         <p>选择执行流程、填写任务内容后点击「发送任务」，数字分身将按工作流自动执行。</p>
@@ -58,7 +63,7 @@ export default function SimulationTimeline({
   }
 
   return (
-    <div className="ps-timeline">
+    <div className="ps2-timeline">
       {hasRun && !focusMember && (
         <SimulationOrchestration
           orchestration={run.orchestration}
@@ -68,7 +73,7 @@ export default function SimulationTimeline({
       )}
 
       {focusMember && (
-        <div className="ps-timeline-filter">
+        <div className="ps2-timeline-filter">
           <span>
             正在按人员查看：
             <strong>{memberOf(focusMember)?.person}</strong> 参与的节点（{nodes.length} 个）
@@ -91,11 +96,12 @@ export default function SimulationTimeline({
             member={member}
             positionLabel={positionLabelOf(n)}
             positionAssets={
-              member?.positions.find((p) => p.id === n.positionId)?.assets ?? []
+              member?.positions.find((p) => p.id === n.positionId)?.assets ?? NO_ASSETS
             }
             status={statuses[n.id] ?? 'pending'}
-            progress={progress[n.id] ?? emptyProgress()}
+            progress={progress[n.id] ?? EMPTY_PROGRESS}
             content={content}
+            exchange={exchangeOf(n)}
             rejection={rejections[n.id]}
             inheritedFrom={
               n.inherits
@@ -103,16 +109,16 @@ export default function SimulationTimeline({
                 : undefined
             }
             active={activeNodeId === n.id}
-            onPick={() => onPickNode(n.id)}
-            onApprove={() => onApprove(n.id)}
-            onReject={(reason) => onReject(n.id, reason)}
+            onPickNode={onPickNode}
+            onApproveNode={onApprove}
+            onRejectNode={onReject}
           />
         )
       })}
 
       {isComplete && !focusMember && (
-        <div className="ps-result">
-          <div className="ps-result-head">
+        <div className="ps2-result">
+          <div className="ps2-result-head">
             <CheckCircle2 size={17} />
             <strong>{run.conclusion.title}</strong>
             <em>流程走完 · 共 {run.nodes.length} 个节点</em>
@@ -122,7 +128,7 @@ export default function SimulationTimeline({
               <li key={i}>{p}</li>
             ))}
           </ul>
-          <div className="ps-result-foot">
+          <div className="ps2-result-foot">
             {Math.max(0, ...Object.values(visits)) === 0
               ? '本次执行未经驳回回退'
               : `驳回回退 ${Math.max(0, ...Object.values(visits))} 次后通过`}

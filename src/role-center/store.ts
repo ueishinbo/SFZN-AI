@@ -1,3 +1,4 @@
+import { withProcurementDemo } from "../admin/procurementDemo";
 import { useSyncExternalStore } from "react";
 import {
   availableRole,
@@ -88,7 +89,7 @@ function migrate(saved: Store | (Store & { schema: 3 })): Store {
       .replaceAll("SOP", "能力地图");
   });
   next.schema = 4;
-  return next;
+  return withProcurementDemo(next);
 }
 function load(): Store {
   try {
@@ -107,7 +108,7 @@ function load(): Store {
   } catch {
     /* Keep a usable session if browser storage is unavailable. */
   }
-  return seedStore();
+  return withProcurementDemo(seedStore());
 }
 let state = load();
 const listeners = new Set<() => void>();

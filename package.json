@@ -8,7 +8,6 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "build:demo": "node scripts/build-demo-singlefile.mjs",
     "test": "node scripts/test-role-center.mjs"
   },
   "dependencies": {

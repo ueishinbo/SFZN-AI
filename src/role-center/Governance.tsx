@@ -941,7 +941,7 @@ export function PersonalLogs() {
           清空筛选
         </button>
       </div>
-      <div className="rc-table-wrap">
+      <div className="rc-table-wrap rc-conversation-log-scroll" tabIndex={0} role="region" aria-label="对话日志列表">
         <table>
           <thead>
             <tr>

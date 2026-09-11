@@ -1,6 +1,8 @@
 import type { Definition } from "../role-center/domain";
+import { PROCUREMENT_ORG, PROCUREMENT_POSITIONS, PROCUREMENT_PROCESS } from "./procurementDemo";
 export type Position = NonNullable<Definition['position']>;
 export const catalog: Record<string, string[]> = {
+  [PROCUREMENT_ORG]: PROCUREMENT_POSITIONS.map(p => p.name),
   'comac/product': ['产品经理', '交互设计师', '数据产品经理'],
   'comac/marketing': ['解决方案经理', '市场策划经理'],
   'comac/delivery': ['项目经理', '交付经理'],
@@ -9,11 +11,12 @@ export const catalog: Record<string, string[]> = {
 export const POSITIONS: Position[] = Object.entries(catalog).flatMap(([org, names]) => names.map((name, index) => ({ id: `${org}/position-${index}`, org, name })));
 
 type ModelNode = { id: string; name: string; owner: string; input: string; output: string; knowledge: string; rule: string };
-type Model = { id: string; name: string; description: string; nodes: ModelNode[]; edges: { from: string; to: string; condition: string }[] };
+export type Model = { id: string; name: string; description: string; nodes: ModelNode[]; edges: { from: string; to: string; condition: string }[] };
 // Demo ontology snapshots: stable position references, explicit nodes and directed edges.
 export function modelsForPosition(position: Position): Model[] {
   const valid = POSITIONS.find(p => p.id === position.id);
   if (!valid) return [];
+  if (position.org === PROCUREMENT_ORG) return [];
   const finance = position.org === 'comac/finance';
   const product = position.org === 'comac/product';
   const titles = finance ? ['费用报销与审核', '预算调整与执行'] : product ? ['产品需求到交付', '产品变更与影响评估'] : position.org === 'comac/marketing' ? ['客户需求到方案评审', '方案变更与商务协同'] : ['项目计划到交付', '项目变更与风险治理'];
@@ -47,5 +50,6 @@ export const LOCAL_PROCESS: Model = {
   ],
 };
 export function localModelsForPosition(position: Position): Model[] {
+  if (position.org === PROCUREMENT_ORG) return [PROCUREMENT_PROCESS];
   return DEMO_POSITIONS.some(p => p.id === position.id) ? [LOCAL_PROCESS] : [];
 }

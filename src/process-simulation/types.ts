@@ -1,9 +1,12 @@
 /**
- * 流程仿真 · 数据模型
+ * 流程仿真 V2 · 数据模型
  *
  * 说明：本模块为纯演示 Demo，全部数据虚拟，不与现有原型数据对齐。
  * 逻辑底座：数字分身（人）持有 1..N 个岗位智能体；工作流按岗位编排节点；
  *          节点执行时由分身唤起对应岗位智能体，执行标准来自该智能体的基础配置。
+ *
+ * V2 与 V1 的唯一差别：每个节点多了一段「沟通过程」——
+ * 数字分身派活给子代理（岗位智能体）时的往返报文。默认先播这段，再播执行过程。
  */
 
 /** 岗位智能体（分身可调用的能力） */
@@ -38,8 +41,28 @@ export type SimArtifact = {
   summary: string
 }
 
+/**
+ * 沟通过程中的一轮报文。
+ * from: twin = 数字分身说的；agent = 对接方说的（岗位智能体；人工介入节点则是「你」）
+ */
+export type SimExchangeTurn = {
+  from: 'twin' | 'agent'
+  text: string
+}
+
 /** 节点一次执行的内容 */
 export type SimRunContent = {
+  /**
+   * 沟通过程：数字分身与它的子代理（岗位智能体）之间的往返。
+   * 时序在执行过程之前 —— 先交接，再干活。
+   * 硬要求：① 派单时要转达上游分身传来的信息 ② 子代理要真的提出异议或澄清，不能一味应承
+   */
+  exchange: SimExchangeTurn[]
+  /**
+   * 子代理受理任务时给出的执行计划（有交付物的节点才有）。
+   * 在沟通过程里以「任务列表」呈现，随节点执行推进逐条打勾、划掉。
+   */
+  tasks?: string[]
   /** 思维链，逐条流式展示 */
   thinking: string[]
   /** 本节点做了什么 */
@@ -86,6 +109,8 @@ export type SimNode = {
   parallelGroup?: string
   /** 人工介入 */
   confirm?: SimConfirm
+  /** 人工介入节点的沟通过程：分身向「你」请示（无执行内容，所以对话挂在这里） */
+  confirmExchange?: SimExchangeTurn[]
 }
 
 export type SimEdge = { from: string; to: string; condition: string }
