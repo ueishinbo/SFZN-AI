@@ -1,0 +1,127 @@
+.profile-markdown-modal{width:min(860px,100%);min-height:min(650px,calc(100% - 15px))}
+.markdown-preview{min-height:460px;padding:27px 34px;overflow:auto;color:#26313d;background:#fff}
+.markdown-preview h3{margin:0 0 12px;color:#152538;font-size:21px}
+.markdown-preview h4{margin:25px 0 9px;color:#1c2f43;font-size:17px}
+.markdown-preview p{margin:0;color:#3f4751;font-size:15px;line-height:1.85}
+.markdown-preview .markdown-list{padding-left:8px}
+.markdown-preview .markdown-gap{height:15px}
+.profile-markdown-modal .markdown-editor{flex:1;min-height:0}
+.profile-markdown-modal .markdown-editor textarea{min-height:460px}
+.modal-actions{display:flex;align-items:center;gap:10px}
+.modal-actions>button{height:36px;min-width:40px;padding:0 12px;border:1px solid #d5e0e9;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;gap:6px;color:#49647d;background:#fff;cursor:pointer;font-size:13px;font-weight:700;transition:.16s ease}
+.profile-markdown-modal .modal-actions>button{height:36px;padding:0 12px;border:1px solid #d5e0e9;border-radius:10px;color:#49647d;background:#fff;font-size:13px}
+.modal-actions>button:hover{border-color:#8fb5d5;color:#1e6fae;background:#f4f9fd}
+.modal-actions>.modal-close{width:36px;padding:0;color:#385066;background:#f7f9fb}
+.modal-actions>.modal-close:hover{border-color:#d4a8ad;color:#a5424c;background:#fff6f6}
+.modal-actions>.is-cancel{min-width:68px;color:#6f7f8e;background:#f7f9fb}
+.profile-markdown-modal .markdown-editor>div{justify-content:flex-end}
+.profile-markdown-modal .markdown-editor .primary{min-width:78px}
+.resource-workspace-modal .modal-actions>.import-skill{display:none}
+.top-identity-actions{display:flex;align-items:center;gap:10px}
+.top-identity-actions>button{height:32px;padding:0 13px;border:1px solid #cbdce9;border-radius:9px;color:#2873ad;background:#fff;cursor:pointer;font-size:12px;font-weight:700}
+.top-identity-actions>button:hover{border-color:#8eb9dc;background:#f4f9fd}
+.digital-twin-training .top{justify-content:flex-start}
+.digital-twin-training .top-identity-actions{margin-left:24px}
+.digital-twin-training .top-identity-actions .sync{display:none}
+.identity-detail{min-width:min(460px,calc(100vw - 68px));padding:28px 26px 30px}
+.identity-detail-avatar{width:58px;height:58px;margin:0 auto 22px;display:grid;place-items:center;border-radius:18px;color:#fff;background:linear-gradient(145deg,#265f9f,#39a2cd);box-shadow:0 9px 19px rgba(38,95,159,.22);font-size:22px;font-weight:800}
+.identity-detail .details{gap:0;border:1px solid #e1eaf1;border-radius:12px;overflow:hidden}
+.identity-detail .details div{min-height:43px;padding:0 14px;align-items:center;border-bottom:1px solid #e9eff4}
+.identity-detail .details div:last-child{border-bottom:0}
+.identity-detail .details dt{font-size:11px}
+.identity-detail .details dd{font-size:12px;color:#40566b}
+
+@media(max-width:620px){
+  .profile-markdown-modal{min-height:0}
+  .markdown-preview{min-height:360px;padding:20px}
+  .markdown-preview p{font-size:14px}
+}
+
+/* 能力模块：以工作区尺寸呈现，避免在小型信息弹窗中堆叠管理内容。 */
+.modal:has(> .detail-modal){width:min(1160px,calc(100vw - 42px));max-height:calc(100vh - 42px);min-height:min(680px,calc(100vh - 42px))}
+.modal:has(> .detail-modal)>header{padding:19px 24px;background:#fff}
+.modal:has(> .detail-modal) .detail-modal{width:100%;min-width:0;max-height:none;flex:1;padding:22px 24px 28px;box-sizing:border-box;background:linear-gradient(180deg,#f8fbfd 0,#f4f8fb 100%);overflow:auto}
+.detail-modal>.subtabs{margin:0 0 18px;padding:6px;gap:5px;border-radius:12px;background:#fff;box-shadow:0 5px 15px rgba(42,74,102,.05)}
+.detail-modal>.subtabs button{height:38px;padding:0 18px;font-size:13px}
+.detail-modal>.subtabs button.active{color:#176fc3;background:#e8f4ff}
+.detail-modal .twin-card{border-color:#dce7ef;border-radius:16px;box-shadow:0 12px 28px rgba(43,70,98,.07)}
+.detail-modal .twin-card>header{min-height:64px;padding:17px 20px}
+.detail-modal .twin-card h2{font-size:18px}
+.detail-modal .twin-card header p{font-size:12px}
+.detail-modal .resource-rows{padding:6px 20px 16px}
+.detail-modal .resource-rows article{min-height:76px;padding:14px 0;gap:14px}
+.detail-modal .resource-rows>article>i{width:42px;height:42px;flex-basis:42px;border-radius:12px}
+.detail-modal .resource-rows b{font-size:13px}
+.detail-modal .resource-rows p{margin:5px 0;font-size:11px}
+.detail-modal .resource-rows small{font-size:10px}
+.detail-modal .resource-rows em{padding:5px 9px;font-size:10px}
+.detail-modal .resource-rows button{min-width:58px;height:33px;border:1px solid #d3e2ed;border-radius:8px;color:#286fa9;background:#fff;font-size:11px;font-weight:700;cursor:pointer}
+.detail-modal .skills-card>header{padding-bottom:14px}
+.skill-summary{margin:16px 20px 8px;display:grid;grid-template-columns:repeat(3,minmax(130px,1fr)) auto;gap:12px;align-items:stretch}
+.skill-summary article{min-height:76px;padding:15px 17px;display:flex;align-items:baseline;gap:8px;border-radius:13px;background:#f5f7f8}
+.skill-summary article.is-enabled{color:#1b9a5d;background:#e8f8ef}
+.skill-summary b{font-size:29px;line-height:1;color:#1f2b38}
+.skill-summary .is-enabled b{color:#18a960}
+.skill-summary span{color:#657285;font-size:12px;font-weight:700}
+.skill-actions{position:relative;display:flex;align-items:center;justify-content:flex-end}
+.skill-actions>button{height:42px!important;min-width:104px!important;color:#fff!important;border-color:#1c2228!important;border-radius:11px!important;background:#1c2228!important;font-size:12px!important}
+.skill-import-menu{width:190px;padding:6px;position:absolute;top:49px;right:0;z-index:12;border:1px solid #e1e8ef;border-radius:12px;background:#fff;box-shadow:0 15px 32px rgba(31,51,72,.18)}
+.skill-import-menu button{width:100%;height:38px!important;padding:0 10px!important;justify-content:flex-start!important;border:0!important;color:#536980!important;background:transparent!important}
+.skill-import-menu button:hover{color:#176fc3!important;background:#eef7ff!important}
+.skill-dialog-backdrop{position:fixed;inset:0;z-index:30;padding:18px;display:grid;place-items:center;background:rgba(29,40,53,.36)}
+.skill-dialog{width:min(780px,calc(100vw - 36px));max-height:calc(100vh - 36px);display:flex;flex-direction:column;border:1px solid #d9e1e7;border-radius:18px;background:#fff;box-shadow:0 24px 70px rgba(25,42,60,.27)}
+.skill-dialog.compact{width:min(720px,calc(100vw - 36px))}
+.skill-dialog header{padding:20px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #ecf0f3}
+.skill-dialog header h2{margin:5px 0 0;color:#5c7296;font-size:20px}
+.skill-dialog header>button{width:32px!important;min-width:32px!important;padding:0!important;border:0!important;color:#7c8a9e!important;background:transparent!important}
+.skill-dialog-body{padding:19px 24px;overflow:auto}
+.skill-field,.skill-select-label{display:grid;gap:8px;color:#79869a;font-size:12px;font-weight:700}
+.skill-field select,.skill-dialog-body>input{height:48px;padding:0 13px;border:1px solid #33404b;border-radius:11px;color:#4b5970;background:#fff;font:14px inherit}
+.skill-select-label{margin-top:18px}
+.marketplace-list{margin-top:10px;padding:12px;border:1px solid #e2e8ee;border-radius:14px}
+.marketplace-list label{min-height:43px;padding:0 12px;display:flex;align-items:center;gap:12px;border-radius:9px;color:#1f2a35;cursor:pointer;font-size:14px}
+.marketplace-list label:nth-child(even){background:#f6f7f8}
+.marketplace-list input{width:17px;height:17px;accent-color:#1d2730}
+.marketplace-list small{color:#8591a3;font-size:12px}
+.skill-dialog-body>p{margin:16px 0 0;color:#8995a6;font-size:12px;line-height:1.55}
+.opensource-help{margin-top:0!important;margin-bottom:18px!important}
+.skill-dialog-body>input{width:100%;box-sizing:border-box}
+.skill-dialog footer{padding:14px 24px 18px;display:flex;justify-content:flex-end;gap:10px;border-top:1px solid #edf1f4}
+.skill-dialog footer button{height:38px;padding:0 22px;border:1px solid #dbe3ea;border-radius:10px;color:#536275;background:#fff;font-size:13px;cursor:pointer}
+.skill-dialog footer .primary{background:#1c2228!important;border-color:#1c2228!important}
+.skill-dialog footer button:disabled{opacity:.45;cursor:not-allowed}
+.detail-modal .toolbar{padding:15px 20px;gap:12px;background:#fbfdff}
+.detail-modal .toolbar label{height:38px;min-width:260px;padding:0 12px;border-radius:10px}
+.detail-modal .toolbar input{font-size:12px}
+.detail-modal .toolbar button{height:34px;padding:0 12px;font-size:11px}
+.detail-modal .experts{padding:20px;gap:15px}
+.detail-modal .experts article{min-height:155px;padding:18px;border-radius:14px;background:linear-gradient(145deg,#fff,#f8fbfd)}
+.detail-modal .experts b{font-size:14px}
+.detail-modal .experts p{font-size:11px}
+.detail-modal .goals{padding:20px}
+
+/* 技能列表固定在工作区内滚动，避免“全部”状态把整个弹窗推到视窗外。 */
+.detail-modal .skills-card{height:min(720px,calc(100vh - 255px));min-height:0;display:flex;flex-direction:column}
+.detail-modal .skills-card>.toolbar{flex:0 0 auto;border-bottom:1px solid #edf1f4}
+.detail-modal .skills-card>.resource-rows{min-height:0;flex:1;overflow-y:auto;overscroll-behavior:contain;scrollbar-color:#b8c9d8 transparent;scrollbar-width:thin}
+.detail-modal .skills-card>.resource-rows::-webkit-scrollbar{width:8px}
+.detail-modal .skills-card>.resource-rows::-webkit-scrollbar-thumb{border:2px solid transparent;border-radius:8px;background:#bdcad6;background-clip:padding-box}
+.skill-summary{margin:0 -20px 12px;padding:16px 20px 14px;grid-template-columns:repeat(3,minmax(150px,1fr)) 142px;position:sticky;top:0;z-index:4;background:linear-gradient(180deg,#fff 88%,rgba(255,255,255,.94))}
+.skill-summary article{min-height:86px;padding:17px 19px;align-items:center;gap:11px;border:1px solid #edf1f4;border-radius:14px;background:#f7f8fa}
+.skill-summary b{font-size:34px;letter-spacing:-.04em}
+.skill-summary span{color:#526176;font-size:15px;font-weight:800;white-space:nowrap}
+.skill-summary article{flex-wrap:nowrap}
+.skill-actions>button{height:46px!important;min-width:124px!important;font-size:13px!important}
+
+
+@media(max-width:880px){
+  .modal:has(> .detail-modal){width:calc(100vw - 24px);min-height:0;max-height:calc(100vh - 24px)}
+  .modal:has(> .detail-modal) .detail-modal{padding:14px}
+  .detail-modal>.subtabs button{padding:0 13px}
+  .detail-modal .skills-card{height:calc(100vh - 200px)}
+  .skill-summary{grid-template-columns:repeat(3,minmax(115px,1fr)) 108px;gap:8px}
+  .skill-summary article{min-height:72px;padding:13px}
+  .skill-summary b{font-size:28px}
+  .skill-summary span{font-size:13px}
+  .skill-actions>button{min-width:104px!important}
+}

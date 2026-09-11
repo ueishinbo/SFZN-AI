@@ -1,0 +1,624 @@
+/* ===== 执行视图（Part 1） ===== */
+.wg-view {
+  height: 100%;
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding: 24px 28px 40px;
+  background: #f6f7fb;
+  color: #1c2433;
+}
+.wg-header {
+  display: flex;
+  align-items: flex-end;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.wg-header p {
+  margin: 0 0 2px;
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: #7a8699;
+}
+.wg-header h1 {
+  margin: 0;
+  font-size: 22px;
+}
+.wg-members {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.wg-member {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 6px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid #e6e9f0;
+  font-size: 12px;
+}
+.wg-member i {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-style: normal;
+  font-size: 11px;
+}
+.wg-member--blue i { background: #2e87e7; }
+.wg-member--green i { background: #2eb872; }
+.wg-member--purple i { background: #7b5fd6; }
+.wg-member--orange i { background: #e8942e; }
+.wg-progress {
+  margin-left: auto;
+  font-size: 12px;
+  color: #2e87e7;
+  font-weight: 600;
+}
+.wg-orchestration {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 10px 14px;
+  margin-bottom: 20px;
+  border-radius: 10px;
+  background: #eef4fd;
+  color: #5a6a84;
+  font-size: 12px;
+}
+.wg-orchestration span:first-child {
+  color: #2e87e7;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.wg-phase { margin-bottom: 20px; }
+.wg-phase > h2 {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: #7a8699;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+.wg-track {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+}
+.wg-track::before {
+  content: '';
+  position: absolute;
+  left: 22px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: #e6e9f0;
+}
+.wg-node {
+  position: relative;
+  margin-left: 46px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #e6e9f0;
+  transition: border-color 0.2s;
+}
+.wg-node--running { border-color: #2e87e7; }
+.wg-node--awaiting { border-color: #e8942e; box-shadow: 0 0 0 3px rgba(232, 148, 46, 0.12); }
+.wg-node--done { opacity: 0.9; }
+.wg-node-head { display: flex; align-items: center; gap: 10px; }
+.wg-status {
+  position: absolute;
+  left: -34px;
+  top: 14px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  border: 1px solid #e6e9f0;
+  color: #9aa5b5;
+}
+.wg-status--running { color: #2e87e7; border-color: #2e87e7; }
+.wg-status--done { color: #fff; border-color: #2eb872; background: #2eb872; }
+.wg-status--awaiting { color: #e8942e; border-color: #e8942e; }
+.wg-spin { animation: wg-spin 1s linear infinite; }
+@keyframes wg-spin { to { transform: rotate(360deg); } }
+.wg-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 13px;
+}
+.wg-avatar--blue { background: #2e87e7; }
+.wg-avatar--green { background: #2eb872; }
+.wg-avatar--purple { background: #7b5fd6; }
+.wg-avatar--orange { background: #e8942e; }
+.wg-avatar--user { background: #1c2433; }
+.wg-actor strong { display: block; font-size: 13px; }
+.wg-actor em { font-style: normal; font-size: 11px; color: #7a8699; }
+.wg-kind { margin-left: auto; font-size: 11px; color: #9aa5b5; }
+.wg-thinking { margin: 10px 0 0 38px; }
+.wg-thinking-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 12px;
+  color: #7a8699;
+  cursor: pointer;
+}
+.wg-thinking ol {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  color: #7a8699;
+  font-size: 12px;
+  border-left: 2px solid #eef0f5;
+}
+.wg-thinking li { margin: 3px 0; }
+.wg-body { margin: 8px 0 0 38px; font-size: 13px; line-height: 1.7; }
+.wg-body p { margin: 0; }
+.wg-caret {
+  display: inline-block;
+  width: 2px;
+  height: 14px;
+  margin-left: 2px;
+  vertical-align: -2px;
+  background: #2e87e7;
+  animation: wg-blink 0.9s steps(1) infinite;
+}
+@keyframes wg-blink { 50% { opacity: 0; } }
+.wg-conclusion {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #eef4fd;
+}
+.wg-conclusion-mark { color: #2e87e7; font-size: 16px; }
+.wg-dispatch, .wg-artifact, .wg-pull {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f8f9fc;
+  border: 1px dashed #e0e4ee;
+}
+.wg-dispatch small { display: block; font-size: 11px; color: #7a8699; }
+.wg-dispatch strong { display: block; }
+.wg-dispatch em { font-style: normal; font-size: 12px; color: #7a8699; }
+.wg-artifact strong { display: block; }
+.wg-artifact em { font-style: normal; font-size: 12px; color: #7a8699; }
+.wg-pull p { margin: 0; }
+.wg-confirm { padding: 10px 12px; border-radius: 8px; background: #fff7ec; border: 1px solid #f3d9ad; }
+.wg-confirm h4 { margin: 0 0 4px; font-size: 13px; }
+.wg-confirm p { margin: 0; font-size: 12px; color: #7a8699; }
+.wg-node-action {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0 0 38px;
+}
+.wg-node-action small { font-size: 11px; color: #9aa5b5; }
+.wg-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: none;
+  border-radius: 8px;
+  background: #2e87e7;
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+}
+.wg-primary:hover { background: #1f74cf; }
+.wg-done-tag {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  font-size: 11px;
+  color: #2eb872;
+}
+
+/* ===== 演示页 + 编排演出（Part 2） ===== */
+.wg-demo {
+  height: 100%;
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding: 28px 32px 40px;
+  background: #f6f7fb;
+  color: #1c2433;
+}
+.wg-demo-head { margin-bottom: 22px; }
+.wg-demo-head p {
+  margin: 0 0 4px;
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: #7a8699;
+}
+.wg-demo-head h1 { margin: 0 0 6px; font-size: 24px; }
+.wg-demo-head span { font-size: 13px; color: #7a8699; }
+.wg-demo-composer {
+  max-width: 640px;
+  padding: 22px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid #e6e9f0;
+}
+.wg-demo-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #2e87e7, #765dde);
+  color: #fff;
+}
+.wg-demo-composer label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.wg-demo-composer textarea {
+  width: 100%;
+  min-height: 88px;
+  padding: 12px;
+  border: 1px solid #e0e4ee;
+  border-radius: 10px;
+  resize: vertical;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.wg-demo-composer textarea:focus { outline: none; border-color: #2e87e7; }
+.wg-demo-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+.wg-demo-actions span { font-size: 12px; color: #9aa5b5; }
+.wg-restart {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 16px;
+  padding: 6px 12px;
+  border: 1px solid #e0e4ee;
+  border-radius: 8px;
+  background: #fff;
+  color: #5a6a84;
+  font-size: 12px;
+  cursor: pointer;
+}
+.wg-restart:hover { border-color: #2e87e7; color: #2e87e7; }
+.wg-orch { max-width: 640px; }
+.wg-orch-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  color: #2e87e7;
+  font-size: 14px;
+  font-weight: 600;
+}
+.wg-orch-steps { list-style: none; margin: 0; padding: 0; }
+.wg-orch-steps li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid #e6e9f0;
+  color: #1c2433;
+  font-size: 13px;
+  animation: wg-fade-in 0.3s ease;
+}
+.wg-orch-steps li svg { color: #2eb872; flex: none; }
+@keyframes wg-fade-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.wg-orch-running { margin-top: 6px; color: #9aa5b5; font-size: 12px; }
+.wg-team-confirm {
+  margin-top: 16px;
+  padding: 18px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #e6e9f0;
+  animation: wg-fade-in 0.3s ease;
+}
+.wg-team-confirm header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.wg-team-confirm header h3 { margin: 0; font-size: 15px; }
+.wg-team-confirm > p { margin: 0 0 12px; font-size: 13px; color: #7a8699; }
+.wg-team-members { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+
+/* ===== 任务发送界面 ===== */
+.wg-demo-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.wg-send { max-width: 1120px; margin: 0 auto; }
+.wg-send-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.wg-send-head-text { min-width: 0; }
+.wg-send-head p {
+  margin: 0 0 4px;
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: #7a8699;
+}
+.wg-send-head h1 { margin: 0 0 6px; font-size: 24px; }
+.wg-send-head span { font-size: 13px; color: #7a8699; }
+.wg-send-section { margin-bottom: 20px; }
+.wg-send-section h2 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: #7a8699;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+.wg-send-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #e6e9f0;
+}
+.wg-send-node {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: #f8f9fc;
+  font-size: 13px;
+}
+.wg-send-node-idx {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #eef4fd;
+  color: #2e87e7;
+  font-size: 11px;
+  flex: none;
+}
+.wg-send-node-kind {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  background: #eef0f5;
+  color: #5a6a84;
+}
+.wg-send-node-kind.is-conclusion { background: #eef4fd; color: #2e87e7; }
+.wg-send-node-kind.is-confirm { background: #fff7ec; color: #e8942e; }
+.wg-send-node-kind.is-produce { background: #e8f6ee; color: #2eb872; }
+.wg-send-node-actor { color: #7a8699; }
+.wg-send-compose {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 860px;
+}
+.wg-send-btn { align-self: flex-start; }
+.wg-send-input {
+  width: 100%;
+  min-height: 80px;
+  padding: 12px;
+  border: 1px solid #e0e4ee;
+  border-radius: 10px;
+  resize: vertical;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.wg-send-input:focus { outline: none; border-color: #2e87e7; }
+
+/* ===== 流程图（思维导图） ===== */
+.wg-flow {
+  padding: 16px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #e6e9f0;
+}
+.wg-flow-block { position: relative; }
+.wg-flow-edge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 2px 26px;
+  font-size: 11px;
+  color: #9aa5b5;
+}
+.wg-flow-edge-arrow { color: #c3cbda; }
+.wg-flow-nodes { display: flex; gap: 8px; }
+.wg-flow-nodes.is-parallel { position: relative; padding-top: 4px; }
+.wg-flow-node {
+  flex: 1 1 auto;
+  min-width: 172px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #f8f9fc;
+  border: 1px solid #e6e9f0;
+  font-size: 12px;
+}
+.wg-flow-node.is-conclusion { background: #eef4fd; border-color: #bcd7f5; }
+.wg-flow-node.is-confirm { background: #fff7ec; border-color: #f3d9ad; }
+.wg-flow-node.is-produce { background: #e8f6ee; border-color: #bfe6cd; }
+.wg-flow-node.is-dispatch { background: #f4f1fb; border-color: #d9ccf2; }
+.wg-flow-node.has-branch { box-shadow: 0 0 0 2px rgba(232, 148, 46, 0.16); }
+.wg-flow-idx {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #eef4fd;
+  color: #2e87e7;
+  font-size: 11px;
+  flex: none;
+}
+.wg-flow-node-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.wg-flow-action {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1c2433;
+  white-space: nowrap;
+}
+.wg-flow-meta { font-size: 11px; color: #7a8699; white-space: nowrap; }
+.wg-flow-node-branch {
+  flex: none;
+  margin-left: auto;
+  color: #e8942e;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* ===== 回退分支（条件回退到前置节点） ===== */
+.wg-flow-branch {
+  margin: 0 14px 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #fff7ec;
+  border: 1px solid #f3d9ad;
+  border-left: 3px solid #e8942e;
+}
+.wg-flow-branch-cond {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #e8942e;
+}
+.wg-flow-branch-mark { font-size: 14px; line-height: 1; }
+.wg-flow-branch-desc {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 3px;
+  font-size: 12px;
+  color: #7a8699;
+}
+.wg-flow-branch-desc strong { color: #1c2433; font-weight: 600; }
+.wg-flow-branch-desc em {
+  font-style: normal;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid #f3d9ad;
+  color: #e8942e;
+}
+.wg-flow-phase {
+  border: 1px solid #d6dce8;
+  border-radius: 12px;
+  background: #fbfcfe;
+  overflow: hidden;
+}
+.wg-flow-phase-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 10px 14px;
+  background: #eef4fd;
+  border-bottom: 1px solid #d6dce8;
+}
+.wg-flow-phase-index {
+  align-self: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  background: #2e87e7;
+}
+.wg-flow-phase-title { font-size: 13px; font-weight: 600; color: #1c2433; }
+.wg-flow-phase-output { margin-left: auto; font-size: 12px; color: #2e87e7; }
+.wg-flow-phase-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 14px;
+}
+/* ===== 大节点之间的流转连接线 ===== */
+.wg-flow-link {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 6px 0;
+}
+.wg-flow-link-stem {
+  width: 2px;
+  height: 26px;
+  border-radius: 1px;
+  background: #2e87e7;
+}
+.wg-flow-link-tip {
+  margin-top: -1px;
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 8px solid #2e87e7;
+}
+.wg-flow-link-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin-left: 18px;
+  transform: translateY(-50%);
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: #eef4fd;
+  border: 1px solid #cfe2fa;
+  font-size: 11px;
+  color: #2e87e7;
+  white-space: nowrap;
+}
+
+/* 隐藏滚动条（保留滚动）：协同执行演示页 + 执行视图 */
+.wg-view::-webkit-scrollbar,
+.wg-demo::-webkit-scrollbar {
+  display: none;
+}

@@ -1,0 +1,178 @@
+import type { WorkingGroupRun } from './types'
+
+export const engineRiskReviewRun: WorkingGroupRun = {
+  id: 'working-group-engine-risk-review',
+  title: '发动机适航风险评审',
+  orchestrationSummary: [
+    '已确定任务：发动机适航风险评审',
+    '已加载 4 项工作事项',
+    '已引用能力地图「风险治理」流程',
+    '已确定岗位：项目管理 · 质量适航 · 总体设计 · 供应链质量',
+  ],
+  members: [
+    { id: 'pm', role: '项目管理岗', person: '赵总', color: 'purple' },
+    { id: 'quality', role: '质量适航岗', person: '陈工', color: 'green' },
+    { id: 'overall', role: '总体设计岗', person: '刘工', color: 'blue' },
+    { id: 'supply', role: '供应链质量岗', person: '王五', color: 'orange' },
+  ],
+  phases: [
+    { id: 'discussion', title: '方案讨论', output: '评审目标定稿' },
+    { id: 'verification', title: '风险核查', output: '符合性核对表 · 接口影响矩阵' },
+    { id: 'closing', title: '结论与关闭', output: '评审结论与关闭计划' },
+  ],
+  nodes: [
+    {
+      id: 'n1',
+      phaseId: 'discussion',
+      actorId: 'pm',
+      kind: 'speak',
+      action: '明确评审目标',
+      thinking: [
+        '需要先明确本次评审的目标和验收口径，避免后续讨论发散',
+        '评审对象是发动机的适航风险，重点在于风险项的识别与关闭责任',
+        '验收口径应定为：风险项可追溯、关闭责任到人、有时间节点',
+      ],
+      content:
+        '先明确本次评审目标：识别发动机适航风险项，落实关闭责任人和时间节点，形成可执行的关闭计划。验收口径是——每一项风险都有明确的依据、责任人和关闭时间。',
+    },
+    {
+      id: 'n2',
+      phaseId: 'discussion',
+      actorId: 'quality',
+      kind: 'speak',
+      action: '提出符合性意见',
+      thinking: [
+        '从适航符合性角度，我需要核对关键材料的验证范围是否完整',
+        '异常项的关闭责任人必须明确，否则评审无法闭环',
+        '供应商交付材料也涉及质量闭环，需要供应链质量岗一起核对',
+      ],
+      content:
+        '从适航符合性看，重点是核对关键材料的符合性验证范围，异常项要有明确的关闭责任人。供应商交付材料也涉及质量闭环，需要供应链质量岗一起核对。',
+    },
+    {
+      id: 'n3',
+      phaseId: 'discussion',
+      actorId: 'supply',
+      kind: 'speak',
+      action: '补充交付风险',
+      thinking: [
+        '从供应链质量角度，确认供应商交付的进度和质量闭环',
+        '重点补充供应商材料的交付风险，以及验收时需要供应商提供的符合性证据',
+      ],
+      content:
+        '我来补充供应商交付风险：重点关注材料交付进度、供应商质量闭环，以及验收时需要供应商提供的符合性证据。',
+    },
+    {
+      id: 'n4',
+      phaseId: 'discussion',
+      actorId: 'overall',
+      kind: 'speak',
+      action: '补充接口影响',
+      thinking: [
+        '在前两位基础上，从总体方案角度补充接口变更的影响',
+        '接口变更会影响上下游专业，需要一份影响矩阵避免评审后返工',
+      ],
+      content:
+        '在陈工和王五的基础上，总体方案还应补充接口变更对上下游专业的影响矩阵，避免评审后再次返工。',
+    },
+    {
+      id: 'n5',
+      phaseId: 'discussion',
+      actorId: 'pm',
+      kind: 'conclusion',
+      action: '收敛评审目标',
+      thinking: [
+        '综合质量、总体、供应链三方的意见，收敛成一个可执行的评审目标',
+        '目标要覆盖：风险梳理、质量符合性、供应商风险、接口影响四个维度',
+        '最终落成 4 项工作事项 + 关闭计划',
+      ],
+      content:
+        '目标定稿：① 梳理适航风险项 ② 质量角度核对符合性 ③ 供应商交付风险 ④ 总体接口影响矩阵；最终形成评审结论与关闭计划。',
+    },
+    {
+      id: 'n6',
+      phaseId: 'verification',
+      actorId: 'pm',
+      kind: 'dispatch',
+      action: '下发核对任务',
+      thinking: ['目标已定，现在把第一项工作下发', '符合性核对是质量岗的职责，先下发给它'],
+      dispatch: { assigneeId: 'quality', title: '适航符合性核对' },
+    },
+    {
+      id: 'n7',
+      phaseId: 'verification',
+      actorId: 'quality',
+      kind: 'produce',
+      action: '输出符合性核对表',
+      parallelGroup: 'p1',
+      thinking: ['开始核对关键材料的符合性验证范围', '汇总异常项和关闭责任人', '形成核对表'],
+      artifact: {
+        name: '适航符合性核对表.docx',
+        kind: 'docx',
+        summary: '关键材料的符合性验证范围、异常项与关闭责任人',
+      },
+    },
+    {
+      id: 'n8',
+      phaseId: 'verification',
+      actorId: 'overall',
+      kind: 'produce',
+      action: '输出接口影响矩阵',
+      parallelGroup: 'p1',
+      thinking: ['并行梳理接口变更对上下游专业的影响', '整理成影响矩阵'],
+      artifact: {
+        name: '接口影响矩阵.md',
+        kind: 'md',
+        summary: '接口变更对上下游专业的影响范围',
+      },
+    },
+    {
+      id: 'n9',
+      phaseId: 'verification',
+      actorId: 'supply',
+      kind: 'speak',
+      action: '同步风险纳入计划',
+      thinking: ['供应商交付风险已补充完毕，纳入关闭计划'],
+      content: '供应商交付风险已同步：材料交付进度和验收节点已纳入关闭计划。',
+    },
+    {
+      id: 'n10',
+      phaseId: 'closing',
+      actorId: 'pm',
+      kind: 'produce',
+      action: '输出评审结论与关闭计划',
+      thinking: ['汇总三方结论与风险，形成最终评审结论与关闭计划'],
+      artifact: {
+        name: '评审结论与关闭计划.pptx',
+        kind: 'pptx',
+        summary: '评审结论、风险清单与关闭责任人',
+      },
+    },
+    {
+      id: 'n11',
+      phaseId: 'closing',
+      actorId: 'user',
+      kind: 'confirm',
+      action: '确认对外同步',
+      thinking: ['评审已完成，需要用户决定是否对外同步'],
+      confirm: {
+        question: '是否将评审结论同步给供应商侧？',
+        description: '评审结论涉及供应商交付风险，同步后供应商可查看相关风险项与关闭要求。',
+        actionLabel: '确认同步',
+      },
+    },
+  ],
+  edges: [
+    { from: 'n1', to: 'n2', condition: '明确目标' },
+    { from: 'n2', to: 'n3', condition: '补充供应商风险' },
+    { from: 'n3', to: 'n4', condition: '补充接口影响' },
+    { from: 'n4', to: 'n5', condition: '意见收敛' },
+    { from: 'n5', to: 'n6', condition: '目标确认' },
+    { from: 'n6', to: 'n7', condition: '下发核对' },
+    { from: 'n7', to: 'n9', condition: '核对完成' },
+    { from: 'n8', to: 'n9', condition: '核对完成' },
+    { from: 'n9', to: 'n10', condition: '风险纳入' },
+    { from: 'n10', to: 'n11', condition: '结论通过' },
+    { from: 'n10', to: 'n6', condition: '未通过 · 退回补充' },
+  ],
+}

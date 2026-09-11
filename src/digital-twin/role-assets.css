@@ -1,0 +1,325 @@
+.role-asset-backdrop { position: fixed; inset: 0; z-index: 190; padding: 28px; display: grid; place-items: center; background: rgba(23,35,52,.48); backdrop-filter: blur(8px); }
+.role-asset-workspace { width: min(1180px,100%); height: min(820px,92vh); border: 1px solid rgba(255,255,255,.8); border-radius: 22px; overflow: hidden; display: grid; grid-template-rows: auto minmax(0,1fr); background: #f5f7fa; box-shadow: 0 35px 110px rgba(20,34,52,.32); }
+.role-asset-workspace > header { min-height: 76px; padding: 13px 17px; border-bottom: 1px solid #dfe5ec; display: flex; align-items: center; justify-content: space-between; gap: 18px; background: rgba(255,255,255,.95); }
+.role-asset-workspace > header > div { display: flex; align-items: center; gap: 10px; }
+.role-asset-workspace-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: #3875aa; background: #eaf4fc; }
+.role-asset-workspace > header small { color: #8391a2; font-size: 8px; }
+.role-asset-workspace > header h2 { margin: 4px 0 0; font-size: 16px; }
+.role-asset-workspace > header em { min-height: 28px; padding: 0 9px; border-radius: 8px; display: inline-flex; align-items: center; gap: 5px; color: #60758b; background: #edf2f6; font-size: 8px; font-style: normal; font-weight: 700; }
+.role-asset-workspace > header em.is-editable { color: #655aaa; background: #f0edff; }
+.role-asset-workspace > header button { width: 34px; height: 34px; border: 0; border-radius: 9px; display: grid; place-items: center; color: #758397; background: #f2f4f7; cursor: pointer; }
+.role-asset-workspace > main { min-height: 0; padding: 18px; overflow: auto; }
+
+.role-asset-document { width: min(820px,100%); margin: 0 auto; padding: 50px 58px; border: 1px solid #e0e5eb; background: #fff; box-shadow: 0 18px 50px rgba(31,50,73,.08); }
+.role-asset-document > header { padding-bottom: 22px; border-bottom: 2px solid #254e72; text-align: center; }
+.role-asset-document > header small { color: #54748e; font-size: 9px; letter-spacing: .14em; }
+.role-asset-document h1 { margin: 10px 0 8px; font-size: 25px; }
+.role-asset-document > header p { margin: 0; color: #788696; font-size: 9px; }
+.role-asset-document section { margin-top: 25px; }
+.role-asset-document h2 { margin: 0 0 10px; color: #254e72; font-size: 13px; }
+.role-asset-document p,.role-asset-document li { color: #536174; font-size: 10px; line-height: 1.85; }
+.role-asset-document-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 32px; }
+.role-asset-relations { padding: 14px; border-radius: 10px; display: flex; align-items: center; justify-content: center; gap: 10px; color: #6b7d8e; background: #f3f7fa; font-size: 9px; }
+.role-asset-relations strong { color: #2d608d; }
+
+.role-capability-layout { display: grid; grid-template-columns: minmax(0,1fr) 310px; gap: 14px; align-items: start; }
+.role-capability-layout > section,.role-capability-layout > aside { border: 1px solid #dfe5eb; border-radius: 16px; background: #fff; }
+.role-capability-layout > section > header { padding: 16px 18px; border-bottom: 1px solid #e7ebf0; }
+.role-capability-layout header > span,.role-capability-layout aside > span { color: #477ba6; font-size: 10px; font-weight: 750; letter-spacing: .12em; }
+.role-capability-layout h2 { margin: 5px 0 3px; font-size: 18px; }
+.role-capability-layout header p { margin: 0; color: #8b97a5; font-size: 10px; }
+.role-capability-flow { min-height: 280px; padding: 28px 18px; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 22px 10px; align-content: center; }
+.role-capability-flow > div { display: flex; align-items: center; gap: 7px; }
+.role-capability-flow > div > button { min-width: 0; min-height: 94px; padding: 12px; border: 1px solid #dfe6ed; border-radius: 12px; flex: 1; display: grid; align-content: center; gap: 5px; text-align: left; color: #43536a; background: #fafcfe; cursor: pointer; }
+.role-capability-flow > div > button.active { border-color: #6ca5d4; background: #edf6fd; box-shadow: 0 8px 22px rgba(44,107,161,.1); }
+.role-capability-flow button small { color: #7da0bd; font-size: 9px; }
+.role-capability-flow button strong { font-size: 11px; }
+.role-capability-flow button span { color: #8e9aa8; font-size: 9px; }
+.role-capability-flow > div > svg { flex: 0 0 auto; color: #a9b4c0; }
+.role-capability-layout > aside { padding: 18px; }
+.role-capability-layout aside h3 { margin: 8px 0 18px; font-size: 17px; }
+.role-capability-layout aside dl { margin: 0; display: grid; gap: 12px; }
+.role-capability-layout aside dl div { padding-bottom: 10px; border-bottom: 1px solid #edf0f3; display: grid; gap: 4px; }
+.role-capability-layout aside dt { color: #8995a4; font-size: 10px; }
+.role-capability-layout aside dd { margin: 0; color: #4e5e72; font-size: 11px; line-height: 1.5; }
+.role-capability-layout aside footer { margin-top: 16px; padding: 10px; border-radius: 9px; display: flex; align-items: center; gap: 6px; color: #4f7898; background: #eef6fb; font-size: 10px; }
+
+.role-knowledge-table { border: 1px solid #dfe5eb; border-radius: 16px; overflow: hidden; background: #fff; }
+.role-knowledge-table > header { padding: 15px 17px; border-bottom: 1px solid #e5eaf0; }
+.role-knowledge-table > header span { color: #477ba6; font-size: 8px; font-weight: 750; letter-spacing: .1em; }
+.role-knowledge-table > header h2 { margin: 5px 0 3px; font-size: 15px; }
+.role-knowledge-table > header p { margin: 0; color: #8d99a7; font-size: 8px; }
+.role-knowledge-head,.role-knowledge-table > article { display: grid; grid-template-columns: 1.25fr .45fr .9fr 1.2fr; gap: 12px; align-items: center; }
+.role-knowledge-table.is-editable .role-knowledge-head,.role-knowledge-table.is-editable > article { grid-template-columns: 1.15fr .42fr .85fr 1.1fr .45fr; }
+.role-knowledge-head { min-height: 38px; padding: 0 16px; color: #8995a5; background: #f6f8fa; font-size: 8px; font-weight: 700; }
+.role-knowledge-table > article { min-height: 72px; padding: 9px 16px; border-top: 1px solid #edf0f3; }
+.role-knowledge-table article > div:first-child { min-width: 0; display: flex; align-items: center; gap: 7px; color: #4a7ba2; }
+.role-knowledge-table article strong { font-size: 9px; }
+.role-knowledge-table article > span,.role-knowledge-table article > p { margin: 0; color: #7f8b9b; font-size: 8px; line-height: 1.45; }
+.role-knowledge-actions { display: flex; align-items: center; gap: 5px; }
+.role-knowledge-actions button { padding: 5px 7px; border: 0; border-radius: 6px; color: #3478aa; background: #edf6fc; cursor: pointer; font-size: 7px; }
+.role-knowledge-actions button:last-child { color: #a45151; background: #fff0f0; }
+
+.role-case-layout { display: grid; grid-template-columns: 300px minmax(0,1fr); gap: 14px; align-items: start; }
+.role-case-layout > aside { border: 1px solid #dfe5eb; border-radius: 16px; overflow: hidden; background: #fff; }
+.role-case-layout > aside > header { padding: 16px; border-bottom: 1px solid #e7ebef; }
+.role-case-layout > aside header span,.role-template-layout > section > header span,.role-rules-list > header span { color: #477ba6; font-size: 8px; font-weight: 750; letter-spacing: .1em; }
+.role-case-layout > aside h2,.role-template-layout > section > header h2,.role-rules-list > header h2 { margin: 5px 0 3px; font-size: 15px; }
+.role-case-layout > aside p,.role-template-layout > section > header p,.role-rules-list > header p { margin: 0; color: #8a97a7; font-size: 8px; }
+.role-case-layout > aside > button { width: 100%; min-height: 72px; padding: 10px 13px; border: 0; border-top: 1px solid #edf0f3; display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 8px; text-align: left; color: #54738f; background: #fff; cursor: pointer; }
+.role-case-layout > aside > button.active { background: #edf6fd; }
+.role-case-layout > aside button > span { display: grid; gap: 4px; }
+.role-case-layout > aside button strong { color: #455468; font-size: 9px; }
+.role-case-layout > aside button small { color: #8d99a8; font-size: 7px; }
+.role-case-markdown { border: 1px solid #dfe5eb; border-radius: 16px; overflow: hidden; background: #fff; }
+.role-case-markdown > header { min-height: 78px; padding: 14px 18px; border-bottom: 1px solid #e6ebf0; display: flex; align-items: center; justify-content: space-between; gap: 14px; background: #fbfcfd; }
+.role-case-markdown header span { color: #67839a; font-size: 8px; font-weight: 700; letter-spacing: .08em; }
+.role-case-markdown header h1 { margin: 5px 0 3px; font-family: ui-monospace,SFMono-Regular,Menlo,monospace; font-size: 14px; }
+.role-case-markdown header p { margin: 0; color: #8a97a6; font-size: 8px; }
+.role-case-markdown header em { display: inline-flex; align-items: center; gap: 4px; color: #64778b; font-size: 8px; font-style: normal; }
+.role-case-markdown > section { padding: 22px 25px 35px; }
+.role-case-markdown section h2 { margin: 21px 0 7px; color: #3e5f7b; font-family: ui-monospace,SFMono-Regular,Menlo,monospace; font-size: 11px; }
+.role-case-markdown section h2:first-child { margin-top: 0; }
+.role-case-markdown section p { margin: 5px 0; color: #59687a; font-size: 9px; line-height: 1.65; }
+.role-case-markdown blockquote { margin: 7px 0 0; padding: 11px 13px; border-left: 3px solid #6b9bc3; color: #526e84; background: #f1f7fb; font-size: 9px; line-height: 1.65; }
+
+.role-template-layout { display: grid; grid-template-columns: 330px minmax(0,1fr); gap: 14px; align-items: start; }
+.role-template-layout > section { border: 1px solid #dfe5eb; border-radius: 16px; overflow: hidden; background: #fff; }
+.role-template-layout > section > header { padding: 15px; border-bottom: 1px solid #e7ebef; }
+.role-template-layout > section > div { padding: 9px; display: grid; gap: 7px; }
+.role-template-layout > section button { min-height: 66px; padding: 10px; border: 1px solid #e3e8ee; border-radius: 10px; display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 9px; text-align: left; color: #5780a1; background: #fff; cursor: pointer; }
+.role-template-layout > section button.active { border-color: #99bddb; background: #eef6fc; }
+.role-template-layout button > span { display: grid; gap: 4px; }
+.role-template-layout button strong { color: #455468; font-size: 9px; }
+.role-template-layout button small,.role-template-layout button em { color: #8d99a6; font-size: 7px; font-style: normal; }
+.role-template-preview { padding: 30px 38px; border: 1px solid #dfe5eb; background: #fff; box-shadow: 0 15px 40px rgba(32,50,71,.06); }
+.role-template-preview > header { padding-bottom: 18px; border-bottom: 2px solid #315e83; }
+.role-template-preview header small { color: #597b98; font-size: 8px; }
+.role-template-preview header h1 { margin: 7px 0 4px; font-size: 20px; }
+.role-template-preview header p { margin: 0; color: #8b97a5; font-size: 8px; }
+.role-template-preview > section { min-height: 72px; padding: 14px 0; border-bottom: 1px solid #e8ecf0; display: grid; grid-template-columns: 35px minmax(0,1fr); gap: 10px; }
+.role-template-preview > section > span { color: #7295b2; font-size: 8px; }
+.role-template-preview section strong { font-size: 10px; }
+.role-template-preview section p { margin: 5px 0 0; color: #8a96a5; font-size: 8px; line-height: 1.5; }
+.role-template-preview > footer { padding-top: 16px; display: flex; align-items: center; gap: 5px; color: #637d91; font-size: 8px; }
+
+.role-rules-list { border: 1px solid #dfe5eb; border-radius: 16px; overflow: hidden; background: #fff; }
+.role-rules-list > header { padding: 16px 18px; border-bottom: 1px solid #e7ebf0; }
+.role-rules-list > div { padding: 12px; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; }
+.role-rules-list article { min-height: 116px; padding: 13px; border: 1px solid #e2e7ec; border-radius: 11px; display: grid; grid-template-columns: auto minmax(0,1fr) auto; gap: 10px; background: #fcfdfd; }
+.role-rules-list article > span { color: #7793aa; font-size: 8px; }
+.role-rules-list article h3 { margin: 0 0 6px; font-size: 10px; }
+.role-rules-list article p { margin: 0 0 9px; color: #748294; font-size: 8px; line-height: 1.5; }
+.role-rules-list article small { color: #99a3af; font-size: 7px; }
+.role-rules-list article em { display: inline-flex; align-items: center; gap: 4px; color: #367963; font-size: 8px; font-style: normal; }
+
+/* 个人只读岗位集：统一提升文字可读性，并为放大后的内容留出呼吸空间。 */
+.role-asset-workspace > header small { font-size: 10px; }
+.role-asset-workspace > header h2 { font-size: 18px; }
+.role-asset-workspace > header em { font-size: 10px; }
+
+.role-asset-document > header small { font-size: 11px; }
+.role-asset-document > header p { font-size: 11px; }
+.role-asset-document h2 { font-size: 15px; }
+.role-asset-document p,.role-asset-document li { font-size: 12px; }
+.role-asset-relations { font-size: 11px; }
+
+.role-knowledge-table > header span { font-size: 10px; }
+.role-knowledge-table > header h2 { font-size: 17px; }
+.role-knowledge-table > header p { font-size: 10px; }
+.role-knowledge-head { min-height: 42px; font-size: 10px; }
+.role-knowledge-table > article { min-height: 78px; }
+.role-knowledge-table article strong { font-size: 11px; }
+.role-knowledge-table article > span,.role-knowledge-table article > p { font-size: 10px; }
+
+.role-case-layout > aside header span,.role-template-layout > section > header span,.role-rules-list > header span { font-size: 10px; }
+.role-case-layout > aside h2,.role-template-layout > section > header h2,.role-rules-list > header h2 { font-size: 17px; }
+.role-case-layout > aside p,.role-template-layout > section > header p,.role-rules-list > header p { font-size: 10px; }
+.role-case-layout > aside > button { min-height: 78px; }
+.role-case-layout > aside button strong { font-size: 11px; }
+.role-case-layout > aside button small { font-size: 9px; }
+.role-case-markdown header span,.role-case-markdown header p,.role-case-markdown header em { font-size: 10px; }
+.role-case-markdown header h1 { font-size: 16px; }
+.role-case-markdown section h2 { font-size: 13px; }
+.role-case-markdown section p,.role-case-markdown blockquote { font-size: 11px; }
+
+.role-template-layout > section button { min-height: 72px; }
+.role-template-layout button strong { font-size: 11px; }
+.role-template-layout button small,.role-template-layout button em { font-size: 9px; }
+.role-template-preview header small,.role-template-preview header p { font-size: 10px; }
+.role-template-preview header h1 { font-size: 22px; }
+.role-template-preview > section { min-height: 78px; }
+.role-template-preview > section > span { font-size: 10px; }
+.role-template-preview section strong { font-size: 12px; }
+.role-template-preview section p,.role-template-preview > footer { font-size: 10px; }
+
+.role-rules-list article { min-height: 126px; }
+.role-rules-list article > span { font-size: 10px; }
+.role-rules-list article h3 { font-size: 12px; }
+.role-rules-list article p { font-size: 10px; }
+.role-rules-list article small { font-size: 9px; }
+.role-rules-list article em { font-size: 10px; }
+
+.admin-case-workbench > nav { margin-bottom: 12px; padding: 5px; border: 1px solid #dfe5eb; border-radius: 11px; display: inline-flex; gap: 4px; background: #fff; }
+.admin-case-workbench > nav button { min-height: 32px; padding: 0 10px; border: 0; border-radius: 8px; display: inline-flex; align-items: center; gap: 5px; color: #69798b; background: transparent; cursor: pointer; font-size: 8px; font-weight: 700; }
+.admin-case-workbench > nav button.active { color: #fff; background: #246fae; }
+.admin-case-dialogue { display: grid; grid-template-columns: minmax(0,.85fr) minmax(380px,1.15fr); gap: 14px; align-items: stretch; }
+.admin-case-dialogue > section,.admin-case-dialogue > aside,.admin-case-upload > section,.admin-case-upload > aside { border: 1px solid #dfe5eb; border-radius: 16px; background: #fff; }
+.admin-case-dialogue > section { min-height: 590px; display: grid; grid-template-rows: auto minmax(0,1fr) auto; overflow: hidden; }
+.admin-case-dialogue > section > header { padding: 14px 16px; border-bottom: 1px solid #e7ebef; display: flex; align-items: center; gap: 8px; color: #665ab2; }
+.admin-case-dialogue > section > header div { display: grid; gap: 2px; }
+.admin-case-dialogue > section > header strong { color: #455366; font-size: 10px; }
+.admin-case-dialogue > section > header small { color: #8c98a6; font-size: 7px; }
+.admin-case-messages { padding: 15px; overflow: auto; display: grid; align-content: start; gap: 10px; background: #f8fafc; }
+.admin-case-messages article { width: min(88%,330px); padding: 10px; border: 1px solid #e0e5eb; border-radius: 11px 11px 11px 3px; display: flex; gap: 7px; color: #655ab0; background: #fff; }
+.admin-case-messages article.is-user { margin-left: auto; border-radius: 11px 11px 3px 11px; color: #fff; background: #347aaf; }
+.admin-case-messages p { margin: 0; color: inherit; font-size: 8px; line-height: 1.55; }
+.admin-case-dialogue > section > footer { padding: 10px; border-top: 1px solid #e5eaf0; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 7px; }
+.admin-case-dialogue > section > footer textarea { min-height: 70px; padding: 9px; border: 1px solid #dbe3eb; border-radius: 9px; resize: none; font-size: 8px; }
+.admin-case-dialogue > section > footer button,.admin-case-dialogue > aside > div > button,.admin-case-upload > aside > button { padding: 0 12px; border: 0; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; color: #fff; background: #2372b6; cursor: pointer; font-size: 8px; font-weight: 700; }
+.admin-case-dialogue > aside { min-height: 590px; overflow: hidden; }
+.admin-case-dialogue > aside > header { padding: 14px 16px; border-bottom: 1px solid #e6eaf0; display: flex; align-items: center; justify-content: space-between; }
+.admin-case-dialogue > aside header small { color: #6889a4; font-size: 7px; letter-spacing: .1em; }
+.admin-case-dialogue > aside header h2 { margin: 4px 0 0; font-size: 13px; }
+.admin-case-dialogue > aside header em { padding: 4px 7px; border-radius: 7px; color: #8c98a5; background: #f0f2f5; font-size: 7px; font-style: normal; }
+.admin-case-dialogue > aside.is-ready header em { color: #94651e; background: #fff1d8; }
+.admin-case-dialogue > aside > div { padding: 15px; display: grid; gap: 10px; }
+.admin-case-dialogue label { display: grid; gap: 5px; }
+.admin-case-dialogue label span { color: #657487; font-size: 8px; font-weight: 700; }
+.admin-case-dialogue input,.admin-case-dialogue aside textarea { width: 100%; padding: 9px; border: 1px solid #dce3eb; border-radius: 9px; color: #4d5d70; background: #fafbfd; font-size: 8px; }
+.admin-case-dialogue aside textarea { min-height: 82px; resize: vertical; }
+.admin-case-draft-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+.admin-case-draft-warning { padding: 9px; border: 1px solid #ecd9b7; border-radius: 9px; color: #93641f; background: #fff8e9; font-size: 8px; }
+.admin-case-dialogue > aside > div > button { min-height: 36px; justify-self: end; }
+.admin-case-empty { min-height: 480px; place-content: center; text-align: center; color: #8b97a5; }
+.admin-case-empty svg { margin: 0 auto; color: #8d84cf; }
+.admin-case-empty p { max-width: 280px; margin: 12px auto 0; font-size: 9px; line-height: 1.6; }
+.admin-case-upload { display: grid; gap: 13px; }
+.admin-case-upload > section { min-height: 260px; padding: 35px; display: grid; place-items: center; align-content: center; text-align: center; border-style: dashed; }
+.admin-case-upload > section > svg { color: #5f8daf; }
+.admin-case-upload h2 { margin: 12px 0 5px; font-size: 15px; }
+.admin-case-upload p { max-width: 520px; margin: 0; color: #8390a0; font-size: 8px; line-height: 1.6; }
+.admin-case-upload > section button { margin-top: 16px; min-height: 34px; padding: 0 12px; border: 1px solid #bdd1e1; border-radius: 9px; color: #3975a3; background: #f1f8fc; cursor: pointer; font-size: 8px; font-weight: 700; }
+.admin-case-upload > aside { padding: 16px; }
+.admin-case-upload > aside > header { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 10px; color: #4d7b9f; }
+.admin-case-upload aside header div { display: grid; gap: 3px; }
+.admin-case-upload aside header strong { color: #455366; font-size: 10px; }
+.admin-case-upload aside header small { color: #8b97a5; font-size: 7px; }
+.admin-case-upload aside header em { display: inline-flex; align-items: center; gap: 4px; color: #2e7d63; font-size: 8px; font-style: normal; }
+.admin-case-upload > aside > div { margin: 15px 0; display: grid; grid-template-columns: repeat(5,1fr); gap: 7px; }
+.admin-case-upload > aside > div span { padding: 10px; border: 1px solid #e3e8ed; border-radius: 9px; display: grid; gap: 4px; color: #8a96a5; background: #fafbfd; font-size: 7px; }
+.admin-case-upload > aside > div strong { color: #455468; font-size: 10px; }
+.admin-case-upload > aside > p { color: #9a6a20; font-size: 8px; }
+.admin-case-upload > aside > button { min-height: 35px; float: right; }
+
+.admin-asset-toolbar { min-height: 50px; margin-bottom: 12px; padding: 0 13px; border: 1px solid #dfe5eb; border-radius: 11px; display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #6f7f91; background: #fff; font-size: 8px; }
+.admin-asset-toolbar button,.admin-model-binding button { min-height: 31px; padding: 0 10px; border: 1px solid #bad0e1; border-radius: 8px; display: inline-flex; align-items: center; gap: 5px; color: #3676a8; background: #eff7fc; cursor: pointer; font-size: 8px; font-weight: 700; }
+.admin-model-binding { min-height: 78px; margin-bottom: 12px; padding: 13px 15px; border: 1px solid #dce5ec; border-radius: 13px; display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 12px; color: #3c78a6; background: #fff; }
+.admin-model-binding > div { display: grid; gap: 3px; }
+.admin-model-binding small { color: #8492a2; font-size: 7px; }
+.admin-model-binding strong { color: #435267; font-size: 11px; }
+.admin-model-binding p { margin: 0; color: #8996a5; font-size: 8px; }
+.admin-description-source { display: grid; gap: 13px; }
+.admin-description-source > section { padding: 16px; border: 1px solid #dfe5eb; border-radius: 15px; background: #fff; }
+.admin-description-source > section > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.admin-description-source > section > header span { color: #477ba6; font-size: 8px; font-weight: 750; letter-spacing: .1em; }
+.admin-description-source > section > header h2 { margin: 5px 0 3px; font-size: 14px; }
+.admin-description-source > section > header p { margin: 0; color: #8b97a5; font-size: 8px; }
+.admin-description-source > section > header em,.admin-description-file > em { display: inline-flex; align-items: center; gap: 4px; color: #2d7d63; font-size: 8px; font-style: normal; white-space: nowrap; }
+.admin-description-source > section > div { margin-top: 13px; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; }
+.admin-description-source > section > div > button { min-height: 76px; padding: 12px; border: 1px solid #dfe5eb; border-radius: 11px; display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 10px; text-align: left; color: #5581a5; background: #fafcfe; cursor: pointer; }
+.admin-description-source > section > div > button.active { border-color: #7fadd0; background: #edf6fc; box-shadow: 0 8px 20px rgba(44,107,161,.08); }
+.admin-description-source > section button > span { display: grid; gap: 4px; }
+.admin-description-source > section button strong { color: #455468; font-size: 9px; }
+.admin-description-source > section button small { color: #8b97a5; font-size: 7px; }
+.admin-description-file { min-height: 58px; padding: 10px 13px; border: 1px solid #dce6ed; border-radius: 12px; display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 10px; color: #477ba6; background: #f5fafd; }
+.admin-description-file > div { display: grid; gap: 3px; }
+.admin-description-file strong { color: #445367; font-size: 9px; }
+.admin-description-file small { color: #8996a5; font-size: 7px; }
+.admin-description-empty { min-height: 320px; border: 1px dashed #cfd9e2; border-radius: 15px; display: grid; place-items: center; align-content: center; text-align: center; color: #8aa0b1; background: rgba(255,255,255,.62); }
+.admin-description-empty h3 { margin: 11px 0 4px; color: #526579; font-size: 13px; }
+.admin-description-empty p { margin: 0; font-size: 8px; }
+.admin-description-source > .role-asset-document { width: min(860px,100%); }
+
+.role-asset-submodal-backdrop { position: fixed; inset: 0; z-index: 240; padding: 20px; display: grid; place-items: center; background: rgba(19,31,47,.5); backdrop-filter: blur(5px); }
+.knowledge-editor-modal { width: min(520px,100%); border: 1px solid rgba(255,255,255,.8); border-radius: 17px; overflow: hidden; background: #fff; box-shadow: 0 28px 90px rgba(18,32,49,.3); }
+.knowledge-editor-modal > header { padding: 16px 18px; border-bottom: 1px solid #e5eaf0; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.knowledge-editor-modal > header span { color: #5b82a1; font-size: 7px; font-weight: 750; letter-spacing: .11em; }
+.knowledge-editor-modal > header h2 { margin: 5px 0 3px; font-size: 15px; }
+.knowledge-editor-modal > header p { margin: 0; color: #8b97a5; font-size: 8px; }
+.knowledge-editor-modal > header button { width: 31px; height: 31px; border: 0; border-radius: 8px; display: grid; place-items: center; color: #748397; background: #f2f4f7; cursor: pointer; }
+.knowledge-editor-modal > div { padding: 17px 18px; display: grid; gap: 15px; }
+.knowledge-editor-modal > div > label { display: grid; gap: 6px; }
+.knowledge-editor-modal > div > label > span,.knowledge-editor-modal legend { color: #5b697c; font-size: 8px; font-weight: 700; }
+.knowledge-file-picker { width: 100%; min-height: 70px; padding: 11px; border: 1px dashed #afc8db; border-radius: 11px; display: flex; align-items: center; gap: 10px; text-align: left; color: #4b83ad; background: #f5fafd; cursor: pointer; }
+.knowledge-file-picker > span { display: grid; gap: 4px; }
+.knowledge-file-picker strong { color: #455468; font-size: 9px; }
+.knowledge-file-picker small { color: #8a97a5; font-size: 7px; }
+.knowledge-editor-modal fieldset { margin: 0; padding: 0; border: 0; }
+.knowledge-editor-modal fieldset > div { margin-top: 7px; display: flex; flex-wrap: wrap; gap: 7px; }
+.knowledge-editor-modal fieldset label { min-height: 31px; padding: 0 10px; border: 1px solid #dce4eb; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; color: #68788b; background: #fff; cursor: pointer; font-size: 8px; }
+.knowledge-editor-modal fieldset label.active { border-color: #6e9fc5; color: #2f70a1; background: #edf6fc; }
+.knowledge-editor-modal fieldset input { accent-color: #2776b3; }
+.knowledge-editor-modal > div > label > input { height: 38px; padding: 0 10px; border: 1px solid #dce4eb; border-radius: 9px; color: #4d5d70; background: #fafbfd; font-size: 8px; }
+.knowledge-editor-modal > footer { padding: 11px 18px; border-top: 1px solid #e5eaf0; display: flex; justify-content: flex-end; gap: 7px; background: #fafbfd; }
+.knowledge-editor-modal > footer button { min-height: 34px; padding: 0 12px; border: 1px solid #d9e1e8; border-radius: 8px; color: #5e6d7e; background: #fff; cursor: pointer; font-size: 8px; font-weight: 700; }
+.knowledge-editor-modal > footer button.is-primary { border-color: #2073b5; display: inline-flex; align-items: center; gap: 5px; color: #fff; background: #2073b5; }
+.knowledge-editor-modal > footer button:disabled { cursor: not-allowed; opacity: .45; }
+.admin-description-editor { display: grid; grid-template-columns: 260px minmax(0,1fr); gap: 13px; }
+.admin-description-editor > aside,.admin-description-editor > section { border: 1px solid #dfe5eb; border-radius: 15px; background: #fff; }
+.admin-description-editor > aside { padding: 15px 10px; }
+.admin-description-editor > aside > span { color: #527d9e; font-size: 7px; font-weight: 750; letter-spacing: .1em; }
+.admin-description-editor > aside h2 { margin: 5px 5px 13px; font-size: 14px; }
+.admin-description-editor > aside button { width: 100%; min-height: 42px; padding: 0 10px; border: 0; border-radius: 8px; display: grid; grid-template-columns: 25px minmax(0,1fr) auto; align-items: center; gap: 6px; text-align: left; color: #69798b; background: transparent; cursor: pointer; font-size: 8px; }
+.admin-description-editor > aside button.active { color: #2e6f9f; background: #edf6fc; }
+.admin-description-editor > section { padding: 18px; display: grid; gap: 14px; }
+.admin-description-editor > section > header { display: flex; align-items: center; justify-content: space-between; }
+.admin-description-editor section header small { color: #8492a1; font-size: 7px; }
+.admin-description-editor section header h2 { margin: 4px 0 0; font-size: 14px; }
+.admin-description-editor section header em { color: #418068; font-size: 8px; font-style: normal; }
+.admin-description-editor > section > textarea { min-height: 230px; padding: 13px; border: 1px solid #dce4eb; border-radius: 10px; color: #4c5c6f; background: #fafbfd; resize: vertical; font-size: 9px; line-height: 1.65; }
+.admin-description-editor > section > div { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; }
+.admin-description-editor label { display: grid; gap: 5px; }
+.admin-description-editor label span { color: #657487; font-size: 8px; font-weight: 700; }
+.admin-description-editor input,.admin-description-editor select { height: 37px; padding: 0 9px; border: 1px solid #dce4eb; border-radius: 9px; color: #4d5d70; background: #fafbfd; font-size: 8px; }
+.admin-description-editor > section > button { min-height: 36px; padding: 0 12px; border: 0; border-radius: 9px; justify-self: end; display: inline-flex; align-items: center; gap: 5px; color: #fff; background: #2372b6; cursor: pointer; font-size: 8px; font-weight: 700; }
+
+/* 后台岗位资产统一使用轻量的结构化 Markdown 编辑方式。 */
+.admin-markdown-asset { min-height: 100%; border: 1px solid #dfe5eb; border-radius: 16px; overflow: hidden; background: #fff; }
+.admin-markdown-asset > header { padding: 18px 20px; border-bottom: 1px solid #e7ebf0; display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.admin-markdown-asset > header span { color: #517fa4; font-size: 10px; font-weight: 760; letter-spacing: .1em; }
+.admin-markdown-asset h2 { margin: 5px 0 4px; color: #33495f; font-size: 18px; }
+.admin-markdown-asset p { margin: 0; color: #7b8999; font-size: 11px; }
+.admin-markdown-asset-actions { display: flex; align-items: center; gap: 8px; }
+.admin-markdown-asset-actions button { min-height: 36px; padding: 0 12px; border: 1px solid #cfdae4; border-radius: 9px; display: inline-flex; align-items: center; gap: 6px; color: #426e94; background: #fff; cursor: pointer; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.admin-markdown-asset-actions button:hover { border-color: #9bbbd5; background: #f4f9fd; }
+.admin-markdown-asset-actions button.is-primary { border-color: #2372b6; color: #fff; background: #2372b6; }
+.admin-markdown-asset-source { margin: 15px 20px 0; padding: 10px 12px; border: 1px solid #dce9f4; border-radius: 10px; display: flex; align-items: center; gap: 9px; color: #4b83ae; background: #f4f9fd; }
+.admin-markdown-asset-source span { display: grid; gap: 2px; }
+.admin-markdown-asset-source strong { color: #4b5d70; font-size: 11px; }
+.admin-markdown-asset-source small { color: #8391a0; font-size: 10px; }
+.admin-markdown-asset pre,.admin-markdown-asset textarea { width: calc(100% - 40px); min-height: 440px; margin: 16px 20px 20px; padding: 19px 20px; border: 1px solid #e1e6eb; border-radius: 12px; box-sizing: border-box; color: #36495c; background: #fbfcfd; font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-size: 13px; line-height: 1.85; white-space: pre-wrap; }
+.admin-markdown-asset textarea { resize: vertical; outline: none; }
+.admin-markdown-asset textarea:focus { border-color: #7eafd5; box-shadow: 0 0 0 3px rgba(89,148,196,.12); }
+
+@media (max-width: 900px) {
+  .role-asset-backdrop { padding: 10px; }
+  .role-capability-layout,.role-case-layout,.role-template-layout,.admin-case-dialogue,.admin-description-editor { grid-template-columns: 1fr; }
+  .role-capability-flow { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .role-knowledge-table { overflow-x: auto; }
+  .role-knowledge-head,.role-knowledge-table > article { min-width: 760px; }
+  .role-rules-list > div { grid-template-columns: 1fr; }
+  .admin-markdown-asset > header { align-items: flex-start; flex-direction: column; }
+}
+
+@media (max-width: 620px) {
+  .role-asset-workspace > header { align-items: flex-start; }
+  .role-asset-workspace > header > div:last-child > em { display: none; }
+  .role-asset-workspace > main { padding: 10px; }
+  .role-asset-document { padding: 28px 22px; }
+  .role-asset-document-grid,.role-capability-flow,.admin-case-draft-grid,.admin-description-editor > section > div { grid-template-columns: 1fr; }
+  .role-asset-relations { align-items: stretch; flex-direction: column; }
+  .role-asset-relations svg { transform: rotate(90deg); }
+  .admin-case-upload > aside > div { grid-template-columns: repeat(2,1fr); }
+  .admin-description-source > section > div { grid-template-columns: 1fr; }
+}
