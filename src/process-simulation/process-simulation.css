@@ -436,6 +436,33 @@
   font-weight: 700;
   white-space: nowrap;
 }
+/* 速度切换：正常 / Demo ×2 */
+.ps2-speed {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--ps2-line);
+  border-radius: 999px;
+  background: var(--ps2-surface);
+}
+.ps2-speed button {
+  padding: 3px 10px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--ps2-ink-2);
+  background: transparent;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: color .15s, background-color .15s;
+}
+.ps2-speed button:hover {
+  color: var(--ps2-brand);
+}
+.ps2-speed button.is-on {
+  color: #fff;
+  background: var(--ps2-brand);
+}
 .ps2-icon-btn {
   display: inline-flex;
   align-items: center;
@@ -1306,6 +1333,12 @@
   box-shadow: none;
   animation: none;
 }
+/* 正等你决定：琥珀色，慢脉冲 —— 全局可见的"流程卡住了"信号 */
+.ps2-chat-live.is-waiting {
+  background: var(--ps2-warning);
+  box-shadow: 0 0 0 3px rgba(230, 160, 30, .2);
+  animation: ps2-pulse 1.6s ease-in-out infinite;
+}
 .ps2-chat-pair {
   display: inline-flex;
   align-items: center;
@@ -1323,6 +1356,10 @@
   color: var(--ps2-ink-3);
   font-size: 10px;
   white-space: nowrap;
+}
+.ps2-chat-meta.is-waiting {
+  color: #a8760f;
+  font-weight: 700;
 }
 
 .ps2-chat-body {
@@ -1364,9 +1401,7 @@
   align-items: flex-start;
   gap: 8px;
 }
-.ps2-msg.is-twin {
-  flex-direction: row-reverse;
-}
+/* 全部靠左 —— 我是旁观者，看数字分身和子代理聊天 */
 .ps2-msg-avatar {
   display: grid;
   place-items: center;
@@ -1382,6 +1417,10 @@
   color: #5a6a84;
   background: #e4eaf1;
 }
+.ps2-msg-avatar.is-you {
+  color: #a8760f;
+  background: #fff6e2;
+}
 .ps2-msg-avatar.tone-blue { background: var(--ps2-brand); }
 .ps2-msg-avatar.tone-green { background: var(--ps2-success); }
 .ps2-msg-avatar.tone-purple { background: var(--ps2-purple); }
@@ -1392,9 +1431,6 @@
   gap: 4px;
   max-width: calc(100% - 46px);
   min-width: 0;
-}
-.ps2-msg.is-twin .ps2-msg-main {
-  justify-items: end;
 }
 .ps2-msg-who {
   color: var(--ps2-ink-3);
@@ -1408,11 +1444,8 @@
   font-size: 12px;
   line-height: 1.72;
 }
-.ps2-msg.is-twin .ps2-msg-bubble {
-  color: #fff;
-  background: var(--ps2-brand);
-  border-bottom-right-radius: 4px;
-}
+/* 数字分身和岗位智能体的消息：同样的白色气泡，像微信群看别人聊天 */
+.ps2-msg.is-twin .ps2-msg-bubble,
 .ps2-msg.is-agent .ps2-msg-bubble {
   color: var(--ps2-ink);
   background: #fff;
@@ -1420,6 +1453,84 @@
   border-bottom-left-radius: 4px;
 }
 .ps2-msg.is-twin .ps2-caret {
+  background: var(--ps2-ink);
+}
+
+/* 「你」的询问 —— 数字分身向你发问时的选择框 */
+.ps2-msg.is-you .ps2-msg-bubble {
+  color: var(--ps2-ink);
+  background: #fffdf5;
+  border: 1px dashed #e0c56e;
+  border-bottom-left-radius: 4px;
+}
+/* 等待中：换成实线 + 轻微外发光，让"停住了"看得见 */
+.ps2-msg.is-you.is-waiting .ps2-msg-bubble {
+  border-style: solid;
+  border-color: #e6c87a;
+  background: #fffdf5;
+  box-shadow: 0 0 0 3px rgba(230, 200, 122, .16);
+}
+.ps2-you-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+  padding: 3px 9px;
+  border-radius: 999px;
+  color: #a8760f;
+  background: #fdf3dd;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+.ps2-choice {
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
+}
+.ps2-choice button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 8px 11px;
+  border: 1px solid var(--ps2-line);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--ps2-ink);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color .15s, background-color .15s;
+}
+.ps2-choice button:hover {
+  border-color: var(--ps2-brand);
+  background: #f5faff;
+}
+.ps2-choice .ps2-choice-mark {
+  display: grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  flex: none;
+  border: 1.5px solid #c3cbda;
+  border-radius: 50%;
+}
+.ps2-choice button.is-picked {
+  border-color: var(--ps2-brand);
+  background: #eaf5ff;
+  color: var(--ps2-brand);
+  font-weight: 600;
+}
+.ps2-choice button.is-picked .ps2-choice-mark {
+  border-color: var(--ps2-brand);
+  background: var(--ps2-brand);
+}
+.ps2-choice button.is-picked .ps2-choice-mark::after {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
   background: #fff;
 }
 

@@ -2,13 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pause, Play, Send, Sparkles } from 'lucide-react'
 import SimulationFlowMap from './SimulationFlowMap'
 import SimulationTimeline from './SimulationTimeline'
-import { simulationRuns } from './script'
+import { purchaseRun, simulationRuns } from './script'
 import type { SimMember, SimNode } from './types'
 import { useSimulationPlayback } from './useSimulationPlayback'
 import './process-simulation.css'
 
 export default function ProcessSimulationPage() {
-  const [runId, setRunId] = useState(simulationRuns[0].id)
+  // 默认选中「采购申请与执行流程」
+  const [runId, setRunId] = useState(purchaseRun.id)
   const run = useMemo(
     () => simulationRuns.find((r) => r.id === runId) ?? simulationRuns[0],
     [runId],
@@ -272,6 +273,22 @@ export default function ProcessSimulationPage() {
                       ? '已完成'
                       : `进行中 ${pb.doneCount}/${pb.total}`}
                 </em>
+                <span className="ps2-speed">
+                  <button
+                    type="button"
+                    className={pb.speed === 'normal' ? 'is-on' : ''}
+                    onClick={() => pb.setSpeed('normal')}
+                  >
+                    正常速度
+                  </button>
+                  <button
+                    type="button"
+                    className={pb.speed === 'demo' ? 'is-on' : ''}
+                    onClick={() => pb.setSpeed('demo')}
+                  >
+                    Demo ×2
+                  </button>
+                </span>
                 {started && (
                   <button type="button" className="ps2-icon-btn" onClick={pb.togglePause}>
                     {pb.paused ? <Play size={14} /> : <Pause size={14} />}
@@ -317,6 +334,7 @@ export default function ProcessSimulationPage() {
             exchangeOf={pb.exchangeFor}
             onApprove={pb.approve}
             onReject={pb.reject}
+            onAnswerYou={pb.answerYou}
             isComplete={pb.isComplete}
             hasRun={pb.hasRun}
           />

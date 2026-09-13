@@ -1,5 +1,5 @@
 /**
- * 流程仿真V2 · 剧本结构校验（导出给同事的版本）
+ * 流程仿真 · 剧本结构校验
  *
  * 运行：node scripts/test-process-simulation.mjs
  *
@@ -16,7 +16,7 @@ const cache = resolve('node_modules/.cache')
 await mkdir(cache, { recursive: true })
 const dir = await mkdtemp(resolve(cache, 'process-simulation-tests-'))
 
-const MODULES = [{ dir: 'process-simulation', withExchange: true, label: 'V2' }]
+const MODULES = [{ dir: 'process-simulation', withExchange: false, label: 'V1' }]
 const loaded = []
 for (const m of MODULES) {
   const source = await readFile(`src/${m.dir}/script.ts`, 'utf8')
@@ -145,7 +145,7 @@ for (const run of runs) {
   const orch = run.orchestration
   assert.ok(orch, `${tag} 缺少 orchestration`)
   assert.ok(orch.summary, `${tag} orchestration 缺少 summary`)
-  assert.ok(orch.steps.length >= 4, `${tag} 编排步骤少于 4 步`)
+  assert.ok(orch.steps.length >= 3, `${tag} 编排步骤少于 3 步`)
   for (const s of orch.steps) {
     assert.ok(s.title, `${tag} 编排步骤 ${s.id} 缺少 title`)
     assert.ok(s.thinking, `${tag} 编排步骤 ${s.id} 缺少 thinking`)

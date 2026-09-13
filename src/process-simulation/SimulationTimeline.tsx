@@ -25,6 +25,7 @@ export default function SimulationTimeline({
   exchangeOf,
   onApprove,
   onReject,
+  onAnswerYou,
   isComplete,
   hasRun,
 }: {
@@ -45,6 +46,7 @@ export default function SimulationTimeline({
   exchangeOf: (node: SimNode) => SimExchangeTurn[]
   onApprove: (id: string) => void
   onReject: (id: string, reason?: string) => void
+  onAnswerYou: (id: string) => void
   isComplete: boolean
   hasRun: boolean
 }) {
@@ -112,6 +114,7 @@ export default function SimulationTimeline({
             onPickNode={onPickNode}
             onApproveNode={onApprove}
             onRejectNode={onReject}
+            onAnswerYou={onAnswerYou}
           />
         )
       })}
