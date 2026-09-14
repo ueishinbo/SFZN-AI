@@ -498,6 +498,58 @@ export function baseDefinition(name: string, owner = "zhaomin"): Definition {
     ],
   };
 }
+/**
+ * 待改进记录的失败模式（按记录编号给出）。
+ *
+ * 为什么要分这么细：只给一个统一的 cause，会让「失败模式排行」退化成一个数字，
+ * 看不出该先修哪一处。
+ *
+ * 口径与既有的两条优化建议严格对齐 —— 建议的 logIds 已经声明了它覆盖哪几条记录，
+ * 根因不能与建议的内容相矛盾：
+ *   suggest-1（能力地图缺口）→ RUN-0002 / 0003 / 0004
+ *   suggest-2（评测用例缺口）→ RUN-0009 / 0010 / 0011
+ *
+ * 命名沿用项目既有词汇：能力地图（原 SOP 已在 store 迁移里统一改名）。
+ * 种子与历史 store 迁移共用这张表，保证两边收敛到同一套根因。
+ */
+export const RUN_FAILURE_MODES: Record<
+  string,
+  { cause: string; evidence: string; attribution: string }
+> = {
+  "RUN-0002": {
+    cause: "能力地图缺口",
+    evidence:
+      "评审结论只覆盖功能优先级，遗漏业务价值与依赖关系的核验，优先级需人工重排。",
+    attribution: "用户反馈 · 已生成优化建议",
+  },
+  "RUN-0003": {
+    cause: "能力地图缺口",
+    evidence:
+      "同类需求评审连续两轮未核验业务价值，排序依据无法复述给评审会。",
+    attribution: "用户反馈 · 已生成优化建议",
+  },
+  "RUN-0004": {
+    cause: "能力地图缺口",
+    evidence: "排序结果未说明取舍理由，评审会上被要求重新解释判断过程。",
+    attribution: "用户反馈 · 已生成优化建议",
+  },
+  "RUN-0009": {
+    cause: "评测用例缺口",
+    evidence: "交互评审未覆盖权限不足场景，异常路径的判断依据缺失。",
+    attribution: "用户反馈 · 已生成优化建议",
+  },
+  "RUN-0010": {
+    cause: "评测用例缺口",
+    evidence: "无数据与加载失败状态未逐项核验，恢复操作缺少说明。",
+    attribution: "用户反馈 · 已生成优化建议",
+  },
+  "RUN-0011": {
+    cause: "评测用例缺口",
+    evidence: "重复提交场景被遗漏，反馈文案未与错误提示对齐。",
+    attribution: "用户反馈 · 已生成优化建议",
+  },
+};
+
 export function seedStore(): Store {
   const people: Person[] = [
     {
@@ -690,7 +742,7 @@ export function seedStore(): Store {
   };
   for (let i = 0; i < 15; i++) {
     const role = roles[i < 8 ? 0 : i < 11 ? 1 : 3];
-    const bad = [1, 2, 3, 8, 9, 10].includes(i);
+    const bad = RUN_FAILURE_MODES[`RUN-${String(i + 1).padStart(4, "0")}`];
     const date = new Date();
     date.setDate(date.getDate() - Math.floor(i / 2));
     const at = `${date.toLocaleDateString("sv-SE", { timeZone: "Asia/Shanghai" })} ${String(9 + (i % 8)).padStart(2, "0")}:20:00`;
@@ -726,11 +778,11 @@ export function seedStore(): Store {
           : []),
       ],
       feedback: bad ? "bad" : i % 4 === 0 ? null : "good",
-      cause: bad ? "SOP 不适用" : "",
+      cause: bad ? bad.cause : "",
       evidence: bad
-        ? "评审结果遗漏业务价值与异常场景的核验，需人工补充检查项。"
+        ? bad.evidence
         : "输出包含任务范围、依据、风险与待确认事项。",
-      attribution: "用户反馈 · 待维护人复核",
+      attribution: bad ? bad.attribution : "用户反馈 · 待维护人复核",
       messages: [
         {
           role: "用户",

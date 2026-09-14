@@ -844,12 +844,22 @@ export function PersonalLogs() {
     .sort((a, b) => b.at.localeCompare(a.at));
   const selected = all.find((r) => r.id === detailId);
   const evaluated = all.filter((r) => r.feedback).length;
+  const goodRate = evaluated
+    ? Math.round(
+        (all.filter((r) => r.feedback === "good").length / evaluated) * 100,
+      )
+    : 0;
   return (
     <section className="rc rc-section">
       <header>
         <div>
           <h2>对话日志</h2>
-          <p>本人任务、实际参与岗位版本与结果反馈</p>
+          <p>
+            本人任务、实际参与岗位版本与结果反馈
+            <span className="rc-log-stats">
+              共 {all.length} 条 · 已评价 {evaluated} 条 · 好评率 {goodRate}%
+            </span>
+          </p>
         </div>
         <div className="rc-actions">
           <button
@@ -871,21 +881,7 @@ export function PersonalLogs() {
           </button>
         </div>
       </header>
-      <div className="rc-toolbar">
-        <span>共 {all.length} 条</span>
-        <span>已评价 {evaluated} 条</span>
-        <span>
-          好评率{" "}
-          {evaluated
-            ? Math.round(
-                (all.filter((r) => r.feedback === "good").length / evaluated) *
-                  100,
-              )
-            : 0}
-          %
-        </span>
-      </div>
-      <div className="rc-toolbar">
+      <div className="rc-log-filters">
         <input
           aria-label="搜索我的日志"
           placeholder="搜索任务或记录编号"
@@ -912,24 +908,24 @@ export function PersonalLogs() {
             <option key={c}>{c}</option>
           ))}
         </select>
-        <label className="rc-filter-label">
-          开始日期
+        <span className="rc-log-range">
           <input
             type="date"
+            aria-label="开始日期"
             value={start}
             onChange={(e) => setStart(e.target.value)}
           />
-        </label>
-        <label className="rc-filter-label">
-          结束日期
+          <i>–</i>
           <input
             type="date"
+            aria-label="结束日期"
             min={start}
             value={end}
             onChange={(e) => setEnd(e.target.value)}
           />
-        </label>
+        </span>
         <button
+          className="rc-log-clear"
           onClick={() => {
             setQuery("");
             setFeedbackFilter("");
@@ -962,26 +958,38 @@ export function PersonalLogs() {
                   </p>
                 </td>
                 <td>
-                  {r.role_contexts.map((c) => (
-                    <p key={c.roleId}>
-                      {c.name} {c.version}
-                    </p>
-                  ))}
+                  <span className="rc-log-roles">
+                    {r.role_contexts.map((c) => (
+                      <span key={c.roleId}>
+                        {c.name} {c.version}
+                      </span>
+                    ))}
+                  </span>
                 </td>
                 <td>
-                  <Badge>{r.status}</Badge>
-                  <p>
-                    {r.feedback === "good"
-                      ? "有帮助"
-                      : r.feedback === "bad"
-                        ? "有问题 · " + r.cause
-                        : "未评价"}
-                  </p>
+                  <span className="rc-log-state">
+                    <Badge>{r.status}</Badge>
+                    <em
+                      className={
+                        r.feedback === "bad"
+                          ? "is-bad"
+                          : r.feedback === "good"
+                            ? "is-good"
+                            : ""
+                      }
+                    >
+                      {r.feedback === "good"
+                        ? "有帮助"
+                        : r.feedback === "bad"
+                          ? "有问题 · " + r.cause
+                          : "未评价"}
+                    </em>
+                  </span>
                 </td>
                 <td>
-                  <small>{r.at}</small>
+                  <small className="rc-log-time">{r.at}</small>
                 </td>
-                <td>
+                <td className="rc-log-op">
                   <button
                     className="rc-link"
                     onClick={() => {

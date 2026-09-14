@@ -30,6 +30,7 @@ import {
   CURRENT_USER,
   availableRole,
   effectiveResources,
+  type ResourceKind,
 } from "../role-center/domain";
 import {
   Badge,
@@ -391,7 +392,8 @@ type PersonalAssessment = {
     name: string;
     score: number;
     content: string;
-    checks: { name: string; passed: boolean }[];
+    /** ratio: 该项 0~1 的达成率；历史记录里可能没有，回退成 passed ? 1 : 0 */
+    checks: { name: string; passed: boolean; ratio?: number }[];
   }[];
   resources: { name: string; version: string; enabled: boolean }[];
   roles: { name: string; version: string }[];
@@ -401,6 +403,10 @@ type PersonalAssessment = {
     at: string;
     feedback: "good" | "bad" | null;
     cause: string;
+    /** 问题归属与处理状态（用户反馈 / 系统日志 · 待维护人复核 / 已生成优化建议） */
+    attribution?: string;
+    /** 待改进记录的判定依据 */
+    evidence?: string;
   }[];
 };
 const ASSESSMENT_KEY = "comac-personal-assessments-v1";
@@ -418,10 +424,62 @@ function AssessmentPanel() {
     "history" | "report" | "readiness" | "performance" | null
   >(null);
   const [selected, setSelected] = useState<PersonalAssessment | null>(null);
-  const capture = (): PersonalAssessment => ({
-    id: `assessment-${Date.now()}`,
-    at: new Date().toLocaleString("sv-SE", { timeZone: "Asia/Shanghai" }),
-    dimensions: profileTabs.map(([key, name]) => {
+  /**
+   * 岗位准备度 = 六类准备项的完备程度。
+   * 每类 4 项检查，每项 25 分；6 类等权平均得到总分。
+   * 检查项全部从真实配置派生（画像内容 / 岗位 / 资源 / 授权 / 任务记录），不做假。
+   */
+  const capture = (): PersonalAssessment => {
+    const mine = effectiveResources(store);
+    const enabledCount = (kind: ResourceKind) =>
+      mine.filter((r) => r.kind === kind && r.enabled).length;
+    const totalCount = (kind: ResourceKind) =>
+      store.resources.filter((r) => r.kind === kind).length;
+    const myRoles = (store.memberships[CURRENT_USER] || [])
+      .filter((m) => m.enabled)
+      .map((m) => store.roles.find((r) => r.id === m.roleId))
+      .filter((r) => !!r && availableRole(store, r));
+    const pendingAdvice = store.suggestions.filter(
+      (s) => s.status === "待处理" && myRoles.some((r) => r!.id === s.roleId),
+    ).length;
+    const myRuns = store.runs.filter((r) => r.userId === CURRENT_USER);
+    const ratedRuns = myRuns.filter((r) => r.feedback);
+    const personal = store.personal[CURRENT_USER] || {
+      ids: [],
+      disabled: [],
+      grants: [],
+    };
+    const skillTotal = totalCount("skill");
+    const skillOn = enabledCount("skill");
+    const mcpTotal = totalCount("mcp");
+    const mcpOn = enabledCount("mcp");
+    const expertOn = enabledCount("expert");
+    const ungranted = mine.filter((r) => r.restricted && !r.authorized).length;
+
+    /**
+     * 每项检查带一个 0~1 的达成率，分数 = 各项达成率的平均。
+     * 用连续量而不是「通过/不通过」二值，是为了让六边形的形状反映真实差异 ——
+     * 二值计分只能取 0/25/50/75/100，很容易撞成左右对称的规则图形。
+     */
+    const rate = (value: number, target: number) =>
+      target <= 0 ? 0 : Math.min(1, value / target);
+    const bool = (ok: boolean) => (ok ? 1 : 0);
+
+    type RawCheck = { name: string; passed: boolean; ratio: number };
+
+    const scoreOf = (checks: RawCheck[]) =>
+      Math.round(
+        (checks.reduce((s, c) => s + (c.ratio ?? bool(c.passed)), 0) /
+          checks.length) *
+          100,
+      );
+
+    /** 画像类维度：按内容量级连续计分 */
+    const profileDim = (
+      key: ProfileTab,
+      name: string,
+      labels: [string, string, string, string],
+    ) => {
       const content =
         localStorage.getItem(`digital-twin-profile-${key}`) ??
         defaultProfileMarkdown[key];
@@ -429,59 +487,237 @@ function AssessmentPanel() {
         .split(/^#{1,6}\s+.+$/m)
         .slice(1)
         .map((s) => s.trim());
-      const checks = [
-        { name: "已填写画像内容", passed: !!content.trim() },
-        { name: "包含两个以上工作主题", passed: bodies.length >= 2 },
+      const avgLen = bodies.length
+        ? bodies.reduce((s, b) => s + b.length, 0) / bodies.length
+        : 0;
+      const plain = content.replace(/\s|#/g, "").length;
+      const checks: RawCheck[] = [
         {
-          name: "各主题均有具体内容",
-          passed: bodies.length > 0 && bodies.every((b) => b.length >= 8),
+          name: labels[0],
+          passed: !!content.trim(),
+          ratio: bool(!!content.trim()),
         },
         {
-          name: "整体内容不少于 80 字",
-          passed: content.replace(/\s|#/g, "").length >= 80,
+          name: labels[1],
+          passed: bodies.length >= 4,
+          ratio: rate(bodies.length, 4),
+        },
+        {
+          name: labels[2],
+          passed: avgLen >= 120,
+          ratio: rate(avgLen, 120),
+        },
+        {
+          name: labels[3],
+          passed: plain >= 800,
+          ratio: rate(plain, 800),
         },
       ];
-      return {
-        name,
-        content,
-        checks,
-        score: checks.filter((c) => c.passed).length * 25,
-      };
-    }),
-    resources: effectiveResources(store).map((r) => ({
-      name: r.name,
-      version: r.version,
-      enabled: r.enabled,
-    })),
-    roles: (store.memberships[CURRENT_USER] || [])
-      .filter((m) => m.enabled)
-      .flatMap((m) => {
-        const role = store.roles.find((r) => r.id === m.roleId);
-        return role && availableRole(store, role)
-          ? [
-              {
-                name: role.published!.definition.name,
-                version: role.published!.version,
-              },
-            ]
-          : [];
-      }),
-    tasks: store.runs
-      .filter((r) => r.userId === CURRENT_USER)
-      .map((r) => ({
-        id: r.id,
-        summary: r.summary,
-        at: r.at,
-        feedback: r.feedback,
-        cause: r.cause,
+      return { name, content, checks, score: scoreOf(checks) };
+    };
+
+    /** 配置类维度：检查项与依据都来自真实配置 */
+    const configDim = (
+      name: string,
+      checks: RawCheck[],
+      basis: string[],
+    ) => ({
+      name,
+      content: basis.map((b) => `- ${b}`).join("\n"),
+      checks,
+      score: scoreOf(checks),
+    });
+
+    return {
+      id: `assessment-${Date.now()}`,
+      at: new Date().toLocaleString("sv-SE", { timeZone: "Asia/Shanghai" }),
+      dimensions: [
+        profileDim("mind", "身份画像", [
+          "已填写工作画像",
+          "工作画像包含 4 个以上主题",
+          "各主题内容不少于 120 字",
+          "工作画像总字数不少于 800 字",
+        ]),
+        profileDim("goals", "目标口径", [
+          "已填写目标与验收标准",
+          "包含 4 个以上可衡量目标",
+          "每个目标都写明口径",
+          "目标总字数不少于 600 字",
+        ]),
+        configDim(
+          "岗位挂载",
+          [
+            {
+              name: "已挂载岗位智能体",
+              passed: myRoles.length >= 1,
+              ratio: rate(myRoles.length, 1),
+            },
+            {
+              name: "覆盖 3 个以上岗位",
+              passed: myRoles.length >= 3,
+              ratio: rate(myRoles.length, 3),
+            },
+            {
+              name: "挂载岗位均已发布可用",
+              passed: myRoles.length >= 1,
+              ratio: rate(myRoles.length, 1),
+            },
+            {
+              name: "无待处理的岗位优化建议",
+              passed: pendingAdvice === 0,
+              ratio: pendingAdvice === 0 ? 1 : Math.max(0, 1 - pendingAdvice / 3),
+            },
+          ],
+          [
+            `已挂载岗位智能体 ${myRoles.length} 个${
+              myRoles.length
+                ? `：${myRoles
+                    .map((r) => r!.published!.definition.name)
+                    .join("、")}`
+                : ""
+            }`,
+            `待处理的岗位优化建议 ${pendingAdvice} 条`,
+          ],
+        ),
+        configDim(
+          "技能储备",
+          [
+            {
+              name: "技能覆盖率达 80%",
+              passed: skillTotal > 0 && skillOn / skillTotal >= 0.8,
+              ratio: rate(skillOn, skillTotal),
+            },
+            {
+              name: "已启用技能不少于 8 项",
+              passed: skillOn >= 8,
+              ratio: rate(skillOn, 8),
+            },
+            {
+              name: "已挂载协作专家不少于 2 位",
+              passed: expertOn >= 2,
+              ratio: rate(expertOn, 2),
+            },
+            {
+              name: "技能资源已全部启用",
+              passed: skillTotal > 0 && skillOn === skillTotal,
+              ratio: rate(skillOn, skillTotal),
+            },
+          ],
+          [
+            `已启用技能 ${skillOn} / 可申请 ${skillTotal} 项`,
+            `已挂载协作专家 ${expertOn} 位`,
+          ],
+        ),
+        configDim(
+          "系统连接",
+          [
+            {
+              name: "系统连接已全部启用",
+              passed: mcpTotal > 0 && mcpOn === mcpTotal,
+              ratio: rate(mcpOn, mcpTotal),
+            },
+            {
+              name: "连接覆盖率达 80%",
+              passed: mcpTotal > 0 && mcpOn / mcpTotal >= 0.8,
+              ratio: rate(mcpOn, mcpTotal),
+            },
+            {
+              name: "已启用连接不少于 6 个",
+              passed: mcpOn >= 6,
+              ratio: rate(mcpOn, 6),
+            },
+            {
+              name: "受限系统均已授权",
+              passed: ungranted === 0,
+              ratio: ungranted === 0 ? 1 : Math.max(0, 1 - ungranted / 3),
+            },
+          ],
+          [
+            `已启用连接 ${mcpOn} / 可用 ${mcpTotal} 个`,
+            `未授权受限资源 ${ungranted} 项`,
+          ],
+        ),
+        configDim(
+          "知识沉淀",
+          [
+            {
+              name: "已积累岗位案例不少于 50 条",
+              passed: myRuns.length >= 50,
+              ratio: rate(myRuns.length, 50),
+            },
+            {
+              name: "任务记录均已获反馈评价",
+              passed: myRuns.length > 0 && ratedRuns.length === myRuns.length,
+              ratio: rate(ratedRuns.length, myRuns.length),
+            },
+            {
+              name: "已导入专属知识资源不少于 5 项",
+              passed: personal.ids.length >= 5,
+              ratio: rate(personal.ids.length, 5),
+            },
+            {
+              name: "已沉淀历史任务记录不少于 20 条",
+              passed: myRuns.length >= 20,
+              ratio: rate(myRuns.length, 20),
+            },
+          ],
+          [
+            `历史任务记录 ${myRuns.length} 条，其中已评价 ${ratedRuns.length} 条`,
+            `专属知识资源 ${personal.ids.length} 项`,
+          ],
+        ),
+      ],
+      resources: effectiveResources(store).map((r) => ({
+        name: r.name,
+        version: r.version,
+        enabled: r.enabled,
       })),
-  });
+      roles: (store.memberships[CURRENT_USER] || [])
+        .filter((m) => m.enabled)
+        .flatMap((m) => {
+          const role = store.roles.find((r) => r.id === m.roleId);
+          return role && availableRole(store, role)
+            ? [
+                {
+                  name: role.published!.definition.name,
+                  version: role.published!.version,
+                },
+              ]
+            : [];
+        }),
+      tasks: store.runs
+        .filter((r) => r.userId === CURRENT_USER)
+        .map((r) => ({
+          id: r.id,
+          summary: r.summary,
+          at: r.at,
+          feedback: r.feedback,
+          cause: r.cause,
+          attribution: r.attribution,
+          evidence: r.evidence,
+        })),
+    };
+  };
   const current = capture();
   const report = selected || current;
   const readiness = (r: PersonalAssessment) =>
     Math.round(
       r.dimensions.reduce((sum, d) => sum + d.score, 0) / r.dimensions.length,
     );
+  /** 全部检查项 / 已通过项 —— 用来算「还缺哪几项」 */
+  const allChecks = (r: PersonalAssessment) => r.dimensions.flatMap((d) => d.checks);
+  const ratioOf = (c: { passed: boolean; ratio?: number }) =>
+    c.ratio ?? (c.passed ? 1 : 0);
+  const passedChecks = (r: PersonalAssessment) =>
+    allChecks(r).filter((c) => ratioOf(c) >= 0.999).length;
+  /** 缺口按维度分组，只留有欠缺的（含部分达成） */
+  const gaps = (r: PersonalAssessment) =>
+    r.dimensions
+      .map((d) => ({
+        name: d.name,
+        missing: d.checks.filter((c) => ratioOf(c) < 0.999),
+      }))
+      .filter((d) => d.missing.length > 0);
   const rated = (r: PersonalAssessment) => r.tasks.filter((t) => t.feedback);
   const satisfaction = (r: PersonalAssessment) =>
     rated(r).length
@@ -491,18 +727,68 @@ function AssessmentPanel() {
             100,
         )
       : null;
+  /**
+   * 待改进记录按根因归类 → 失败模式排行。
+   * 单给一个百分比看不出该先修哪里；把根因聚起来，才能连着「已生成的优化建议」一起看。
+   */
+  const failureModes = (r: PersonalAssessment) => {
+    const rows = new Map<
+      string,
+      {
+        cause: string;
+        count: number;
+        ids: string[];
+        attribution: string;
+        advice: { title: string; status: string } | null;
+      }
+    >();
+    r.tasks
+      .filter((t) => t.feedback === "bad")
+      .forEach((t) => {
+        const key = t.cause || "未归类";
+        const row = rows.get(key) ?? {
+          cause: key,
+          count: 0,
+          ids: [],
+          attribution: t.attribution ?? "",
+          advice: null,
+        };
+        row.count += 1;
+        row.ids.push(t.id);
+        rows.set(key, row);
+      });
+    return [...rows.values()]
+      .map((row) => {
+        const hit = store.suggestions.find((s) =>
+          s.logIds.some((l) => row.ids.includes(l)),
+        );
+        return {
+          ...row,
+          advice: hit ? { title: hit.title, status: hit.status } : null,
+        };
+      })
+      .sort((a, b) => b.count - a.count);
+  };
+  const modes = failureModes(current);
+  const badCount = current.tasks.filter((t) => t.feedback === "bad").length;
   const show = (next: typeof view) => {
     setSelected(current);
     setView(next);
   };
   const rerun = () =>
     perform(() => {
+      const previous = records[0];
       const next = [current, ...records].slice(0, 50);
       localStorage.setItem(ASSESSMENT_KEY, JSON.stringify(next));
       setRecords(next);
       setSelected(current);
       setView("report");
-      actions.profileGrowth("完成岗位准备度检查与任务反馈汇总");
+      // 只有准备度或表现真的变了才算一次成长；分数没动说明只是重复评测
+      const changed =
+        !previous ||
+        readiness(previous) !== readiness(current) ||
+        satisfaction(previous) !== satisfaction(current);
+      if (changed) actions.profileGrowth("完成岗位准备度检查与任务反馈汇总");
     }, "评测快照已保存");
   return (
     <section className="flat-section assessment-section">
@@ -528,7 +814,7 @@ function AssessmentPanel() {
             <div>
               <span>01 / READINESS</span>
               <h3>岗位准备度</h3>
-              <p>两类个人画像的配置完整度</p>
+              <p>六类准备项的配置完整度</p>
             </div>
             <b>
               {readiness(current)}
@@ -546,9 +832,12 @@ function AssessmentPanel() {
             target={current.dimensions.map(() => 100)}
           />
           <footer>
-            <span>每个维度包含 4 项内容检查</span>
+            <span>
+              已达标 {passedChecks(current)} / {allChecks(current).length} 项 ·
+              待补齐 {allChecks(current).length - passedChecks(current)} 项
+            </span>
             <button onClick={() => show("readiness")}>
-              查看检查依据
+              查看待补齐项
               <ChevronRight size={13} />
             </button>
           </footer>
@@ -671,7 +960,7 @@ function AssessmentPanel() {
                     <div className="rc-grid">
                       <article className="rc-section">
                         <h3>岗位准备度 {readiness(report)} / 100</h3>
-                        <p>依据两类个人画像的结构与内容完整性检查。</p>
+                        <p>依据六类准备项的结构与内容完整性检查。</p>
                         <button onClick={() => setView("readiness")}>
                           查看检查依据
                         </button>
@@ -714,22 +1003,63 @@ function AssessmentPanel() {
                 {view === "readiness" && (
                   <>
                     <Notice>
-                      每项通过计 25
-                      分，反映画像配置的完整程度；内容质量与专业能力需要结合任务结果和人工复核判断。
+                      六类准备项各含 4 项检查，每项通过计 25
+                      分，六类等权平均得到总分。准备度反映的是「配置完备程度」；真实能力需要结合任务表现与人工复核判断。
                     </Notice>
+                    <article className="rc-section assessment-gap">
+                      <header>
+                        <h3>
+                          待补齐 {allChecks(report).length - passedChecks(report)} 项
+                        </h3>
+                        <Badge>
+                          已达标 {passedChecks(report)} / {allChecks(report).length} 项
+                        </Badge>
+                      </header>
+                      {gaps(report).length ? (
+                        gaps(report).map((g) => (
+                          <p key={g.name}>
+                            <b>{g.name}</b> ·{" "}
+                            {g.missing
+                              .map((m) => {
+                                const pct = Math.round(ratioOf(m) * 100);
+                                return pct > 0 ? `${m.name}（${pct}%）` : m.name;
+                              })
+                              .join("、")}
+                          </p>
+                        ))
+                      ) : (
+                        <p>六类准备项均已具备。</p>
+                      )}
+                    </article>
                     {report.dimensions.map((d) => (
                       <article className="rc-section" key={d.name}>
                         <header>
                           <h3>{d.name}</h3>
                           <Badge>{d.score} / 100</Badge>
                         </header>
-                        {d.checks.map((c) => (
-                          <p key={c.name}>
-                            {c.passed ? "✓" : "待补充"} · {c.name}
-                          </p>
-                        ))}
+                        {d.checks.map((c) => {
+                          const ratio = c.ratio ?? (c.passed ? 1 : 0);
+                          const state =
+                            ratio >= 0.999
+                              ? "is-ok"
+                              : ratio > 0
+                                ? "is-part"
+                                : "is-missing";
+                          return (
+                            <p
+                              key={c.name}
+                              className={`assessment-check ${state}`}
+                            >
+                              {state === "is-ok" ? "✓" : state === "is-part" ? "◐" : "○"}{" "}
+                              {c.name}
+                              {state === "is-part" && (
+                                <span>{Math.round(ratio * 100)}%</span>
+                              )}
+                            </p>
+                          );
+                        })}
                         <details>
-                          <summary>查看当时的画像内容</summary>
+                          <summary>查看配置依据</summary>
                           <Markdown content={d.content} />
                         </details>
                       </article>
@@ -738,6 +1068,41 @@ function AssessmentPanel() {
                 )}
                 {view === "performance" && (
                   <>
+                    {modes.length > 0 && (
+                      <article className="rc-section">
+                        <header>
+                          <h3>失败模式排行</h3>
+                          <Badge>{badCount} 条待改进</Badge>
+                        </header>
+                        <div className="assessment-modes">
+                          <div className="assessment-modes-head">
+                            <span>根因</span>
+                            <span>记录数</span>
+                            <span>涉及记录</span>
+                            <span>处理状态</span>
+                          </div>
+                          {modes.map((m) => (
+                            <div className="assessment-modes-row" key={m.cause}>
+                              <b>{m.cause}</b>
+                              <span>{m.count} 条</span>
+                              <span>{m.ids.join("、")}</span>
+                              <span
+                                className={
+                                  m.advice ? "is-linked" : "is-pending"
+                                }
+                              >
+                                {m.advice
+                                  ? `已生成建议 · ${m.advice.status}`
+                                  : "待分析"}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="assessment-modes-note">
+                          先修根因再谈提升；建议落地后同类记录会随之下线。
+                        </p>
+                      </article>
+                    )}
                     {report.tasks.length ? (
                       report.tasks.map((t) => (
                         <article className="rc-section" key={t.id}>
@@ -754,7 +1119,9 @@ function AssessmentPanel() {
                           <small>
                             {t.id} · {t.at}
                           </small>
-                          {t.cause && <p>问题归因：{t.cause}</p>}
+                          {t.cause && <p>问题根因：{t.cause}</p>}
+                          {t.evidence && <p>判定依据：{t.evidence}</p>}
+                          {t.attribution && <p>问题归属：{t.attribution}</p>}
                         </article>
                       ))
                     ) : (
@@ -1132,7 +1499,8 @@ function ProfileDialog({
                       perform(() => {
                         if (!content.trim()) throw new Error("内容不能为空");
                         localStorage.setItem(key, content);
-                        actions.profileGrowth(title);
+                        // 内容与保存前一致时不记成长点 —— 重复保存不是成长
+                        if (content !== original) actions.profileGrowth(title);
                         setOriginal(content);
                         setEditing(false);
                       }, "已保存个人工作画像") !== false

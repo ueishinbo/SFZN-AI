@@ -14,6 +14,7 @@ import {
   migrateDefinition,
   nextVersion,
   readyForApproval,
+  RUN_FAILURE_MODES,
   seedStore,
   stamp,
   uid,
@@ -76,6 +77,13 @@ function migrate(saved: Store | (Store & { schema: 3 })): Store {
   });
   next.runs.forEach((run) => {
     if (run.cause === "SOP 不适用") run.cause = "能力地图不适用";
+    // 失败模式细分：历史 store 里的统一根因收敛到细分口径（与种子共用 RUN_FAILURE_MODES）
+    const mode = RUN_FAILURE_MODES[run.id];
+    if (mode && run.feedback === "bad") {
+      run.cause = mode.cause;
+      run.evidence = mode.evidence;
+      run.attribution = mode.attribution;
+    }
   });
   next.suggestions.forEach((suggestion) => {
     if (suggestion.type === "SOP") suggestion.type = "能力地图";
@@ -87,6 +95,14 @@ function migrate(saved: Store | (Store & { schema: 3 })): Store {
     entry.detail = entry.detail
       .replaceAll("岗位说明", "岗位摘要")
       .replaceAll("SOP", "能力地图");
+  });
+  // 成长曲线曾把重复操作也记成成长点，按「同日 + 同标题 + 同说明」把历史数据收敛掉
+  const seenGrowth = new Set<string>();
+  next.growth = next.growth.filter((item) => {
+    const dedupeKey = `${item.at.slice(0, 10)}|${item.title}|${item.detail}`;
+    if (seenGrowth.has(dedupeKey)) return false;
+    seenGrowth.add(dedupeKey);
+    return true;
   });
   next.schema = 4;
   return withProcurementDemo(next);
@@ -169,16 +185,32 @@ function audit(
   });
   if (role) role.updatedAt = stamp();
 }
+/**
+ * 记一个成长点。
+ *
+ * 成长曲线的语义是「岗位 / 能力 / 画像 / 知识**发生了补齐**」，
+ * 不是操作日志 —— 同一天里标题与说明都一样的重复操作，只算一个成长点。
+ * 否则反复点「重新评测」这类动作会堆出一串完全相同的事件。
+ */
 function growth(
   store: Store,
   title: string,
   detail: string,
   type = "岗位智能体",
 ) {
+  const at = stamp();
+  const day = at.slice(0, 10);
+  const duplicated = store.growth.some(
+    (item) =>
+      item.at.slice(0, 10) === day &&
+      item.title === title &&
+      item.detail === detail,
+  );
+  if (duplicated) return;
   store.growth.unshift({
     id: uid("growth"),
     userId: CURRENT_USER,
-    at: stamp(),
+    at,
     title,
     detail,
     type,

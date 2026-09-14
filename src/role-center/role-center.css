@@ -1594,3 +1594,106 @@
 /* Keep conversation history bounded while filters stay outside the scroll area. */
 .rc-conversation-log-scroll { max-height: 480px; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 .rc-conversation-log-scroll thead th { position: sticky; top: 0; z-index: 1; }
+
+/* ---------- 对话日志：统计并入副标题 + 单行筛选栏 ---------- */
+.rc-log-stats {
+  margin-left: 10px;
+  padding-left: 10px;
+  border-left: 1px solid var(--rc-border);
+  color: #5b6d80;
+}
+.rc-log-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.rc-log-filters > input {
+  flex: 1 1 200px;
+  min-width: 180px;
+  max-width: 320px;
+}
+/* 起止日期合成一个控件，避免两个 label 把这一行撑高 */
+.rc-log-range {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--rc-border);
+  border-radius: 7px;
+  background: #fff;
+}
+/* 注意特异性：基础规则 `.rc input:not([type=checkbox]):not([type=radio])` 是 (0,3,1)，
+   这里必须写到同等或更高，否则 border / padding 覆盖不掉。 */
+.rc .rc-log-range input[type="date"] {
+  width: 122px;
+  min-height: 0;
+  height: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #3f5368;
+  font-size: 12px;
+}
+.rc .rc-log-range input[type="date"]::-webkit-calendar-picker-indicator {
+  margin-left: 2px;
+  padding: 0;
+  cursor: pointer;
+}
+.rc-log-range i {
+  color: #94a3b3;
+  font-style: normal;
+}
+.rc-log-clear {
+  margin-left: auto;
+}
+
+/* ---------- 对话日志表格：定宽 + 单元格内联排版 ---------- */
+.rc-conversation-log-scroll table {
+  table-layout: fixed;
+  width: 100%;
+}
+.rc-conversation-log-scroll th:nth-child(1) { width: 27%; }
+.rc-conversation-log-scroll th:nth-child(2) { width: 23%; }
+.rc-conversation-log-scroll th:nth-child(3) { width: 22%; }
+.rc-conversation-log-scroll th:nth-child(4) { width: 17%; }
+.rc-conversation-log-scroll th:nth-child(5) { width: 11%; }
+.rc-log-roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.rc-log-roles span {
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: #f1f5fa;
+  color: #4f6076;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.rc-log-state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.rc-log-state em {
+  color: #6b7b8f;
+  font-size: 12px;
+  font-style: normal;
+}
+.rc-log-state em.is-good { color: #2f7d54; }
+.rc-log-state em.is-bad { color: #a8641a; }
+.rc-log-time {
+  color: #8291a3;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.rc-log-op { text-align: right; }
+@media (max-width: 900px) {
+  .rc-conversation-log-scroll { overflow-x: auto; }
+  .rc-conversation-log-scroll table { min-width: 760px; }
+}
