@@ -12,6 +12,8 @@ import {
   availableRole,
   effectiveResources,
   roleGoal,
+  sections,
+  RESPONSIBILITY_HEADINGS,
   type Resource,
   type ResourceKind,
   type RoleAgent,
@@ -126,6 +128,11 @@ function PersonalRoleDetail({
 }) {
   const store = useRoleStore();
   const d = role.published!.definition;
+  const parsed = sections(d.responsibilities);
+  const responsibilities = RESPONSIBILITY_HEADINGS.map((heading) => `# ${heading}\n${parsed[heading] || "暂未配置"}`).join("\n\n");
+  const boundary = parsed["工作边界与人工确认/升级规则"] || "";
+  const rules = [boundary, d.permissionRules].filter(Boolean).filter((value, index, all) => all.indexOf(value) === index).join("\n\n");
+  const capabilityNames = d.resourceIds.map((id) => store.resources.find((resource) => resource.id === id)).filter((resource) => resource && resource.kind !== "model").map((resource) => resource!.name);
   const added = store.memberships[CURRENT_USER]?.some(
     (m) => m.roleId === role.id,
   );
@@ -146,12 +153,13 @@ function PersonalRoleDetail({
         </>
       }
     >
-      <div className="rc-stack">
+      <div className="rc-stack personal-role-detail">
         <div className="rc-actions">
           <Badge>{role.published!.version}</Badge>
-          <span>{roleGoal(d)}</span>
+          <span>{capabilityNames.length ? `可协助你使用${capabilityNames.slice(0, 3).join("、")}等岗位能力。` : "查看岗位职责、交付要求和工作边界。"}</span>
         </div>
-        <Markdown content={d.responsibilities} />
+        <Markdown content={responsibilities} />
+        <section><h3>工作边界与需要人工确认的情况</h3><Markdown content={rules || "暂未配置"} /></section>
         <section>
           <h3>可用能力</h3>
           <div className="rc-chips" style={{ marginTop: 12 }}>
@@ -168,7 +176,7 @@ function PersonalRoleDetail({
           ["知识地图", d.knowledgeMap],
           ["输出模板", d.templates],
         ].map(([label, assets]) => (
-          <section key={String(label)}>
+          (assets as typeof d.capabilityMap).length > 0 && <section key={String(label)}>
             <h3>{String(label)}</h3>
             {(assets as typeof d.capabilityMap).map((a) => (
               <details
@@ -182,10 +190,7 @@ function PersonalRoleDetail({
             ))}
           </section>
         ))}
-        <section>
-          <h3>行为规则</h3>
-          <Markdown content={d.permissionRules} />
-        </section>
+
       </div>
     </Dialog>
   );
@@ -195,8 +200,7 @@ export function PersonalCapabilities({ kind }: { kind: ResourceKind }) {
   const [query, setQuery] = useState(""),
     [status, setStatus] = useState(""),
     [market, setMarket] = useState(false),
-    [selection, setSelection] = useState<string[]>([]),
-    [detail, setDetail] = useState<Resource | null>(null);
+    [selection, setSelection] = useState<string[]>([]);
   const { perform, feedback } = useFeedback();
   const resources = effectiveResources(store).filter((r) => r.kind === kind);
   const visible = resources.filter(
@@ -264,10 +268,7 @@ export function PersonalCapabilities({ kind }: { kind: ResourceKind }) {
             <div>
               <strong>{r.name}</strong>
               <p>{r.description}</p>
-              <small>
-                {r.version}
-                {kind === "mcp" ? ` · ${r.tools} 个工具 · ${r.permission}` : ""}
-              </small>
+              {kind === "mcp" && <small>{r.tools} 个工具</small>}
             </div>
             <Badge
               tone={
@@ -281,7 +282,7 @@ export function PersonalCapabilities({ kind }: { kind: ResourceKind }) {
               {!r.active
                 ? "已失效"
                 : !r.authorized
-                  ? "待授权"
+                  ? "暂不可用"
                   : r.enabled
                     ? kind === "mcp"
                       ? "已连接"
@@ -289,34 +290,8 @@ export function PersonalCapabilities({ kind }: { kind: ResourceKind }) {
                     : "已停用"}
             </Badge>
             <div className="rc-actions">
-              <button onClick={() => setDetail(r)}>详情</button>
-              {!r.authorized ? (
                 <button
-                  disabled={store.approvals.some(
-                    (a) =>
-                      a.resourceId === r.id &&
-                      a.userId === CURRENT_USER &&
-                      a.status === "待审批",
-                  )}
-                  onClick={() =>
-                    perform(
-                      () => actions.requestAccess(r.id),
-                      "已提交访问权限申请",
-                    )
-                  }
-                >
-                  {store.approvals.some(
-                    (a) =>
-                      a.resourceId === r.id &&
-                      a.userId === CURRENT_USER &&
-                      a.status === "待审批",
-                  )
-                    ? "审批中"
-                    : "申请权限"}
-                </button>
-              ) : (
-                <button
-                  disabled={!r.active}
+                  disabled={!r.active || !r.authorized}
                   onClick={() =>
                     perform(
                       () => actions.personal(r.id, "toggle"),
@@ -332,7 +307,6 @@ export function PersonalCapabilities({ kind }: { kind: ResourceKind }) {
                       ? "连接"
                       : "启用"}
                 </button>
-              )}
             </div>
           </div>
         ))}
@@ -382,52 +356,10 @@ export function PersonalCapabilities({ kind }: { kind: ResourceKind }) {
                 <span>
                   <strong>{r.name}</strong>
                   <small>{r.description}</small>
-                  <small>
-                    {r.version}
-                    {r.restricted ? " · 需单独申请访问权限" : ""}
-                  </small>
                 </span>
               </label>
             ))}
             {!candidates.length && <Empty title={`所有可用${label}均已添加`} />}
-          </div>
-        </Dialog>
-      )}
-      {detail && (
-        <Dialog title={detail.name} onClose={() => setDetail(null)}>
-          <div className="rc-stack">
-            <Badge>{detail.version}</Badge>
-            <p>{detail.description}</p>
-            <div>
-              <h3>使用边界</h3>
-              <p>
-                {detail.kind === "mcp"
-                  ? detail.permission + "，仅访问已授权业务范围。"
-                  : "在已获授权的岗位任务中调用，结论需保留依据。"}
-              </p>
-            </div>
-            <div>
-              <h3>调用条件</h3>
-              <p>
-                资源已启用、个人连接与权限有效；对外发送或业务变更须人工确认。
-              </p>
-            </div>
-            {store.personal[CURRENT_USER]?.ids.includes(detail.id) && (
-              <button
-                className="rc-danger"
-                onClick={() => {
-                  if (
-                    perform(
-                      () => actions.personal(detail.id, "remove"),
-                      "个人添加记录已移除；仍被启用岗位引用的能力会保留",
-                    ) !== false
-                  )
-                    setDetail(null);
-                }}
-              >
-                移除个人添加
-              </button>
-            )}
           </div>
         </Dialog>
       )}

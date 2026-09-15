@@ -1,10 +1,13 @@
-import { ArrowLeft, CheckCircle2, ChevronRight, CircleDashed, Clock3, Factory, FolderKanban, FlaskConical, PlayCircle, Search, ShieldCheck, Truck } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, ChevronRight, CircleDashed, Clock3, FolderKanban, PlayCircle, Plus, Search, Truck } from 'lucide-react'
 import { useState } from 'react'
 import type { A2AConversation } from '../assistant/a2aConversationTypes'
 import { projects, conversationIdFor, taskStatus, type ProjectTask } from './projectData'
+import { Dialog } from '../role-center/ui'
+import type { Project } from './projectData'
+import ProjectChats from './ProjectChats'
 import './organization.css'
 
-const icons = { production: Factory, supply: Truck, quality: ShieldCheck, engineering: FlaskConical }
+const icons = { ipt: FolderKanban, supply: Truck }
 const columns = [
   { id: 'pending', title: '待开始', icon: CircleDashed },
   { id: 'progress', title: '进行中', icon: PlayCircle },
@@ -18,11 +21,18 @@ export default function OrganizationWorkbench({ conversations, onOpenConversatio
   const [projectId, setProjectId] = useState<string | null>(null)
   const [tab, setTab] = useState<'plan' | 'tasks'>('plan')
   const [query, setQuery] = useState('')
-  const selected = projects.find(project => project.id === projectId)
+  const [addedProjects, setAddedProjects] = useState<Project[]>([])
+  const [adding, setAdding] = useState(false)
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [emptyTask, setEmptyTask] = useState<ProjectTask | null>(null)
+  const allProjects = [...projects, ...addedProjects]
+  const selected = allProjects.find(project => project.id === projectId)
   const statusOf = (task: ProjectTask) => taskStatus(task, conversations.find(c => c.id === conversationIdFor(task)))
-  const open = (task: ProjectTask) => onOpenConversation(conversationIdFor(task))
+  const open = (task: ProjectTask) => task.id === 'ipt-annual-2026' ? setEmptyTask(task) : onOpenConversation(conversationIdFor(task))
+  if (emptyTask) return <section className="organization-workbench organization-workbench--detail"><header className="org-detail-header"><button type="button" className="org-crumb" onClick={() => setEmptyTask(null)}><ArrowLeft size={18}/><span>IPT</span></button><ChevronRight size={16}/><strong>{emptyTask.title}</strong></header></section>
   if (selected) {
-    const Icon = icons[selected.id as keyof typeof icons]
+    const Icon = icons[selected.id as keyof typeof icons] ?? FolderKanban
     return <section className="organization-workbench organization-workbench--detail org-project-detail">
       <header className="org-detail-header"><button type="button" className="org-crumb" onClick={() => setProjectId(null)}><ArrowLeft size={18}/><span>系统智能</span></button><ChevronRight size={16}/><strong>{selected.title}</strong></header>
       <div className="org-detail-content">
@@ -42,18 +52,17 @@ export default function OrganizationWorkbench({ conversations, onOpenConversatio
               <footer><span className="org-avatar">{task.owner.slice(0,1)}</span><small>{task.owner} · 负责人</small><span className="org-a2a-link">A2A 协作</span></footer>
             </button>)}{!tasks.length && <p className="org-empty-column">暂无{column.title}任务</p>}</div>
           </section>
-        })}</div> : <div className="org-task-list-view">
-          <div className="org-task-list-head"><span>任务名称</span><span>状态</span><span>负责人</span><span>计划完成时间</span></div>
-          {selected.tasks.map(task=><button type="button" key={task.id} className="org-task-list-row org-task-row-button" onClick={()=>open(task)}><strong>{task.title}</strong><span>{columns.find(c=>c.id===statusOf(task))?.title}</span><span>{task.owner}</span><span>{task.due}</span></button>)}
-        </div>}
+        })}</div> : null}
+        <div hidden={tab !== 'tasks'}><ProjectChats key={selected.id} projectId={selected.id}/></div>
       </div>
     </section>
   }
-  const filtered = projects.filter(project=>`${project.title}${project.description}`.includes(query.trim()))
+  const filtered = allProjects.filter(project=>`${project.title}${project.description}`.includes(query.trim()))
   return <section className="organization-workbench">
-    <header className="org-home-header"><div><span className="org-eyebrow">SYSTEM INTELLIGENCE</span><h1>系统智能</h1><p>围绕生产、供应链、质量与研发，跟踪项目任务和跨岗位协作。</p></div><div className="org-header-icon"><FolderKanban size={28}/></div></header>
+    <header className="org-home-header"><div><h1>系统智能</h1><p>围绕共同目标，统筹任务推进与跨团队协作。</p></div><button type="button" className="org-add-project" onClick={() => setAdding(true)}><Plus size={18}/>添加项目</button></header>
     <div className="org-section-title"><div><h2>项目</h2><p>进入项目查看任务，跟进数字分身的协作进展。</p></div><label><Search size={17}/><input aria-label="搜索项目" placeholder="搜索项目" value={query} onChange={event=>setQuery(event.target.value)}/></label></div>
-    <div className="org-entry-grid org-project-grid">{filtered.map(project=>{const Icon=icons[project.id as keyof typeof icons];return <button className="org-entry-card" type="button" key={project.id} onClick={()=>{setProjectId(project.id);setTab('plan')}}><span className={`org-icon org-icon--${project.tone}`}><Icon size={24}/></span><span className="org-entry-main"><strong>{project.title}</strong><small>{project.description}</small></span><ChevronRight size={19}/></button>})}</div>
+    <div className="org-entry-grid org-project-grid">{filtered.map(project=>{const Icon=icons[project.id as keyof typeof icons] ?? FolderKanban;return <button className="org-entry-card" type="button" key={project.id} onClick={()=>{setProjectId(project.id);setTab('plan')}}><span className={`org-icon org-icon--${project.tone}`}><Icon size={24}/></span><span className="org-entry-main"><strong>{project.title}</strong><small>{project.description}</small></span><ChevronRight size={19}/></button>})}</div>
+    {adding && <Dialog title="添加项目" onClose={() => setAdding(false)} footer={<><button onClick={() => setAdding(false)}>取消</button><button className="rc-primary" disabled={!name.trim()} onClick={() => { setAddedProjects(items => [...items, { id: `demo-${Date.now()}`, title: name.trim(), description: description.trim(), tone: 'blue', tasks: [] }]); setAdding(false); setName(''); setDescription(''); setQuery('') }}>添加</button></>}><div className="org-project-form"><label>项目名称<input autoFocus value={name} onChange={event => setName(event.target.value)} placeholder="输入项目名称" maxLength={40}/></label><label>项目描述<textarea value={description} onChange={event => setDescription(event.target.value)} placeholder="简要描述项目目标" rows={3}/></label></div></Dialog>}
     {!filtered.length && <p className="org-empty-column">没有匹配的项目，请调整搜索内容。</p>}
   </section>
 }

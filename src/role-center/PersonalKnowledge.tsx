@@ -13,36 +13,14 @@ type Knowledge = {
   at: string;
   personal: boolean;
 };
-const KEY = "comac-personal-knowledge-v1";
+const KEY = "comac-personal-knowledge-gm-v1";
 const seeds: Knowledge[] = [
-  {
-    id: "enterprise",
-    name: "企业制度库",
-    content:
-      "# 交付与数据管理\n- 项目关键节点需保留评审与验收依据。\n- 对外发送文件前进行权限核验与敏感信息检查。\n- 访问业务数据须遵循已有授权。",
-    enabled: true,
-    at: "2026-09-04 09:00",
-    personal: false,
-  },
-  {
-    id: "brain",
-    name: "C 大脑知识",
-    content:
-      "# 方案工作过程\n需求传递 → 需求澄清 → 方案设计 → 方案评审 → 方案交付\n\n# 知识组织\n按过程、输入、输出、责任人与制度依据关联。",
-    enabled: true,
-    at: "2026-09-04 09:00",
-    personal: false,
-  },
-  {
-    id: "experience",
-    name: "个人项目经验",
-    content:
-      "# 方案评审检查单\n- 先确认验收目标和不可妥协的边界。\n- 明确资料来源、版本与更新时间。\n- 对外方案先给结论和风险，再展开依据。\n- 将未确认假设与事实分开记录。",
-    enabled: true,
-    at: "2026-09-03 14:20",
-    personal: true,
-  },
+  { id: "gm-goals", name: "公司年度经营目标", content: "# 年度经营目标\n推进年度经营目标落实，关注经营效益、预算执行、现金回款与重点项目交付。\n\n# 跟踪要求\n按月汇总目标差距、原因、责任人与下一步措施。", enabled: true, at: "2026-09-15 09:00", personal: false },
+  { id: "gm-projects", name: "重点项目资料", content: "# 重点项目\n覆盖IPT生产链式智能建设与供应链协同事项。\n\n# 资料范围\n项目概况、里程碑、责任分工、阶段进展与风险清单。", enabled: true, at: "2026-09-15 09:00", personal: false },
+  { id: "gm-reports", name: "经营分析报告", content: "# 经营分析框架\n经营目标达成、收入与成本、预算执行、现金回款。\n\n# 汇报要求\n结论先行，明确数据口径、异常原因、影响及待决策事项。", enabled: true, at: "2026-09-15 09:00", personal: true },
+  { id: "gm-rules", name: "公司管理制度", content: "# 管理边界\n预算调整、资源承诺、对外发布及重大业务决策须由本人确认。\n\n# 协作要求\n协调事项需明确责任人、完成时间及反馈方式。", enabled: true, at: "2026-09-15 09:00", personal: false },
 ];
+
 export default function PersonalKnowledge() {
   const [items, setItems] = useState<Knowledge[]>(() => {
       try {

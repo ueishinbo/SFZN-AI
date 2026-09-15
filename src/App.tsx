@@ -904,7 +904,7 @@ function App() {
           </button>
         )}
 
-        {(surfaceMode === 'task' || (surfaceMode === 'assistant' && assistantDestination.type === 'assistant')) && <button
+        {((surfaceMode === 'task' && activeNav === '新建任务') || (surfaceMode === 'assistant' && assistantDestination.type === 'assistant')) && <button
           className={`global-assistant-switch ${surfaceMode === 'assistant' ? 'is-assistant' : ''} ${assistantBusy ? 'is-busy' : ''} ${hasPendingA2AConfirmation ? 'has-pending-confirmation' : ''} ${(surfaceMode === 'assistant' ? assistantDestination.type === 'assistant' && assistantWorkspaceVisible : taskWorkbench.workspaceVisible) ? 'has-workspace' : ''}`}
           type="button"
           onClick={surfaceMode === 'assistant' ? returnToTaskMode : enterAssistantMode}

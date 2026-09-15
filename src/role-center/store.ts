@@ -1,3 +1,4 @@
+import { withExecutiveDemo } from "./executiveDemo";
 import { withProcurementDemo } from "../admin/procurementDemo";
 import { useSyncExternalStore } from "react";
 import {
@@ -105,7 +106,7 @@ function migrate(saved: Store | (Store & { schema: 3 })): Store {
     return true;
   });
   next.schema = 4;
-  return withProcurementDemo(next);
+  return withExecutiveDemo(withProcurementDemo(next));
 }
 function load(): Store {
   try {
@@ -124,7 +125,7 @@ function load(): Store {
   } catch {
     /* Keep a usable session if browser storage is unavailable. */
   }
-  return withProcurementDemo(seedStore());
+  return withExecutiveDemo(withProcurementDemo(seedStore()));
 }
 let state = load();
 const listeners = new Set<() => void>();

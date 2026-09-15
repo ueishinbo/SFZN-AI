@@ -3,18 +3,24 @@ import {
   ArrowLeft,
   ArrowRight,
   CalendarDays,
+  Check,
   ChevronRight,
   CircleCheck,
+  ClipboardList,
   Database,
   Download,
+  FileText,
   GraduationCap,
   History,
+  MessageCircleQuestion,
   Pencil,
   Plug,
   RefreshCw,
   Sparkles,
+  Upload,
+  UserRound,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { A2AConversation } from "../assistant/a2aConversationTypes";
 import "./digital-twin.css";
 import "./assessment.css";
@@ -67,13 +73,14 @@ type Event = {
   detail: string;
 };
 const profileTabs: [ProfileTab, string, string][] = [
-  ["mind", "工作画像", "决策方法与表达偏好"],
+  ["mind", "工作画像", "让助理了解你的工作方式"],
   ["goals", "目标", "目标、口径与验收标准"],
 ];
 const defaultProfileMarkdown: Record<ProfileTab, string> = {
-  mind: "# 心智模型\n先验证，再动手。先查制度、Skill 和历史案例，再形成判断。\n\n# 决策启发式\n验收口径优先。需求不完整时先确认验收目标和不可妥协边界。\n\n# 表达 DNA\n结论先行，依据随后；用清晰、可追溯的方式表达。\n\n# 价值观与反模式\n坚持可追溯，避免无依据猜测；被指出错误时直接修正。\n\n# 诚实边界\n数据不足时明确指出缺口，并给出可执行的核验路径。",
+  mind: "# 我的工作定位\n公司总经理，统筹公司经营与重点项目，关注目标达成、资源配置和重大风险。\n\n# 我经常处理的工作\n经营分析、重点项目推进、预算与回款跟踪、资源协调和重大风险研判。\n\n# 我关注的重点\n关注公司年度目标、重点项目交付、经营效益、现金回款与重大风险。\n\n# 我的沟通与表达偏好\n结论先行，突出关键数据、异常事项和需要决策的问题。\n\n# 我的判断习惯\n同时查看目标差距、原因、影响范围、责任人和下一步措施。\n\n# 助理需要向我确认的情况\n涉及对外发送、范围变化、资源承诺、关键数据缺失或无法验证的结论时，必须先向我确认。",
   goals:
-    "# 方案交付率\n- 目标：不低于 90%。\n- 口径：按期完成并通过验收的方案数量 / 计划交付方案数量。\n\n# 客户满意度\n- 目标：不低于 4.5 分。\n- 口径：项目阶段性满意度调研平均分。\n\n# 评审通过率\n- 目标：不低于 95%。\n- 口径：一次评审通过的方案数量 / 参加评审的方案数量。",
+    "# 年度经营目标\n推进年度经营目标落实，关注经营效益、预算执行与现金回款。\n\n# 重点项目交付\n保障重点项目里程碑，及时识别延期风险和资源瓶颈。\n\n# 跨部门协同\n提高跨部门协同效率，明确责任人、协调事项和下一步措施。",
+
 };
 const resourceTabs: [ResourceTab, string][] = [
   ["experts", "专家"],
@@ -87,11 +94,11 @@ const events: Event[] = [
     date: "2026-09-03",
     time: "09:20",
     type: "技能",
-    title: "新增技能“方案文档生成”",
-    summary: "已装配组织标准方案模板与评审检查规则。",
+    title: "新增技能“经营简报生成”",
+    summary: "已配置经营指标、预算执行与重点风险汇总模板。",
     source: "技能中心",
-    operator: "张三",
-    detail: "技能已通过可用性检查，可在权限范围内生成方案初稿和评审材料。",
+    operator: "陈智超",
+    detail: "可汇总经营表现、重点风险和待决策事项，形成经营简报。",
   },
   {
     id: "e2",
@@ -100,8 +107,8 @@ const events: Event[] = [
     type: "记忆",
     title: "确认一条用户偏好",
     summary: "正式汇报默认采用“结论先行、依据随后”的表达结构。",
-    source: "女娲访谈",
-    operator: "张三",
+    source: "工作画像访谈",
+    operator: "陈智超",
     detail: "该偏好将作为对话和文档生成时的默认表达规则。",
   },
   {
@@ -110,10 +117,10 @@ const events: Event[] = [
     time: "16:30",
     type: "岗位画像",
     title: "更新岗位说明",
-    summary: "补充方案评审后的交付上下文移交职责。",
+    summary: "补充公司经营统筹、重点项目推进与资源配置职责。",
     source: "组织岗位库",
-    operator: "市场与营销部管理员",
-    detail: "岗位说明书已更新到 v2.4，数字分身下次会话将使用新边界。",
+    operator: "系统管理员",
+    detail: "已更新公司总经理工作定位及重大决策确认边界。",
   },
   {
     id: "e4",
@@ -134,7 +141,7 @@ const events: Event[] = [
     title: "新增知识库连接",
     summary: "已连接“个人项目经验”资源，权限仅限本人。",
     source: "知识库连接",
-    operator: "张三",
+    operator: "陈智超",
     detail: "连接后可检索已确认的项目材料、历史决策与工作输出。",
   },
   {
@@ -145,7 +152,7 @@ const events: Event[] = [
     title: "启用技能“评审检查”",
     summary: "将完整性、可交付性、依据与风险检查纳入默认流程。",
     source: "技能中心",
-    operator: "张三",
+    operator: "陈智超",
     detail: "技能启用后可在方案评审任务中被自动建议调用。",
   },
   {
@@ -156,7 +163,7 @@ const events: Event[] = [
     title: "更新一条长期记忆",
     summary: "记录当前型号项目的关键协同节奏与验收口径。",
     source: "对话确认",
-    operator: "张三",
+    operator: "陈智超",
     detail: "该记忆已作为长期有效工作上下文保存。",
   },
   {
@@ -164,10 +171,10 @@ const events: Event[] = [
     date: "2026-08-29",
     time: "15:00",
     type: "访谈",
-    title: "完成一次女娲访谈",
-    summary: "形成“先验证、再动手”的决策启发式初稿。",
-    source: "女娲蒸馏",
-    operator: "张三",
+    title: "完成一次工作画像访谈",
+    summary: "补充“先确认目标和依据，再推进执行”的判断习惯。",
+    source: "工作画像",
+    operator: "陈智超",
     detail: "访谈结果已本人确认，纳入用户心智。",
   },
 ];
@@ -481,7 +488,7 @@ function AssessmentPanel() {
       labels: [string, string, string, string],
     ) => {
       const content =
-        localStorage.getItem(`digital-twin-profile-${key}`) ??
+        localStorage.getItem(`digital-twin-gm-profile-${key}`) ??
         defaultProfileMarkdown[key];
       const bodies = content
         .split(/^#{1,6}\s+.+$/m)
@@ -794,7 +801,7 @@ function AssessmentPanel() {
     <section className="flat-section assessment-section">
       <div className="heading">
         <div>
-          <span className="twin-eyebrow">ROLE ASSESSMENT</span>
+          
           <h2>分身评测</h2>
         </div>
         <div className="assessment-actions">
@@ -1202,9 +1209,9 @@ export default function DigitalTwinTrainingWorkspace() {
         <div className="person">
           <i>{user.slice(0, 1)}</i>
           <div>
-            <span className="twin-eyebrow">MY DIGITAL TWIN</span>
+            
             <h1>{user}的数字分身</h1>
-            <p>解决方案经理 · 市场与营销部</p>
+            <p>公司总经理</p>
           </div>
         </div>
         <div className="top-identity-actions">
@@ -1221,7 +1228,7 @@ export default function DigitalTwinTrainingWorkspace() {
             <section className="flat-section">
               <div className="heading">
                 <div>
-                  <span className="twin-eyebrow">WORK PROFILE</span>
+                  
                   <h2>用户心智</h2>
                 </div>
               </div>
@@ -1244,7 +1251,7 @@ export default function DigitalTwinTrainingWorkspace() {
             <section className="flat-section">
               <div className="heading">
                 <div>
-                  <span className="twin-eyebrow">CAPABILITIES</span>
+                  
                   <h2>能力</h2>
                 </div>
               </div>
@@ -1285,11 +1292,11 @@ export default function DigitalTwinTrainingWorkspace() {
               </div>
             </section>
             <AssessmentPanel />
-            <section className="growth-curve">
+            <section className="twin-overview-section"><div className="heading"><h2>成长曲线</h2></div><div className="growth-curve">
               <header className="growth-curve-heading">
                 <div>
-                  <span>GROWTH TIMELINE</span>
-                  <h2>成长曲线</h2>
+                  
+
                   <p>按时间查看岗位、能力、画像与知识如何逐步补齐。</p>
                 </div>
                 <small>{currentEvents.length} 条成长事件</small>
@@ -1372,8 +1379,8 @@ export default function DigitalTwinTrainingWorkspace() {
                   <time>{item.date.slice(5).replace("-", ".")}<small>{item.time}</small></time><i /><div><span>新增{item.type}</span><b>{item.title.replace(/^新增/, "")}</b><p>{item.summary}</p></div>
                 </button>)}
               </div> : <Empty title="所选周期暂无成长事件" />}
-            </section>
-            <PersonalLogs />
+            </div></section>
+            <section className="twin-overview-section"><div className="heading"><h2>对话日志</h2></div><PersonalLogs /></section>
           </div>
         </div>
       </main>
@@ -1382,11 +1389,11 @@ export default function DigitalTwinTrainingWorkspace() {
           <div className="rc-grid">
             {[
               ["姓名", user],
-              ["工号", "AI0340"],
-              ["岗位", "解决方案经理"],
-              ["部门", "市场与营销部"],
-              ["组织", "商飞智能"],
-              ["小组", "产品与方案协作组、方案评审小组"],
+
+              ["岗位", "公司总经理"],
+
+
+
             ].map(([label, value]) => (
               <div key={label}>
                 <small>{label}</small>
@@ -1397,11 +1404,15 @@ export default function DigitalTwinTrainingWorkspace() {
         </Dialog>
       )}
       {profile && (
-        <ProfileDialog
-          key={profile}
-          profile={profile}
-          onClose={() => setProfile(null)}
-        />
+        profile === "mind" ? (
+          <WorkProfileDialog onClose={() => setProfile(null)} />
+        ) : (
+          <ProfileDialog
+            key={profile}
+            profile={profile}
+            onClose={() => setProfile(null)}
+          />
+        )
       )}{" "}
       {resource && (
         <Dialog
@@ -1450,6 +1461,281 @@ export default function DigitalTwinTrainingWorkspace() {
     </div>
   );
 }
+
+type WorkProfileAnswers = {
+  scope: string;
+  objects: string[];
+  role: string;
+  scenarios: string;
+  priorities: string;
+  communication: string;
+  incompleteRequest: string;
+  confirmationBoundary: string;
+};
+
+const workProfileDefaults: WorkProfileAnswers = {
+  scope: "公司级",
+  objects: ["人员", "项目", "数据", "流程／制度"],
+  role: "公司总经理，统筹公司经营、重点项目与资源配置",
+  scenarios: "经营分析、重点项目推进、预算与回款跟踪、跨部门协调",
+  priorities: "公司年度目标、重点项目交付、经营效益、现金回款与重大风险",
+  communication: "结论先行，突出关键数据、异常事项和需要决策的问题",
+  incompleteRequest: "同时查看目标差距、原因、影响范围、责任人和下一步措施",
+  confirmationBoundary: "涉及对外发送、范围变化、资源承诺或关键数据缺失时",
+};
+
+const workScopeOptions = [
+  ["公司级", "关注公司战略、经营目标、重大决策"],
+  ["部门级", "关注部门目标、资源配置、团队协同"],
+  ["项目级", "关注项目计划、进度、风险、交付"],
+  ["模块级", "关注某个业务、系统、流程或专业模块"],
+  ["任务级", "关注具体任务执行、问题处理和结果交付"],
+  ["支持级", "为他人或组织提供专业支持、流程支持或服务保障"],
+];
+const workObjectOptions = ["人员", "项目", "任务", "产品", "技术／系统", "数据", "流程／制度"];
+const workProfileSteps = [
+  { title: "基础了解", detail: "回答两个选择题", icon: UserRound },
+  { title: "深入交流", detail: "补充你的工作习惯", icon: MessageCircleQuestion },
+  { title: "补充材料", detail: "可跳过", icon: Upload },
+  { title: "生成画像", detail: "整理工作方式", icon: Sparkles },
+] as const;
+
+function readWorkProfile(): WorkProfileAnswers {
+  try {
+    const saved = JSON.parse(localStorage.getItem("digital-twin-gm-work-profile-answers") || "null");
+    if (saved && typeof saved === "object") {
+      const valid = { ...workProfileDefaults };
+      for (const key of Object.keys(valid) as (keyof WorkProfileAnswers)[]) {
+        if (key !== "objects" && typeof saved[key] === "string") valid[key] = saved[key];
+      }
+      valid.objects = Array.isArray(saved.objects) ? saved.objects.filter((v: unknown) => typeof v === "string" && workObjectOptions.includes(v)).slice(0, 3) : [];
+      return valid;
+    }
+    // Older demos stored only Markdown. Restore its actual content before updating.
+    const markdown = localStorage.getItem("digital-twin-gm-profile-mind") || "";
+    const restored = { ...workProfileDefaults };
+    const keys = ["role", "scenarios", "priorities", "communication", "incompleteRequest", "confirmationBoundary"] as const;
+    workProfileSections(restored).forEach(([title], index) => {
+      const value = markdown.split(`# ${title}\n`)[1]?.split(/\n#+ /)[0]?.trim();
+      if (value) restored[keys[index]] = value;
+    });
+    return restored;
+  } catch { return { ...workProfileDefaults }; }
+}
+
+const sampleMaterials = [
+  { id: "review", name: "项目复盘摘要", detail: "用于了解问题分析和复盘习惯" },
+  { id: "report", name: "汇报材料样例", detail: "用于了解表达结构和重点偏好" },
+  { id: "work", name: "个人工作说明", detail: "用于补充职责范围和工作边界" },
+];
+
+function workProfileSections(answers: WorkProfileAnswers) {
+  return [
+    ["我的工作定位", answers.role],
+    ["我经常处理的工作", answers.scenarios],
+    ["我关注的重点", answers.priorities],
+    ["我的沟通与表达偏好", answers.communication],
+    ["我的判断习惯", answers.incompleteRequest],
+    ["助理需要向我确认的情况", answers.confirmationBoundary],
+  ];
+}
+
+function buildWorkProfileMarkdown(answers: WorkProfileAnswers) {
+  return workProfileSections(answers)
+    .map(([title, content]) => `# ${title}\n${content.trim()}`)
+    .join("\n\n");
+}
+
+function WorkProfileDialog({ onClose }: { onClose: () => void }) {
+  const profileKey = "digital-twin-gm-profile-mind";
+  const statusKey = "digital-twin-gm-work-profile-enabled";
+  const [answers, setAnswers] = useState(readWorkProfile);
+  const [step, setStep] = useState(() => {
+    try {
+      return localStorage.getItem(statusKey) !== "false" ? 4 : 0;
+    } catch {
+      return 0;
+    }
+  });
+  const flow = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    flow.current?.closest(".rc-dialog-body")?.scrollTo({ top: 0 });
+  }, [step]);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  const [editing, setEditing] = useState(false);
+  const [materials, setMaterials] = useState<string[]>(["review", "report"]);
+  const [generating, setGenerating] = useState(false);
+  const [enabled, setEnabled] = useState(() => {
+    try {
+      return localStorage.getItem(statusKey) !== "false";
+    } catch {
+      return false;
+    }
+  });
+  const [resultView, setResultView] = useState<"cards" | "document">("cards");
+  const [notice, setNotice] = useState("");
+  const sections = workProfileSections(answers);
+  const markdown = buildWorkProfileMarkdown(answers);
+  const update = (key: Exclude<keyof WorkProfileAnswers, "objects">, value: string) =>
+    setAnswers((current) => ({ ...current, [key]: value }));
+  const toggleMaterial = (id: string) =>
+    setMaterials((current) =>
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
+    );
+  const startAgain = () => {
+    setEditing(true);
+    setNotice("");
+    setStep(0);
+  };
+  const generate = () => {
+    setStep(3);
+    setGenerating(true);
+    timer.current = window.setTimeout(() => {
+      setGenerating(false);
+      setStep(4);
+    }, 700);
+  };
+  const activate = () => {
+    localStorage.setItem("digital-twin-gm-work-profile-answers", JSON.stringify(answers));
+    localStorage.setItem(profileKey, markdown);
+    localStorage.setItem(statusKey, "true");
+    actions.profileGrowth("确认使用个人工作画像");
+    setEnabled(true);
+    setEditing(false);
+    setNotice("工作画像已应用。助理会在回答、提醒和建议中参考这些内容。");
+  };
+
+  const applied = enabled && !editing;
+  const validBasics = !!answers.scope && answers.objects.length > 0;
+  const continueBasics = () => {
+    const description = workScopeOptions.find(([scope]) => scope === answers.scope)?.[1] || "";
+    setAnswers((current) => ({ ...current,
+      role: `${current.scope}工作，${description}`,
+      scenarios: `主要围绕${current.objects.join("、")}开展工作`,
+      priorities: description.replace(/^关注/, ""),
+    }));
+    setStep(1);
+  };
+  const toggleObject = (value: string) => setAnswers((current) => ({ ...current, objects: current.objects.includes(value) ? current.objects.filter((v) => v !== value) : current.objects.length < 3 ? [...current.objects, value] : current.objects }));
+  return (
+    <Dialog
+      title="工作画像"
+      onClose={onClose}
+      wide
+      footer={
+        <>
+          <button onClick={onClose}>{editing ? "取消更新" : "关闭"}</button>
+          {step > 0 && step < 3 && (
+            <button onClick={() => setStep((current) => Math.max(0, current - 1))}>上一步</button>
+          )}
+          {step === 0 && (
+            <button className="rc-primary" disabled={!validBasics} onClick={continueBasics}>下一步</button>
+          )}
+          {step === 1 && (
+            <button className="rc-primary" disabled={!answers.communication.trim() || !answers.incompleteRequest.trim() || !answers.confirmationBoundary.trim()} onClick={() => setStep(2)}>下一步</button>
+          )}
+          {step === 2 && <>
+            <button onClick={() => { setMaterials([]); generate(); }}>跳过材料并生成</button>
+            <button className="rc-primary" onClick={generate}>生成画像</button>
+          </>}
+          {step === 4 && !applied && <>
+            <button onClick={() => setStep(0)}>返回修改</button>
+            <button className="rc-primary" onClick={activate}>确认使用</button>
+          </>}
+          {step === 4 && applied && <button onClick={startAgain}>更新画像</button>}
+        </>
+      }
+    >
+      <div className="work-profile-flow" ref={flow}>
+        <section className="work-profile-intro">
+          <div>
+            <span>让助理更懂我</span>
+            <h2>{step === 4 ? "我的工作画像" : editing ? "更新你的工作画像" : "建立你的工作画像"}</h2>
+            <p>{applied ? "助理会参考这份画像，理解你的工作重点、沟通偏好和判断习惯。" : editing ? "新画像确认使用后才会替换当前画像，取消更新不影响原有内容。" : "回答两个基础问题，再聊聊你的工作习惯，让助理更懂你。"}</p>
+          </div>
+          <em className={applied ? "is-enabled" : ""}>{applied ? "已应用" : step === 4 ? "待确认" : `第 ${step + 1} 步`}</em>
+        </section>
+
+        {step < 4 && <ol className="work-profile-steps" aria-label="工作画像生成步骤">
+          {workProfileSteps.map(({ title, detail, icon: Icon }, index) => (
+            <li className={`${index === step ? "active" : ""} ${index < step ? "done" : ""}`} key={title}>
+              <i>{index < step ? <Check size={15} /> : <Icon size={15} />}</i>
+              <div><b>{title}</b><small>{detail}</small></div>
+            </li>
+          ))}
+        </ol>}
+
+        {step === 0 && (
+          <section className="work-profile-panel">
+            <header><div><span>基础了解</span><h3>先了解你的工作范围</h3></div><small>共 2 题</small></header>
+            <div className="work-profile-questionnaire">
+              <fieldset><legend>1. 你的工作影响范围更接近哪一类？</legend><p>单选</p>
+                <div className="work-profile-options">{workScopeOptions.map(([value, detail]) => <label key={value} className={answers.scope === value ? "selected" : ""}><input type="radio" name="work-scope" value={value} checked={answers.scope === value} onChange={() => update("scope", value)} /><span><strong>{value}</strong><small>{detail}</small></span></label>)}</div>
+              </fieldset>
+              <fieldset><legend>2. 你日常主要关注的对象是什么？</legend><p aria-live="polite">多选，最多选 3 个 · 已选 {answers.objects.length}/3{answers.objects.length === 3 ? "，可取消后重新选择" : ""}</p>
+                <div className="work-profile-options work-profile-object-options">{workObjectOptions.map((value) => <label key={value} className={answers.objects.includes(value) ? "selected" : ""}><input type="checkbox" checked={answers.objects.includes(value)} disabled={answers.objects.length >= 3 && !answers.objects.includes(value)} onChange={() => toggleObject(value)} /><strong>{value}</strong></label>)}</div>
+              </fieldset>
+            </div>
+          </section>
+        )}
+
+        {step === 1 && (
+          <section className="work-profile-panel work-profile-interview">
+            <header><div><span>深入交流</span><h3>助理根据你的回答继续了解</h3></div><small>演示问答，可修改回答</small></header>
+            <article><i>AI</i><div><b>{["公司级", "部门级"].includes(answers.scope) ? `在${answers.scope}工作中，当目标与资源发生冲突时，你通常怎么判断优先级？` : `围绕${answers.objects.join("、")}开展工作时，信息不完整你通常会怎么推进？`}</b><p>这个回答会帮助助理理解你的判断顺序。</p></div></article>
+            <textarea aria-label="我的判断习惯" value={answers.incompleteRequest} onChange={(e) => update("incompleteRequest", e.target.value)} />
+            <article><i>AI</i><div><b>你希望助理怎样表达和汇报？</b><p>选择更符合你习惯的表达方式。</p></div></article>
+            <div className="work-profile-fields"><label><span>沟通与表达偏好</span><select value={answers.communication} onChange={(e) => update("communication", e.target.value)}>{Array.from(new Set([answers.communication, "结论先行，突出关键数据、异常事项和需要决策的问题", "先完整说明背景，再给出判断", "简洁直接，只保留关键结论和行动项"])).map((value) => <option key={value}>{value}</option>)}</select></label></div>
+            <article><i>AI</i><div><b>哪些情况下，助理必须先向你确认？</b><p>这个回答会成为助理执行任务时的工作边界。</p></div></article>
+            <textarea aria-label="需要确认的情况" value={answers.confirmationBoundary} onChange={(e) => update("confirmationBoundary", e.target.value)} />
+          </section>
+        )}
+
+        {step === 2 && (
+          <section className="work-profile-panel">
+            <header><div><span>补充材料</span><h3>选择几份演示材料</h3></div><small>不会读取或上传真实文件</small></header>
+            <div className="work-profile-materials">
+              {sampleMaterials.map((item) => (
+                <button className={materials.includes(item.id) ? "selected" : ""} onClick={() => toggleMaterial(item.id)} key={item.id}>
+                  <FileText size={20} />
+                  <span><b>{item.name}</b><small>{item.detail}</small></span>
+                  <i>{materials.includes(item.id) && <Check size={14} />}</i>
+                </button>
+              ))}
+            </div>
+            <p className="work-profile-demo-note"><Upload size={16} />正式产品可在这里上传本人材料；本 Demo 仅通过预置材料演示流程。</p>
+          </section>
+        )}
+
+        {step === 3 && (
+          <section className="work-profile-panel work-profile-generate">
+            <span><Sparkles size={24} /></span>
+            <h3>{generating ? "正在整理你的工作方式" : "信息已经准备好"}</h3>
+            <p>{generating ? "正在归纳工作定位、沟通偏好、判断习惯和确认边界。" : "已完成基础了解和模拟访谈，并选择了 " + materials.length + " 份演示材料。"}</p>
+            <div><ClipboardList size={17} /><span>2 道基础题</span><MessageCircleQuestion size={17} /><span>3 项工作习惯</span><FileText size={17} /><span>{materials.length} 份材料</span></div>
+          </section>
+        )}
+
+        {step === 4 && (
+          <section className="work-profile-result">
+            <header>
+              <div><span><CircleCheck size={17} />{applied ? "当前使用的工作画像" : "工作画像已生成"}</span><p>{applied ? "工作方式有变化时，可以更新画像。" : "请检查以下内容，确认后应用到你的助理。"}</p></div>
+              <div className="work-profile-result-tabs"><button className={resultView === "cards" ? "active" : ""} onClick={() => setResultView("cards")}>结构化预览</button><button className={resultView === "document" ? "active" : ""} onClick={() => setResultView("document")}>文档预览</button></div>
+            </header>
+            {notice && <p className="work-profile-success"><CircleCheck size={16} />{notice}</p>}
+            {resultView === "cards" ? (
+              <div className="work-profile-result-grid">{sections.map(([title, content]) => <article key={title}><span>{title}</span><p>{content}</p></article>)}</div>
+            ) : (
+              <div className="work-profile-document"><Markdown content={markdown} /></div>
+            )}
+          </section>
+        )}
+      </div>
+    </Dialog>
+  );
+}
+
 function ProfileDialog({
   profile,
   onClose,
@@ -1457,7 +1743,7 @@ function ProfileDialog({
   profile: ProfileTab;
   onClose: () => void;
 }) {
-  const key = `digital-twin-profile-${profile}`,
+  const key = `digital-twin-gm-profile-${profile}`,
     title = profileTabs.find((t) => t[0] === profile)![1];
   const [content, setContent] = useState(() => {
       try {

@@ -853,9 +853,9 @@ export function PersonalLogs() {
     <section className="rc rc-section">
       <header>
         <div>
-          <h2>对话日志</h2>
+
           <p>
-            本人任务、实际参与岗位版本与结果反馈
+            项目推进、经营分析与决策支持记录
             <span className="rc-log-stats">
               共 {all.length} 条 · 已评价 {evaluated} 条 · 好评率 {goodRate}%
             </span>
