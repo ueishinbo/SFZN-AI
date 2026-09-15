@@ -41,7 +41,7 @@
 .ps2-eyebrow {
   margin: 0 0 6px;
   color: #4d89bb;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: .14em;
 }
@@ -61,7 +61,7 @@
 }
 .ps2-field small {
   color: var(--ps2-ink-3);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: .04em;
 }
@@ -74,7 +74,7 @@
   color: #3d5065;
   background: var(--ps2-surface);
   font: inherit;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
 }
@@ -129,13 +129,13 @@
 .ps2-panel-head h2 {
   margin: 0;
   color: #405267;
-  font-size: 13px;
+  font-size: 14px;
 }
 .ps2-panel-head small {
   display: block;
   margin-top: 4px;
   color: var(--ps2-ink-3);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 /* ---------- 岗位与人员 ---------- */
@@ -171,7 +171,7 @@
   height: 30px;
   border-radius: 50%;
   color: #fff;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
 }
 .ps2-member.tone-blue .ps2-member-avatar { background: var(--ps2-brand); }
@@ -192,11 +192,11 @@
 }
 .ps2-member-line strong {
   color: #35485c;
-  font-size: 12px;
+  font-size: 13px;
 }
 .ps2-member-line i {
   color: var(--ps2-ink-3);
-  font-size: 10px;
+  font-size: 11px;
   font-style: normal;
   white-space: nowrap;
   overflow: hidden;
@@ -210,7 +210,7 @@
 .ps2-member-tags em {
   padding: 2px 7px;
   border-radius: 6px;
-  font-size: 10px;
+  font-size: 11px;
   font-style: normal;
   font-weight: 600;
 }
@@ -282,7 +282,7 @@
   align-items: center;
   gap: 5px;
   color: #35485c;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
 }
 .ps2-flow-node-no {
@@ -294,13 +294,13 @@
   border-radius: 5px;
   color: var(--ps2-brand);
   background: #eaf5ff;
-  font-size: 9px;
+  font-size: 10px;
   font-style: normal;
   font-weight: 700;
 }
 .ps2-flow-node-text small {
   color: var(--ps2-ink-3);
-  font-size: 10px;
+  font-size: 11px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -315,7 +315,7 @@
   border-radius: 5px;
   color: #5a6a84;
   background: #eef0f5;
-  font-size: 9px;
+  font-size: 10px;
   font-style: normal;
   font-weight: 600;
   white-space: nowrap;
@@ -336,7 +336,7 @@
   border-radius: 6px;
   color: var(--ps2-ink-2);
   background: var(--ps2-muted);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -360,7 +360,7 @@
 }
 .ps2-flow-arrow-label {
   color: var(--ps2-ink-3);
-  font-size: 10px;
+  font-size: 11px;
 }
 .ps2-flow-branch {
   display: grid;
@@ -374,12 +374,12 @@
 }
 .ps2-flow-branch-cond {
   color: var(--ps2-warning);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
 }
 .ps2-flow-branch-desc {
   color: var(--ps2-ink-2);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 /* ---------- 任务输入 ---------- */
@@ -401,13 +401,13 @@
 .ps2-compose-head h2 {
   margin: 0;
   color: #405267;
-  font-size: 13px;
+  font-size: 14px;
 }
 .ps2-compose-head small {
   display: block;
   margin-top: 4px;
   color: var(--ps2-ink-3);
-  font-size: 10px;
+  font-size: 11px;
 }
 .ps2-playback {
   display: flex;
@@ -431,7 +431,7 @@
 }
 .ps2-playback em {
   color: var(--ps2-brand);
-  font-size: 11px;
+  font-size: 12px;
   font-style: normal;
   font-weight: 700;
   white-space: nowrap;
@@ -451,7 +451,7 @@
   color: var(--ps2-ink-2);
   background: transparent;
   cursor: pointer;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
   transition: color .15s, background-color .15s;
@@ -474,7 +474,7 @@
   color: #4d789b;
   background: var(--ps2-surface);
   cursor: pointer;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
 }
 .ps2-icon-btn:hover {
@@ -490,7 +490,7 @@
   color: var(--ps2-ink);
   background: var(--ps2-surface);
   font: inherit;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.7;
   resize: vertical;
 }
@@ -508,7 +508,7 @@
 }
 .ps2-compose-actions small {
   color: var(--ps2-ink-3);
-  font-size: 10px;
+  font-size: 11px;
 }
 .ps2-btn-primary {
   display: inline-flex;
@@ -521,7 +521,7 @@
   color: #fff;
   background: var(--ps2-brand);
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
 }
 .ps2-btn-primary:hover { background: var(--ps2-brand-deep); }
@@ -533,7 +533,7 @@
   color: var(--ps2-ink-2);
   background: var(--ps2-surface);
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
 }
 .ps2-btn-ghost:hover { border-color: var(--ps2-line); color: var(--ps2-ink); }
@@ -556,12 +556,12 @@
 }
 .ps2-timeline-empty strong {
   color: #405267;
-  font-size: 13px;
+  font-size: 14px;
 }
 .ps2-timeline-empty p {
   max-width: 420px;
   margin: 0;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.7;
 }
 /* ---------- 任务编排（执行前的中间段） ---------- */
@@ -598,13 +598,13 @@
 .ps2-orch-head-text strong {
   display: block;
   color: #35485c;
-  font-size: 13px;
+  font-size: 14px;
 }
 .ps2-orch-head-text small {
   display: block;
   margin-top: 3px;
   color: var(--ps2-ink-3);
-  font-size: 10px;
+  font-size: 11px;
 }
 .ps2-orch-progress {
   margin-left: auto;
@@ -612,7 +612,7 @@
   border-radius: 999px;
   color: #6b5bd0;
   background: #f1eefc;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -625,7 +625,7 @@
   color: #6b5bd0;
   background: transparent;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -676,7 +676,7 @@
 }
 .ps2-orch-step-title strong {
   color: #35485c;
-  font-size: 12px;
+  font-size: 13px;
 }
 .ps2-orch-spin {
   color: var(--ps2-purple);
@@ -684,7 +684,7 @@
 .ps2-orch-thinking {
   margin: 5px 0 0 23px;
   color: var(--ps2-ink-2);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.6;
 }
 .ps2-orch-items {
@@ -701,7 +701,7 @@
   padding: 6px 9px;
   border-radius: 8px;
   background: #f8fbff;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.6;
 }
 .ps2-orch-item-text {
@@ -729,7 +729,7 @@
 .ps2-orch-collapsed strong {
   display: block;
   color: #2d8063;
-  font-size: 12px;
+  font-size: 13px;
 }
 /* 注意：这里必须限定到「摘要文字」这一层。
    写成 `.ps2-orch-collapsed span` 会连图标容器 `.ps2-orch-mark`（也是 span）一起命中，
@@ -738,7 +738,7 @@
   display: block;
   margin-top: 2px;
   color: var(--ps2-ink-2);
-  font-size: 11px;
+  font-size: 12px;
 }
 .ps2-orch-collapsed .ps2-orch-toggle {
   color: #4d789b;
@@ -754,7 +754,7 @@
   border-radius: 10px;
   color: #4d789b;
   background: #eaf5ff;
-  font-size: 11px;
+  font-size: 12px;
 }
 .ps2-timeline-filter strong { color: #236a9b; }
 .ps2-timeline-filter button {
@@ -762,7 +762,7 @@
   color: #236a9b;
   background: transparent;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -804,7 +804,7 @@
   border-radius: 6px;
   color: var(--ps2-brand);
   background: #eaf5ff;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
 }
 .ps2-node-avatar {
@@ -814,7 +814,7 @@
   height: 26px;
   border-radius: 50%;
   color: #fff;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
 }
 .ps2-node-avatar.tone-blue { background: var(--ps2-brand); }
@@ -830,16 +830,16 @@
 }
 .ps2-node-who strong {
   color: #35485c;
-  font-size: 12px;
+  font-size: 13px;
 }
 .ps2-node-who small {
   color: var(--ps2-ink-3);
-  font-size: 10px;
+  font-size: 11px;
 }
 .ps2-node-action {
   margin-left: auto;
   color: var(--ps2-ink-2);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
 }
 .ps2-node-status {
@@ -847,7 +847,7 @@
   border-radius: 6px;
   color: var(--ps2-ink-2);
   background: var(--ps2-muted);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -876,14 +876,14 @@
 .ps2-inherit strong,
 .ps2-reject-note strong {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
 }
 .ps2-inherit > div > span,
 .ps2-reject-note > div > span {
   display: block;
   margin-top: 3px;
   color: #7a8699;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.6;
 }
 
@@ -898,7 +898,7 @@
   gap: 7px;
   margin-bottom: 7px;
   color: var(--ps2-ink-2);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
 }
 .ps2-thinking-pulse {
@@ -914,7 +914,7 @@
   margin: 0;
   padding-left: 15px;
   color: var(--ps2-ink-2);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.7;
 }
 .ps2-thinking li.is-live { color: #4d789b; }
@@ -923,7 +923,7 @@
   display: block;
   margin-bottom: 5px;
   color: var(--ps2-ink-3);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: .06em;
 }
@@ -935,7 +935,7 @@
 .ps2-conclusion p {
   margin: 0;
   color: var(--ps2-ink);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.75;
 }
 .ps2-conclusion p { color: #24344a; font-weight: 500; }
@@ -951,7 +951,7 @@
   border-radius: 9px;
   color: var(--ps2-ink-2);
   background: var(--ps2-subtle);
-  font-size: 11px;
+  font-size: 12px;
 }
 .ps2-generating .ps2-spin {
   flex: none;
@@ -1011,7 +1011,7 @@
   align-items: flex-start;
   gap: 6px;
   color: #8a5a19;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.6;
 }
 .ps2-risks svg { flex: none; margin-top: 3px; }
@@ -1053,13 +1053,13 @@
 .ps2-artifact strong {
   display: block;
   color: #405267;
-  font-size: 12px;
+  font-size: 13px;
 }
 .ps2-artifact small {
   display: block;
   margin-top: 3px;
   color: var(--ps2-ink-3);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.5;
 }
 .ps2-artifact-open {
@@ -1071,7 +1071,7 @@
   border-radius: 6px;
   color: #2e87e7;
   background: #eaf5ff;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -1086,7 +1086,7 @@
   flex-wrap: wrap;
   gap: 8px;
   color: var(--ps2-ink-2);
-  font-size: 11px;
+  font-size: 12px;
 }
 .ps2-viewer-badge {
   display: inline-flex;
@@ -1114,18 +1114,18 @@
 }
 .ps2-viewer-canvas strong {
   color: #405267;
-  font-size: 15px;
+  font-size: 16px;
   letter-spacing: .04em;
 }
 .ps2-viewer-canvas p {
   margin: 0;
   color: var(--ps2-ink-2);
-  font-size: 12px;
+  font-size: 13px;
 }
 .ps2-viewer-canvas small {
   max-width: 420px;
   color: var(--ps2-ink-3);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.7;
 }
 
@@ -1152,7 +1152,7 @@
 .ps2-handoff strong {
   display: block;
   color: #1f74cf;
-  font-size: 11px;
+  font-size: 12px;
 }
 /* 同样要限定到内层文本 span —— `.ps2-handoff span` 会把图标容器
    `.ps2-handoff-icon`（也是 span）一起打坏：display 变 block、颜色被改成灰色。 */
@@ -1160,7 +1160,7 @@
   display: block;
   margin-top: 3px;
   color: var(--ps2-ink-2);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.6;
 }
 
@@ -1188,11 +1188,11 @@
   color: #fff;
   background: var(--ps2-warning);
 }
-.ps2-confirm-head strong { font-size: 13px; }
+.ps2-confirm-head strong { font-size: 14px; }
 .ps2-confirm p {
   margin: 8px 0 0;
   color: var(--ps2-ink-2);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.7;
 }
 .ps2-confirm-actions {
@@ -1210,7 +1210,7 @@
 .ps2-confirm-lead {
   margin: 8px 0 0;
   color: var(--ps2-ink-2);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.65;
 }
 .ps2-reject-field {
@@ -1220,7 +1220,7 @@
 }
 .ps2-reject-field > span {
   color: #a4454b;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
 }
 .ps2-reject-field textarea {
@@ -1232,7 +1232,7 @@
   color: var(--ps2-ink);
   background: #fff;
   font: inherit;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.7;
   resize: vertical;
 }
@@ -1252,7 +1252,7 @@
   color: #fff;
   background: var(--ps2-danger);
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
 }
 .ps2-btn-danger:hover:not(:disabled) {
@@ -1285,7 +1285,7 @@
   color: var(--ps2-ink-2);
   background: var(--ps2-surface);
   cursor: pointer;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   transition: color .16s, background-color .16s, border-color .16s;
 }
@@ -1296,7 +1296,7 @@
   border-color: var(--ps2-brand);
 }
 .ps2-tab em {
-  font-size: 10px;
+  font-size: 11px;
   font-style: normal;
   font-weight: 700;
   opacity: .7;
@@ -1345,7 +1345,7 @@
   gap: 6px;
   min-width: 0;
   color: #35485c;
-  font-size: 11px;
+  font-size: 12px;
 }
 .ps2-chat-pair i {
   color: var(--ps2-ink-3);
@@ -1354,7 +1354,7 @@
 .ps2-chat-meta {
   margin-left: auto;
   color: var(--ps2-ink-3);
-  font-size: 10px;
+  font-size: 11px;
   white-space: nowrap;
 }
 .ps2-chat-meta.is-waiting {
@@ -1379,7 +1379,7 @@
   border-radius: 8px;
   color: var(--ps2-ink-2);
   background: #fff;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.6;
 }
 .ps2-chat-sys svg {
@@ -1410,7 +1410,7 @@
   flex: none;
   border-radius: 50%;
   color: #fff;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
 }
 .ps2-msg-avatar.is-agent {
@@ -1434,14 +1434,14 @@
 }
 .ps2-msg-who {
   color: var(--ps2-ink-3);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
 }
 .ps2-msg-bubble {
   margin: 0;
   padding: 9px 12px;
   border-radius: 12px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.72;
 }
 /* 数字分身和岗位智能体的消息：同样的白色气泡，像微信群看别人聊天 */
@@ -1479,7 +1479,7 @@
   border-radius: 999px;
   color: #a8760f;
   background: #fdf3dd;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: .02em;
 }
@@ -1498,7 +1498,7 @@
   border-radius: 9px;
   background: #fff;
   color: var(--ps2-ink);
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
   text-align: left;
   transition: border-color .15s, background-color .15s;
@@ -1574,12 +1574,12 @@
   color: #6b7b8f;
 }
 .ps2-tasks-head strong {
-  font-size: 11px;
+  font-size: 12px;
 }
 .ps2-tasks-head em {
   margin-left: auto;
   color: var(--ps2-ink-3);
-  font-size: 10px;
+  font-size: 11px;
   font-style: normal;
   font-weight: 700;
 }
@@ -1596,7 +1596,7 @@
   gap: 8px;
   padding: 5px 8px;
   border-radius: 7px;
-  font-size: 12px;
+  font-size: 13px;
 }
 .ps2-tasks-mark {
   display: grid;
@@ -1630,7 +1630,7 @@
   border-radius: 10px;
   color: #2d8063;
   background: #e8f6ee;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
 }
 .ps2-confirm-pending {
@@ -1642,7 +1642,7 @@
   border-radius: 10px;
   color: var(--ps2-ink-3);
   background: var(--ps2-subtle);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 /* 全流程结论 */
@@ -1658,11 +1658,11 @@
   gap: 8px;
   color: #2d8063;
 }
-.ps2-result-head strong { font-size: 13px; }
+.ps2-result-head strong { font-size: 14px; }
 .ps2-result-head em {
   margin-left: auto;
   color: #679080;
-  font-size: 10px;
+  font-size: 11px;
   font-style: normal;
 }
 .ps2-result ul {
@@ -1671,13 +1671,13 @@
   margin: 11px 0 0;
   padding-left: 18px;
   color: #3d6b58;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.7;
 }
 .ps2-result-foot {
   margin-top: 11px;
   color: #679080;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 /* 停止跟随后浮出来的回到当前按钮 */
@@ -1697,7 +1697,7 @@
   background: var(--ps2-brand);
   box-shadow: 0 8px 22px rgba(36, 62, 91, .22);
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   animation: ps2-reveal-in .24s ease-out;
 }

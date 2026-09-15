@@ -60,8 +60,8 @@ export default function ProcessSimulationPage() {
   }, [])
 
   /** 左栏的滚动高度上限：实测滚动容器高度，并扣掉页头占掉的那一段。
-     不能用 100vh —— 应用整体带 zoom，vh 会被一起放大，窗口变矮时左栏会比可视区还高，
-     底部被切掉且滚不到。全程用 layout px（clientHeight / offsetHeight），与 zoom 无关。 */
+     用 100vh 在窗口变矮时会让左栏比可视区还高、底部被切掉且滚不到，
+     所以全程用 layout px（clientHeight / offsetHeight）算实际可用高度。 */
   useEffect(() => {
     const root = rootRef.current
     if (!root) return

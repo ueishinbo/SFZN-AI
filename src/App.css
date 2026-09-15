@@ -24,59 +24,6 @@ button { color: inherit; }
 .app-body { height: 100%; display: flex; position: relative; }
 .app-body.is-hidden { display: none; }
 
-/*
- * 桌面端整体视觉倍率。放大应用本身而不是零散字号，保证导航、图标、
- * 卡片、表单和工作区保持一致比例；中等窗口降低倍率，移动端使用原始比例。
- */
-@supports (zoom: 1) {
-  .app-shell {
-    width: 100%;
-    height: 100%;
-    min-height: 607px;
-    zoom: 1.12;
-  }
-}
-
-@supports not (zoom: 1) {
-  .app-shell {
-    width: 89.2858%;
-    height: 89.2858%;
-    min-height: 607px;
-    transform: scale(1.12);
-    transform-origin: left top;
-  }
-}
-
-@media (max-width: 1320px) and (min-width: 761px) {
-  @supports (zoom: 1) {
-    .app-shell {
-      width: 100%;
-      height: 100%;
-      min-height: 630px;
-      zoom: 1.08;
-    }
-  }
-
-  @supports not (zoom: 1) {
-    .app-shell {
-      width: 92.5926%;
-      height: 92.5926%;
-      min-height: 630px;
-      transform: scale(1.08);
-    }
-  }
-}
-
-@media (max-width: 760px) {
-  @supports (zoom: 1) {
-    .app-shell { width: 100%; height: 100%; min-height: 680px; zoom: 1; }
-  }
-
-  @supports not (zoom: 1) {
-    .app-shell { width: 100%; height: 100%; min-height: 680px; transform: none; }
-  }
-}
-
 .sidebar {
   width: 390px;
   flex: 0 0 390px;
