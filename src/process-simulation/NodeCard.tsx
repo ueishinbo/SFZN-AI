@@ -8,8 +8,10 @@ import {
   ListChecks,
   MessageSquare,
   Package,
+  Pause,
   Sparkles,
   TriangleAlert,
+  UserRound,
 } from 'lucide-react'
 import ArtifactViewer from './ArtifactViewer'
 import { ARTIFACT_ICON } from './artifactMeta'
@@ -46,6 +48,10 @@ function MsgRow({
   tone,
   twinLabel,
   peerLabel,
+  youPick,
+  onPick,
+  onAnswerYou,
+  waiting,
 }: {
   turn: SimExchangeTurn
   text: string
@@ -54,19 +60,64 @@ function MsgRow({
   tone: string
   twinLabel: string
   peerLabel: string
+  /** 你已选的选项（turn.from === 'you' 时用） */
+  youPick?: string
+  /** 你选了之后的回调 */
+  onPick?: (choice: string) => void
+  /** 选完之后通知引擎继续推进 */
+  onAnswerYou?: () => void
+  /** 正停在这里等你选（只有「当前这一句」才为 true，回看历史时不显示） */
+  waiting?: boolean
 }) {
   const mine = turn.from === 'twin'
+  const isYou = turn.from === 'you'
   return (
-    <li className={`ps2-msg is-${turn.from}${streaming ? '' : ' ps2-reveal'}`}>
-      <span className={`ps2-msg-avatar ${mine ? `tone-${tone}` : 'is-agent'}`}>
-        {mine ? person.slice(0, 1) : <Bot size={14} />}
-      </span>
+    <li className={`ps2-msg is-${turn.from}${streaming ? '' : ' ps2-reveal'}${waiting ? ' is-waiting' : ''}`}>
+      {isYou ? (
+        <span className="ps2-msg-avatar is-you">
+          <UserRound size={14} />
+        </span>
+      ) : mine ? (
+        <span className={`ps2-msg-avatar tone-${tone}`}>
+          {person.slice(0, 1)}
+        </span>
+      ) : (
+        <span className="ps2-msg-avatar is-agent">
+          <Bot size={14} />
+        </span>
+      )}
       <div className="ps2-msg-main">
-        <span className="ps2-msg-who">{mine ? twinLabel : peerLabel}</span>
+        <span className="ps2-msg-who">{isYou ? '数字分身 → 你' : (mine ? twinLabel : peerLabel)}</span>
+        {waiting && (
+          <span className="ps2-you-head">
+            <Pause size={11} />
+            流程暂停 · 需要你决定
+          </span>
+        )}
         <p className="ps2-msg-bubble">
           {text}
           {streaming && <span className="ps2-caret" />}
         </p>
+        {isYou && turn.options && (
+          <div className="ps2-choice">
+            {turn.options.map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                className={youPick === opt ? 'is-picked' : ''}
+                disabled={!!youPick}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onPick?.(opt)
+                  onAnswerYou?.()
+                }}
+              >
+                <span className="ps2-choice-mark" />
+                {opt}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </li>
   )
@@ -80,20 +131,31 @@ function TypingRow({
   twinLabel,
   peerLabel,
 }: {
-  from: 'twin' | 'agent'
+  from: 'twin' | 'agent' | 'you'
   person: string
   tone: string
   twinLabel: string
   peerLabel: string
 }) {
   const mine = from === 'twin'
+  const isYou = from === 'you'
   return (
     <li className={`ps2-msg is-${from}`}>
-      <span className={`ps2-msg-avatar ${mine ? `tone-${tone}` : 'is-agent'}`}>
-        {mine ? person.slice(0, 1) : <Bot size={14} />}
-      </span>
+      {isYou ? (
+        <span className="ps2-msg-avatar is-you">
+          <UserRound size={14} />
+        </span>
+      ) : mine ? (
+        <span className={`ps2-msg-avatar tone-${tone}`}>
+          {person.slice(0, 1)}
+        </span>
+      ) : (
+        <span className="ps2-msg-avatar is-agent">
+          <Bot size={14} />
+        </span>
+      )}
       <div className="ps2-msg-main">
-        <span className="ps2-msg-who">{mine ? twinLabel : peerLabel}</span>
+        <span className="ps2-msg-who">{isYou ? '数字分身 → 你' : (mine ? twinLabel : peerLabel)}</span>
         <span className="ps2-msg-typing">
           <i />
           <i />
@@ -126,6 +188,7 @@ function NodeCardInner({
   onPickNode,
   onApproveNode,
   onRejectNode,
+  onAnswerYou,
 }: {
   node: SimNode
   index: number
@@ -142,11 +205,14 @@ function NodeCardInner({
   onPickNode: (id: string) => void
   onApproveNode: (id: string) => void
   onRejectNode: (id: string, reason: string) => void
+  onAnswerYou: (id: string) => void
 }) {
   // 驳回要先填理由：驳回是人的决定，必须留下依据
   const [rejecting, setRejecting] = useState(false)
   const [reason, setReason] = useState('')
   const [viewing, setViewing] = useState(false)
+  /** 你在沟通过程里选的选项（数字分身向你发问时） */
+  const [youPick, setYouPick] = useState('')
 
   // 两个视图：沟通过程（先播）/ 执行过程
   const [tab, setTab] = useState<'exchange' | 'exec'>('exchange')
@@ -159,6 +225,12 @@ function NodeCardInner({
   const currentTurn = exchangeDone ? null : exchange[progress.exchange]
   const currentText = currentTurn ? currentTurn.text.slice(0, progress.exchangeChars) : ''
   const currentTyping = !!currentTurn && progress.exchangeChars > 0
+  /** 正停在这里等你选：问题已码完、还没选（引擎此时不会往下推进） */
+  const waitingYou =
+    !!currentTurn &&
+    currentTurn.from === 'you' &&
+    !!currentTurn.options &&
+    progress.exchangeChars >= currentTurn.text.length
 
   useEffect(() => {
     if (status !== 'awaiting') {
@@ -307,15 +379,18 @@ function NodeCardInner({
       {tab === 'exchange' && (
         <div className="ps2-chat">
           <div className="ps2-chat-bar">
-            <span className={`ps2-chat-live${exchangeDone ? ' is-done' : ''}`} />
+            <span
+              className={`ps2-chat-live${waitingYou ? ' is-waiting' : exchangeDone ? ' is-done' : ''}`}
+            />
             <span className="ps2-chat-pair">
               <strong>{member?.person ?? '分身'} 的数字分身</strong>
               <i>⇄</i>
               <strong>{peerLabel}</strong>
             </span>
-            <span className="ps2-chat-meta">
-              {exchangeDone ? '沟通结束' : '沟通中'} ·{' '}
-              {Math.min(progress.exchange, exchange.length)}/{exchange.length} 句
+            <span className={`ps2-chat-meta${waitingYou ? ' is-waiting' : ''}`}>
+              {waitingYou
+                ? '等待你的决定'
+                : `${exchangeDone ? '沟通结束' : '沟通中'} · ${Math.min(progress.exchange, exchange.length)}/${exchange.length} 句`}
             </span>
           </div>
 
@@ -340,6 +415,9 @@ function NodeCardInner({
                   tone={member?.tone ?? 'blue'}
                   twinLabel={twinLabel}
                   peerLabel={peerLabel}
+                  youPick={t.from === 'you' ? youPick : undefined}
+                  onPick={t.from === 'you' ? (choice) => setYouPick(choice) : undefined}
+                  onAnswerYou={t.from === 'you' ? () => onAnswerYou(node.id) : undefined}
                 />
               ))}
 
@@ -353,6 +431,10 @@ function NodeCardInner({
                   tone={member?.tone ?? 'blue'}
                   twinLabel={twinLabel}
                   peerLabel={peerLabel}
+                  youPick={currentTurn.from === 'you' ? youPick : undefined}
+                  onPick={currentTurn.from === 'you' ? (choice) => setYouPick(choice) : undefined}
+                  onAnswerYou={currentTurn.from === 'you' ? () => onAnswerYou(node.id) : undefined}
+                  waiting={waitingYou}
                 />
               )}
 

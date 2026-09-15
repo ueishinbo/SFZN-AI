@@ -19,8 +19,8 @@ const SETTLE_DELAY = 160 // 每一段落地后的喘息
 const FINISH_DELAY = 900 // 节点收尾停顿
 
 // 编排阶段（点「发送任务」后、真正开始执行前）
-const ORCH_ITEM_DELAY = 420 // 每一条编排内容
-const ORCH_STEP_GAP = 760 // 每步之间的停顿
+const ORCH_ITEM_DELAY = 210 // 每一条编排内容
+const ORCH_STEP_GAP = 380 // 每步之间的停顿
 
 /** 一个节点的生成进度 */
 export type NodeProgress = {
@@ -94,6 +94,8 @@ const initialStatuses = (run: SimRun) =>
     SimNodeStatus
   >
 
+export type SimSpeed = 'normal' | 'demo'
+
 export function useSimulationPlayback(run: SimRun, enabled = true) {
   const [statuses, setStatuses] = useState<Record<string, SimNodeStatus>>(() => initialStatuses(run))
   const [progress, setProgress] = useState<Record<string, NodeProgress>>({})
@@ -104,6 +106,7 @@ export function useSimulationPlayback(run: SimRun, enabled = true) {
   const [orch, setOrch] = useState<OrchProgress>(emptyOrch)
   const [orchDone, setOrchDone] = useState(false)
   const [resetVersion, setResetVersion] = useState(0)
+  const [speed, setSpeed] = useState<SimSpeed>('demo')
 
   // 定时器与状态快照（供回调读取最新值，避免闭包过期）
   const timersRef = useRef<number[]>([])
@@ -113,6 +116,7 @@ export function useSimulationPlayback(run: SimRun, enabled = true) {
   const orchRef = useRef<OrchProgress>(emptyOrch())
   const visitsRef = useRef<Record<string, number>>({})
   const pausedRef = useRef(false)
+  const speedRef = useRef<SimSpeed>('demo')
   const statusesRef = useRef<Record<string, SimNodeStatus>>({})
   /** 已启动过的节点，防止 StrictMode 双跑 effect 导致流式重复启动 */
   const startedRef = useRef<Set<string>>(new Set())
@@ -121,6 +125,7 @@ export function useSimulationPlayback(run: SimRun, enabled = true) {
   orchRef.current = orch
   visitsRef.current = visits
   pausedRef.current = paused
+  speedRef.current = speed
   statusesRef.current = statuses
 
   const clearTimers = useCallback(() => {
@@ -128,23 +133,29 @@ export function useSimulationPlayback(run: SimRun, enabled = true) {
     timersRef.current = []
   }, [])
 
+  /**
+   * 速度倍率：demo = 2x。所有延时统一在这里打折，
+   * 调用方只管传「正常速度」下的毫秒数，不感知倍速。
+   */
+  const speedMul = useCallback(() => (speedRef.current === 'demo' ? 0.5 : 1), [])
+
   const schedule = useCallback((id: string, delay: number) => {
     if (pausedRef.current) return
     const t = window.setTimeout(() => {
       timersRef.current = timersRef.current.filter((x) => x !== t)
       tickRef.current(id)
-    }, delay)
+    }, delay * speedMul())
     timersRef.current.push(t)
-  }, [])
+  }, [speedMul])
 
   const scheduleOrch = useCallback((delay: number) => {
     if (pausedRef.current) return
     const t = window.setTimeout(() => {
       timersRef.current = timersRef.current.filter((x) => x !== t)
       orchTickRef.current()
-    }, delay)
+    }, delay * speedMul())
     timersRef.current.push(t)
-  }, [])
+  }, [speedMul])
 
   /** 单步推进：先播沟通过程，播完再进执行过程（每次只往前一格，然后排下一次） */
   const tick = useCallback(
@@ -160,10 +171,16 @@ export function useSimulationPlayback(run: SimRun, enabled = true) {
       // ① 沟通过程：逐字码出，一句一句来（不是整句弹出）
       const exchange = exchangeFor(node, visit)
       if (p.exchange < exchange.length) {
-        const cur = exchange[p.exchange].text
+        const turn = exchange[p.exchange]
+        const cur = turn.text
         if (p.exchangeChars < cur.length) {
+          // 还在逐字码这一句
           next.exchangeChars = Math.min(p.exchangeChars + EXCHANGE_CHAR_STEP, cur.length)
           delay = next.exchangeChars >= cur.length ? EXCHANGE_GAP : EXCHANGE_CHAR_DELAY
+        } else if (turn.from === 'you' && turn.options) {
+          // 这一句是数字分身向你发问 → 码完了，停下来等你选
+          // 不推进 exchange，不 schedule —— 等 NodeCard 调用 answerYou() 后才继续
+          return
         } else {
           // 这一句码完了 → 换下一句，中间留一段"正在输入"
           next.exchange = p.exchange + 1
@@ -219,7 +236,7 @@ export function useSimulationPlayback(run: SimRun, enabled = true) {
         const t = window.setTimeout(() => {
           timersRef.current = timersRef.current.filter((x) => x !== t)
           setStatuses((prev) => (prev[id] === 'awaiting' ? prev : { ...prev, [id]: 'done' }))
-        }, FINISH_DELAY)
+        }, FINISH_DELAY * speedMul())
         timersRef.current.push(t)
         return
       }
@@ -227,7 +244,7 @@ export function useSimulationPlayback(run: SimRun, enabled = true) {
       setProgress((prev) => ({ ...prev, [id]: next }))
       schedule(id, delay)
     },
-    [run, schedule],
+    [run, schedule, speedMul],
   )
   tickRef.current = tick
 
@@ -400,9 +417,19 @@ export function useSimulationPlayback(run: SimRun, enabled = true) {
 
   const doneCount = run.nodes.filter((n) => statuses[n.id] === 'done').length
 
+  /** 你在沟通过程里回答了数字分身的询问 → 推进到下一句 */
+  const answerYou = useCallback((nodeId: string) => {
+    const p = progressRef.current[nodeId] ?? emptyProgress()
+    const next: NodeProgress = { ...p, exchange: p.exchange + 1, exchangeChars: 0 }
+    setProgress((prev) => ({ ...prev, [nodeId]: next }))
+    schedule(nodeId, EXCHANGE_LEAD)
+  }, [schedule])
+
   return {
     statuses,
     progress,
+    speed,
+    setSpeed,
     orch,
     orchDone,
     visits,
@@ -414,6 +441,7 @@ export function useSimulationPlayback(run: SimRun, enabled = true) {
     approve,
     reject,
     reset,
+    answerYou,
     doneCount,
     total: run.nodes.length,
     awaitingNode: run.nodes.find((n) => statuses[n.id] === 'awaiting') ?? null,

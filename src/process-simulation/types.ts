@@ -43,11 +43,13 @@ export type SimArtifact = {
 
 /**
  * 沟通过程中的一轮报文。
- * from: twin = 数字分身说的；agent = 对接方说的（岗位智能体；人工介入节点则是「你」）
+ * from: twin = 数字分身说的；agent = 岗位智能体说的；you = 数字分身向「你」发问
  */
 export type SimExchangeTurn = {
-  from: 'twin' | 'agent'
+  from: 'twin' | 'agent' | 'you'
   text: string
+  /** 当 from === 'you' 时：数字分身向你提出的选择题选项 */
+  options?: string[]
 }
 
 /** 节点一次执行的内容 */
