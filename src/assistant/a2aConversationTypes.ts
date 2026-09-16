@@ -45,7 +45,7 @@ export type A2AConversation = {
   updatedAt: string
   preview: string
   /** Optional local demo scenario; never sent to a backend. */
-  demo?: { messages: A2AConversationMessage[]; replies: Record<string, string>; completionSummary: string }
+  demo?: { privateMessages?: { role: 'user' | 'assistant'; content: string }[]; readOnly?: boolean; messages: A2AConversationMessage[]; replies: Record<string, string>; completionSummary: string }
   pendingCurrentUserConfirmation?: A2AUserConfirmation
 }
 

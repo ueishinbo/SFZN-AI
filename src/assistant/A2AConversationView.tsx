@@ -47,6 +47,7 @@ function speakerReply(memberName: string, previousName?: string) {
 }
 
 function initialPrivateMessages(conversation: A2AConversation): PrivateAssistantMessage[] {
+  if (conversation.demo?.readOnly) return (conversation.demo.privateMessages ?? [{ role: 'assistant' as const, content: '你可以在这里与我私下讨论当前任务。我会帮助你梳理协作进展，不会在群聊中代你发言。' }]).map((message, index) => ({ ...message, id: `private-demo-${conversation.id}-${index}` }));
   const conversationType = `${conversation.scope === 'group' ? '多人' : '单人'}${mechanismLabels[conversation.mechanism]}`
   const perspectiveCopy = conversation.perspective === 'recipient'
     ? `你是接收方。${conversation.hostName}的分身已经将事项送达；请先判断是否需要回复、确认或转为自己的待办。`
@@ -318,6 +319,10 @@ export default function A2AConversationView({
     if (!value) return
     setPrivateDraft('')
     appendPrivateMessage(selectedConversation.id, { role: 'user', content: value })
+    if (selectedConversation.demo?.readOnly) {
+      appendPrivateMessage(selectedConversation.id, { role: 'assistant', content: `根据当前协作记录：${selectedConversation.demo.completionSummary}\n\n已记录你的关注点“${value}”，后续可据此核对责任分工、时间安排和风险。本次交流仅自己可见。` })
+      return
+    }
     appendPrivateMessage(selectedConversation.id, {
       role: 'assistant',
       content: '我已经结合当前会话整理为一条分身发言。正式进入会话前，需要你确认。',
@@ -481,11 +486,11 @@ export default function A2AConversationView({
                 submitPrivatePrompt()
               }
             }}
-            placeholder={pendingConfirmation ? '请先完成上方确认' : '私下告诉我的分身要在当前会话中如何处理…'}
+            placeholder={pendingConfirmation ? '请先完成上方确认' : selectedConversation.demo?.readOnly ? '与我的分身私下讨论当前任务…' : '私下告诉我的分身要在当前会话中如何处理…'}
             aria-label="私下告诉我的分身"
           />
           <div>
-            <span>{pendingConfirmation ? '会话正在等待本人确认' : '确认后才会进入正式会话'}</span>
+            <span>{pendingConfirmation ? '会话正在等待本人确认' : selectedConversation.demo?.readOnly ? '仅自己可见' : '确认后才会进入正式会话'}</span>
             <button
               className={privateDraft.trim() && !pendingConfirmation ? 'is-ready' : ''}
               type="button"

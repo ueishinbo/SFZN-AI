@@ -290,7 +290,7 @@ const eventTone = (type: string) => {
   if (["技能", "专家", "MCP"].includes(type)) return "capability";
   if (["岗位画像", "规则", "SOP"].includes(type)) return "role";
   if (["知识库"].includes(type)) return "knowledge";
-  return "mind";
+  return "growth-mind";
 };
 function AssessmentRadar({
   labels,
@@ -1331,18 +1331,16 @@ export default function DigitalTwinTrainingWorkspace() {
 
               {mode === "day" && (
                 <div className="growth-schedule growth-day-view">
-                  <div className="growth-hour-grid">
-                    {Array.from({ length: 13 }, (_, index) => <span key={index}>{index === 0 ? "00:00" : `${String(index * 2).padStart(2, "0")}:00`}</span>)}
-                  </div>
-                  <div className="growth-day-events">
-                    {currentEvents.map((item, index) => {
-                      const [hour, minute] = item.time.split(":").map(Number);
-                      return <button key={item.id} className={`growth-event-chip ${eventTone(item.type)} ${selectedGrowthEventId === item.id ? "selected" : ""}`} style={{ left: `${Math.min(91, Math.max(1, ((hour + minute / 60) / 24) * 100))}%`, top: `${20 + (index % 3) * 47}px` }} onClick={() => selectGrowthEvent(item)}>
-                        <i /> <span>{item.type}</span><b>{item.title}</b>
-                      </button>;
+                  <div className="growth-day-slots">
+                    {Array.from({ length: 12 }, (_, index) => {
+                      const items = currentEvents.filter(item => Math.floor(Number(item.time.split(":")[0]) / 2) === index).sort((a, b) => a.time.localeCompare(b.time));
+                      return <section className="growth-day-slot" key={index}>
+                        <header>{String(index * 2).padStart(2, "0")}:00–{String((index + 1) * 2).padStart(2, "0")}:00</header>
+                        {items.map(item => <button key={item.id} title={`${item.time} · ${item.type} · ${item.title}`} aria-label={`${item.time} ${item.title}`} className={`growth-event-chip ${eventTone(item.type)} ${selectedGrowthEventId === item.id ? "selected" : ""}`} onClick={() => selectGrowthEvent(item)}><small>{item.time}</small><b>{item.title}</b></button>)}
+                      </section>;
                     })}
-                    {!currentEvents.length && <p className="growth-blank">这一天没有新的成长记录</p>}
                   </div>
+                  {!currentEvents.length && <p className="growth-blank">这一天没有新的成长记录</p>}
                 </div>
               )}
 

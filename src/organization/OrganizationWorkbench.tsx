@@ -25,12 +25,10 @@ export default function OrganizationWorkbench({ conversations, onOpenConversatio
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [emptyTask, setEmptyTask] = useState<ProjectTask | null>(null)
   const allProjects = [...projects, ...addedProjects]
   const selected = allProjects.find(project => project.id === projectId)
   const statusOf = (task: ProjectTask) => taskStatus(task, conversations.find(c => c.id === conversationIdFor(task)))
-  const open = (task: ProjectTask) => task.id === 'ipt-annual-2026' ? setEmptyTask(task) : onOpenConversation(conversationIdFor(task))
-  if (emptyTask) return <section className="organization-workbench organization-workbench--detail"><header className="org-detail-header"><button type="button" className="org-crumb" onClick={() => setEmptyTask(null)}><ArrowLeft size={18}/><span>IPT</span></button><ChevronRight size={16}/><strong>{emptyTask.title}</strong></header></section>
+  const open = (task: ProjectTask) => onOpenConversation(conversationIdFor(task))
   if (selected) {
     const Icon = icons[selected.id as keyof typeof icons] ?? FolderKanban
     return <section className="organization-workbench organization-workbench--detail org-project-detail">
