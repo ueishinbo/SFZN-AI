@@ -1,7 +1,9 @@
 import { knownA2AMembers, type A2AConversation, type A2AConversationMessage, type A2AConversationMember } from '../assistant/a2aConversationTypes'
 
+import { supplyTasks } from './supplyScenarios'
+
 export type ProjectTask = {
-  id: string; title: string; owner: string; due: string; priority: '高' | '中';
+  id: string; title: string; owner: string; initiator?: string; observerHostId?: string; due: string; priority: '高' | '中';
   initialStatus: 'pending' | 'progress' | 'completed'; goal: string;
   members?: A2AConversationMember[]; memberIndexes: number[]; replies: string[]; result: string;
 }
@@ -44,9 +46,8 @@ export const projects: Project[] = [
     },
   ] },
   { id: 'supply', title: '供应链', description: '协同供应商交付、替代物料与到货检验，保障齐套。', tone: 'violet', tasks: [
-    { id: 'supply-alternative', title: '替代紧固件齐套确认', owner: '王五', due: '9月15日', priority: '中', initialStatus: 'pending', memberIndexes: [1,3,2], goal: '评估替代紧固件能否用于当前批次，形成规格核对、适用范围和检验要求。', replies: ['原规格紧固件缺 80 件，候选替代件库存充足；王五提供材料牌号、规格和供应商合格证明。','对照采购资料，尺寸相同但表面处理不同，刘工要求先完成适用性评估，暂不能直接替换。','承接设计意见，陈工安排涂层与防腐资料核查；批准记录和检验结论齐备后才可办理入库放行。'], result: '替代评估清单：王五补齐证明，刘工确认适用性，陈工完成检验；批准前保持原料号受控。' },
+    ...supplyTasks,
     { id: 'supply-delay', title: '关键供应商交付延期处置', owner: '王五', due: '9月12日', priority: '高', initialStatus: 'progress', memberIndexes: [1,0,2], goal: '处置液压支架供应商延期两天的风险，明确分批交付与生产调整方案。', replies: ['供应商热处理工序延误两天。可将首批 12 件提前至明晚发运，其余 18 件后天补齐，王五负责跟踪。','首批 12 件能覆盖 A 工位需求；李四将 B 工位支架安装后移一天，其他已具备条件的作业继续。','按分批交付安排，两批都须独立提供热处理报告；陈工分别检验，不能以首批结论替代第二批放行。'], result: '延期处置方案：首批 12 件保障 A 工位，余下 18 件后天补齐；王五跟踪交付、李四调整 B 工位、陈工分批检验。' },
-    { id: 'supply-receipt', title: '到货批次证书补齐', owner: '王五', due: '9月10日', priority: '中', initialStatus: 'completed', memberIndexes: [1,2], goal: '补齐两批密封件的合格证与批次追溯资料，完成受控入库。', replies: ['已收到供应商补发的两批合格证，批号分别与箱单和实物标签一致。','已核验合格证、批次及有效期，两批密封件检验合格，入库记录已关联证书。'], result: '两批密封件证书核验完成，追溯资料与入库记录关联，受控入库完成。' },
   ] },
 
 ]
@@ -81,18 +82,20 @@ export const projectConversations: A2AConversation[] = projects.flatMap(project 
     ] : undefined } } satisfies A2AConversation;
   }
 
+  const observer = Boolean(task.observerHostId)
+  const hostUserId = task.observerHostId ?? 'current-user'
   const messages: A2AConversationMessage[] = pending ? [] : [
-    { id: `${id}-goal`, conversationId: id, actorUserId: 'current-user', actorName: '张三', origin: 'initiator_twin', content: task.goal, sequence: 1, createdAt: '09:00' },
+    { id: `${id}-goal`, conversationId: id, actorUserId: hostUserId, actorName: task.initiator ?? '张三', origin: 'initiator_twin', content: task.goal, sequence: 1, createdAt: '09:00' },
     ...members.map((member, i) => ({ id: `${id}-reply-${i}`, conversationId: id, actorUserId: member.userId, actorName: member.name, origin: 'participant_twin' as const, content: task.replies[i], sequence: i + 2, createdAt: `09:0${i+1}` })),
-    ...(done ? [{ id: `${id}-result`, conversationId: id, actorUserId: 'current-user', actorName: '张三', origin: 'initiator_twin' as const, content: task.result, sequence: members.length + 2, createdAt: '09:10' }] : []),
+    ...(done ? [{ id: `${id}-result`, conversationId: id, actorUserId: hostUserId, actorName: task.initiator ?? '张三', origin: 'initiator_twin' as const, content: task.result, sequence: members.length + 2, createdAt: '09:10' }] : []),
   ]
   return {
-    id, title: task.title, scope: 'group', mechanism: 'collaboration', status: done ? 'completed' : 'waiting_user_confirmation',
-    hostUserId: 'current-user', hostName: '张三', perspective: 'initiator', members, speakingOrder: members.map(m => m.userId),
+    id, title: task.title, scope: 'group', mechanism: 'collaboration', status: done ? 'completed' : observer ? 'response_received' : 'waiting_user_confirmation',
+    hostUserId, hostName: task.initiator ?? '张三', perspective: observer ? 'recipient' : 'initiator', members, speakingOrder: members.map(m => m.userId),
     goal: task.goal, round: 1, expectedReplyCount: members.length, repliedCount: pending ? 0 : members.length,
-    createdAt: '9月11日 09:00', updatedAt: done ? '已归档' : '今天', preview: pending ? '待确认启动协作' : done ? task.result : '各岗位意见已收齐，待确认处置方案',
-    demo: { messages, replies: Object.fromEntries(members.map((m,i) => [m.userId, task.replies[i]])), completionSummary: task.result },
-    pendingCurrentUserConfirmation: done ? undefined : {
+    createdAt: task.id === 'supply-purchase-risk' || task.id === 'supply-shortage-query' ? '2026年9月17日 09:30' : '9月11日 09:00', updatedAt: done ? '已归档' : '今天', preview: observer ? task.result : pending ? '待确认启动协作' : done ? task.result : '各岗位意见已收齐，待确认处置方案',
+    demo: { readOnly: observer, messages, replies: Object.fromEntries(members.map((m,i) => [m.userId, task.replies[i]])), completionSummary: task.result },
+    pendingCurrentUserConfirmation: done || observer ? undefined : {
       id: pending ? `start-${task.id}` : `review-${task.id}`, question: pending ? `开始“${task.title}”协作？` : '确认本次处置方案并完成协作？', description: pending ? task.goal : task.result,
       resumeStatus: pending ? 'delivered' : 'response_received', resumePreview: pending ? '待开始' : '意见已收齐',
       choices: pending ? [{ id: 'start', label: '开始协作', description: '由你的分身发起，参与分身按顺序反馈。', commandAction: 'send', commandContent: task.goal }] : [

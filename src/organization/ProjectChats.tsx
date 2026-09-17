@@ -1,5 +1,6 @@
 import { ArrowLeft, MessageSquare, Plus, Search, Send } from 'lucide-react'
 import { useState } from 'react'
+import { supplierFollowUp, supplierReport } from './supplyScenarios'
 
 type Message = { role: 'user' | 'assistant'; content: string }
 type Chat = { id: string; title: string; updatedAt: string; messages: Message[] }
@@ -15,9 +16,9 @@ const seeds: Record<string, Chat[]> = {
     ] },
   ],
   supply: [
-    { id: 'supply-chat-1', title: '汇总关键供应商交付风险', updatedAt: '今天 09:40', messages: [
-      { role: 'user', content: '帮我整理关键供应商交付风险的关注点。' },
-      { role: 'assistant', content: '重点关注延期原因、分批交付数量、到货窗口和对工位的影响。\n\n针对液压支架延期，可分别核对首批12件与剩余18件的运输节点，同时确认每批热处理报告及检验安排。' },
+    { id: 'supply-performance-202608', title: '供应商交付表现｜2026年8月月度分析', updatedAt: '9月17日 09:40', messages: [
+      { role: 'user', content: '我需要掌握各个供应商的交付、质量等维度的表现，重点看西飞和沈飞，并明确后续跟进安排。' },
+      { role: 'assistant', content: supplierReport },
     ] },
   ],
 }
@@ -33,7 +34,7 @@ export default function ProjectChats({ projectId }: { projectId: string }) {
     if (!content || !selected) return
     const now = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
     setChats(items => {
-      const updated: Chat = { ...selected, title: selected.messages.length ? selected.title : content.slice(0, 40), updatedAt: `今天 ${now}`, messages: [...selected.messages, { role: 'user', content }, { role: 'assistant', content: `已记录你的补充：“${content}”。\n\n可以继续按目标、现状、待协调事项和下一步安排整理讨论内容，具体业务结论待相关材料确认。` }] }
+      const updated: Chat = { ...selected, title: selected.messages.length ? selected.title : content.slice(0, 40), updatedAt: `今天 ${now}`, messages: [...selected.messages, { role: 'user', content }, { role: 'assistant', content: projectId === 'supply' ? supplierFollowUp(content) : `已记录你的补充：“${content}”。\n\n可以继续按目标、现状、待协调事项和下一步安排整理讨论内容，具体业务结论待相关材料确认。` }] }
       return [updated, ...items.filter(item => item.id !== selected.id)]
     })
     setDraft('')
@@ -41,6 +42,7 @@ export default function ProjectChats({ projectId }: { projectId: string }) {
   if (selected) return <div className="org-chat-detail">
     <header><button type="button" onClick={() => { setSelectedId(null); setDraft('') }}><ArrowLeft size={17}/>返回任务</button><strong>{selected.title}</strong></header>
     <div className="org-chat-messages">{selected.messages.map((message, index) => <article className={`org-chat-message is-${message.role}`} key={index}><b>{message.role === 'user' ? '你' : 'AI 助手'}</b><p>{message.content}</p></article>)}{!selected.messages.length && <div className="org-chat-empty"><MessageSquare size={28}/><p>开始讨论这个项目的工作</p></div>}</div>
+    {projectId === 'supply' && <div className="org-chat-suggestions">{['交付准时率怎么算？', '西飞排名为什么下降？', '质量与FRR变化', '整理催办要求'].map(prompt => <button type="button" key={prompt} onClick={() => setDraft(prompt)}>{prompt}</button>)}</div>}
     <form className="org-chat-input" onSubmit={event => { event.preventDefault(); send() }}><textarea aria-label="对话内容" placeholder="继续讨论项目工作…" value={draft} onChange={event => setDraft(event.target.value)} rows={3}/><button type="submit" disabled={!draft.trim()} aria-label="发送消息"><Send size={18}/></button></form>
   </div>
   const visible = chats.filter(chat => chat.title.includes(query.trim()))

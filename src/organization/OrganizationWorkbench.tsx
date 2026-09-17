@@ -34,7 +34,7 @@ export default function OrganizationWorkbench({ conversations, onOpenConversatio
     return <section className="organization-workbench organization-workbench--detail org-project-detail">
       <header className="org-detail-header"><button type="button" className="org-crumb" onClick={() => setProjectId(null)}><ArrowLeft size={18}/><span>系统智能</span></button><ChevronRight size={16}/><strong>{selected.title}</strong></header>
       <div className="org-detail-content">
-        <div className="org-detail-title-row"><div><span className={`org-icon org-icon--${selected.tone}`}><Icon size={23}/></span><div><h1>{selected.title}</h1><p>{selected.description}</p></div></div></div>
+        <div className="org-detail-title-row"><div><span className={`org-icon org-icon--${selected.tone}`}><Icon size={23}/></span><div><h1>{selected.title}{selected.id === 'supply' && <span className="org-demo-badge">业务演示 · 9月17日快照</span>}</h1><p>{selected.description}</p></div></div></div>
         <div className="org-tabs" role="tablist" aria-label="项目任务视图">
           <button type="button" role="tab" aria-selected={tab==='plan'} className={tab==='plan'?'active':''} onClick={()=>setTab('plan')}>计划</button>
           <button type="button" role="tab" aria-selected={tab==='tasks'} className={tab==='tasks'?'active':''} onClick={()=>setTab('tasks')}>任务</button>

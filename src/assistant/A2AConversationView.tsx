@@ -149,7 +149,9 @@ export default function A2AConversationView({
     () => conversations.find((conversation) => conversation.id === selectedConversationId) ?? null,
     [conversations, selectedConversationId],
   )
-  const messages = selectedConversation ? messagesByConversation[selectedConversation.id] ?? [] : []
+  const messages = selectedConversation?.demo?.readOnly
+    ? selectedConversation.demo.messages
+    : selectedConversation ? messagesByConversation[selectedConversation.id] ?? [] : []
   const privateMessages = selectedConversation ? privateMessagesByConversation[selectedConversation.id] ?? [] : []
   const runningSpeaker = selectedConversation ? runningSpeakerByConversation[selectedConversation.id] ?? null : null
   const pendingConfirmation = selectedConversation?.pendingCurrentUserConfirmation

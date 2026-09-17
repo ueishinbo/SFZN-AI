@@ -401,6 +401,12 @@ function App() {
     return { type: 'assistant' }
   })
   const [a2aConversations, setA2AConversations] = useState<A2AConversation[]>(() => [...seedA2AConversations, ...projectConversations])
+  // Refresh observer scripts after edits without retaining the previous initiator identity.
+  useEffect(() => {
+    setA2AConversations(current => current.map(conversation =>
+      projectConversations.find(seed => seed.id === conversation.id && seed.demo?.readOnly) ?? conversation,
+    ))
+  }, [projectConversations])
   const [a2aCommands, setA2ACommands] = useState<A2AConversationCommand[]>([])
   const [notifications, setNotifications] = useState<AssistantNotification[]>(createSeedNotifications)
   const [selectedNotificationId, setSelectedNotificationId] = useState<string | null>(null)
