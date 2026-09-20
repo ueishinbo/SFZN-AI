@@ -47,7 +47,6 @@ export const projects: Project[] = [
   ] },
   { id: 'supply', title: '供应链', description: '协同供应商交付、替代物料与到货检验，保障齐套。', tone: 'violet', tasks: [
     ...supplyTasks,
-    { id: 'supply-delay', title: '关键供应商交付延期处置', owner: '王五', due: '9月12日', priority: '高', initialStatus: 'progress', memberIndexes: [1,0,2], goal: '处置液压支架供应商延期两天的风险，明确分批交付与生产调整方案。', replies: ['供应商热处理工序延误两天。可将首批 12 件提前至明晚发运，其余 18 件后天补齐，王五负责跟踪。','首批 12 件能覆盖 A 工位需求；李四将 B 工位支架安装后移一天，其他已具备条件的作业继续。','按分批交付安排，两批都须独立提供热处理报告；陈工分别检验，不能以首批结论替代第二批放行。'], result: '延期处置方案：首批 12 件保障 A 工位，余下 18 件后天补齐；王五跟踪交付、李四调整 B 工位、陈工分批检验。' },
   ] },
 
 ]
@@ -93,7 +92,7 @@ export const projectConversations: A2AConversation[] = projects.flatMap(project 
     id, title: task.title, scope: 'group', mechanism: 'collaboration', status: done ? 'completed' : observer ? 'response_received' : 'waiting_user_confirmation',
     hostUserId, hostName: task.initiator ?? '张三', perspective: observer ? 'recipient' : 'initiator', members, speakingOrder: members.map(m => m.userId),
     goal: task.goal, round: 1, expectedReplyCount: members.length, repliedCount: pending ? 0 : members.length,
-    createdAt: task.id === 'supply-purchase-risk' || task.id === 'supply-shortage-query' ? '2026年9月17日 09:30' : '9月11日 09:00', updatedAt: done ? '已归档' : '今天', preview: observer ? task.result : pending ? '待确认启动协作' : done ? task.result : '各岗位意见已收齐，待确认处置方案',
+    createdAt: task.id === 'supply-purchase-risk' ? '2026年9月17日 09:30' : '9月11日 09:00', updatedAt: done ? '已归档' : '今天', preview: observer ? task.result : pending ? '待确认启动协作' : done ? task.result : '各岗位意见已收齐，待确认处置方案',
     demo: { readOnly: observer, messages, replies: Object.fromEntries(members.map((m,i) => [m.userId, task.replies[i]])), completionSummary: task.result },
     pendingCurrentUserConfirmation: done || observer ? undefined : {
       id: pending ? `start-${task.id}` : `review-${task.id}`, question: pending ? `开始“${task.title}”协作？` : '确认本次处置方案并完成协作？', description: pending ? task.goal : task.result,

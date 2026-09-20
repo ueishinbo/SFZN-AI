@@ -1,0 +1,66 @@
+/* Overview pages use the available workspace instead of a narrow reading column. */
+:root { --workspace-gutter: clamp(24px, 2.5vw, 48px); }
+
+.admin-content:has(> .role-agent-list) {
+  padding-inline: var(--workspace-gutter);
+}
+.admin-content > .role-agent-list {
+  max-width: none;
+  width: 100%;
+}
+.digital-twin-training .digital-twin-scroll > .content {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: 28px var(--workspace-gutter) 44px;
+}
+.role-agent-list,
+.digital-twin-training .rc-personal { font-size: 16px; }
+.role-agent-list h1 { font-size: 30px; }
+.role-agent-list .rc-cards {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, max(340px, calc((100% - 40px) / 3))), 1fr));
+  gap: 20px;
+}
+.role-agent-list .rc-role-card,
+.digital-twin-training .rc-personal .rc-role-card {
+  padding: 22px;
+  gap: 12px;
+  min-width: 0;
+}
+.role-agent-list .rc-role-card h3,
+.digital-twin-training .rc-personal .rc-role-card h3 { font-size: 19px; }
+.role-agent-list .rc-role-card footer,
+.digital-twin-training .rc-personal .rc-role-card footer { flex-wrap: wrap; }
+.role-agent-list small,
+.role-agent-list .rc-card-meta,
+.digital-twin-training .rc-personal small {
+  font-size: 13px;
+  color: #607287;
+}
+.role-agent-list .rc-badge,
+.digital-twin-training .rc-personal .rc-badge { font-size: 13px; }
+.role-agent-list .rc-search { min-height: 42px; }
+.digital-twin-training .flat-section > .heading h2,
+.digital-twin-training .twin-overview-section > .heading h2,
+.digital-twin-training .rc-personal .rc-heading h2 { font-size: 23px; }
+.digital-twin-training .flat-rail .flat-card {
+  padding: 20px;
+  min-height: 136px;
+}
+.digital-twin-training .flat-card > b { font-size: 18px; margin-top: 12px; }
+.digital-twin-training .flat-card > p { font-size: 16px; color: #5b6e82; }
+.digital-twin-training .flat-card > span { font-size: 13px; color: #677f96; }
+.digital-twin-training .top p { font-size: 14px; color: #607287; }
+
+@media (max-width: 1100px) {
+  .digital-twin-training .resource-rail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  :root { --workspace-gutter: 16px; }
+  .digital-twin-training .digital-twin-scroll > .content { padding-top: 20px; }
+  .role-agent-list .rc-heading { flex-wrap: wrap; }
+  .role-agent-list .rc-search { min-width: 0; flex-basis: 100%; }
+  .role-agent-list h1 { font-size: 26px; }
+  .role-agent-list .rc-role-card,
+  .digital-twin-training .rc-personal .rc-role-card { padding: 18px; }
+}

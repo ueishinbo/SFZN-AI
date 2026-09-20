@@ -1,3 +1,4 @@
+import { DEMO_ACCOUNTS, switchDemoAccount, useDemoAccount } from "../role-center/demoAccount";
 import {
   Bot,
   ChevronRight,
@@ -35,6 +36,7 @@ export default function AssistantModeSidebar({
   onEnterAdmin,
 }: AssistantModeSidebarProps) {
   const [query, setQuery] = useState('')
+  const account = useDemoAccount()
 
   const normalizedQuery = query.trim().toLocaleLowerCase()
   const matches = (label: string) => label.toLocaleLowerCase().includes(normalizedQuery)
@@ -95,8 +97,17 @@ export default function AssistantModeSidebar({
       </div>
 
       <div className="assistant-sidebar-footer">
+        <label className="assistant-demo-account">
+          <span>演示账号</span>
+          <select aria-label="切换演示账号" value={account} onChange={(event) => {
+            switchDemoAccount(event.target.value)
+            onSelectFeature('training')
+          }}>
+            {DEMO_ACCOUNTS.map(item => <option key={item.id} value={item.id}>{item.name} · {item.description}</option>)}
+          </select>
+        </label>
         {matches('数字分身') && <button className="assistant-training-card" type="button" onClick={() => onSelectFeature('training')}>
-          <span><strong>数字分身</strong><small>身份、能力与 A2A 任务</small></span>
+          <span><strong>数字分身</strong><small>身份、画像与能力配置</small></span>
           <ChevronRight className="assistant-training-arrow" size={21} />
         </button>}
         {matches('后台管理') && <button className="assistant-management-link" type="button" onClick={onEnterAdmin}>

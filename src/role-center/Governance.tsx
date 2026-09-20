@@ -1,9 +1,9 @@
+import { CURRENT_USER, isNewDemoUser } from "./demoAccount";
 import { useFeedback } from "./feedback";
 import { useMemo, useState } from "react";
 import { Download, Plus, ShieldCheck } from "lucide-react";
 import {
   CAUSES,
-  CURRENT_USER,
   ORGS,
   emptyScope,
   matchesScope,
@@ -857,12 +857,12 @@ export function PersonalLogs() {
           <p>
             项目推进、经营分析与决策支持记录
             <span className="rc-log-stats">
-              共 {all.length} 条 · 已评价 {evaluated} 条 · 好评率 {goodRate}%
+              共 {all.length} 条 · 已评价 {evaluated} 条 · 有帮助比例 {evaluated ? `${goodRate}%` : "—"}
             </span>
           </p>
         </div>
         <div className="rc-actions">
-          <button
+          {!isNewDemoUser() && <button
             onClick={() => {
               setTaskOpen(true);
               setPrompt("");
@@ -870,7 +870,7 @@ export function PersonalLogs() {
           >
             <Plus size={15} />
             准备工作任务
-          </button>
+          </button>}
           <button
             onClick={() =>
               download("我的运行记录.json", JSON.stringify(runs, null, 2))

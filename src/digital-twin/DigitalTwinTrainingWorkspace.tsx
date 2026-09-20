@@ -1,3 +1,4 @@
+import { CURRENT_USER, isNewDemoUser, personalStorageKey } from "../role-center/demoAccount";
 import { useFeedback } from "../role-center/feedback";
 import {
   ArrowLeft,
@@ -33,7 +34,6 @@ import { PersonalLogs } from "../role-center/Governance";
 import PersonalKnowledge from "../role-center/PersonalKnowledge";
 import { actions, download, useRoleStore } from "../role-center/store";
 import {
-  CURRENT_USER,
   availableRole,
   effectiveResources,
   type ResourceKind,
@@ -422,7 +422,7 @@ function AssessmentPanel() {
   const { perform, feedback } = useFeedback();
   const [records, setRecords] = useState<PersonalAssessment[]>(() => {
     try {
-      return JSON.parse(localStorage.getItem(ASSESSMENT_KEY) || "[]");
+      return JSON.parse(localStorage.getItem(personalStorageKey(ASSESSMENT_KEY)) || "[]");
     } catch {
       return [];
     }
@@ -437,7 +437,7 @@ function AssessmentPanel() {
    * 检查项全部从真实配置派生（画像内容 / 岗位 / 资源 / 授权 / 任务记录），不做假。
    */
   const capture = (): PersonalAssessment => {
-    const mine = effectiveResources(store);
+    const mine = effectiveResources(store, CURRENT_USER);
     const enabledCount = (kind: ResourceKind) =>
       mine.filter((r) => r.kind === kind && r.enabled).length;
     const totalCount = (kind: ResourceKind) =>
@@ -445,7 +445,7 @@ function AssessmentPanel() {
     const myRoles = (store.memberships[CURRENT_USER] || [])
       .filter((m) => m.enabled)
       .map((m) => store.roles.find((r) => r.id === m.roleId))
-      .filter((r) => !!r && availableRole(store, r));
+      .filter((r) => !!r && availableRole(store, r, CURRENT_USER));
     const pendingAdvice = store.suggestions.filter(
       (s) => s.status === "待处理" && myRoles.some((r) => r!.id === s.roleId),
     ).length;
@@ -488,7 +488,7 @@ function AssessmentPanel() {
       labels: [string, string, string, string],
     ) => {
       const content =
-        localStorage.getItem(`digital-twin-gm-profile-${key}`) ??
+        localStorage.getItem(personalStorageKey(`digital-twin-gm-profile-${key}`)) ??
         defaultProfileMarkdown[key];
       const bodies = content
         .split(/^#{1,6}\s+.+$/m)
@@ -674,7 +674,7 @@ function AssessmentPanel() {
           ],
         ),
       ],
-      resources: effectiveResources(store).map((r) => ({
+      resources: effectiveResources(store, CURRENT_USER).map((r) => ({
         name: r.name,
         version: r.version,
         enabled: r.enabled,
@@ -683,7 +683,7 @@ function AssessmentPanel() {
         .filter((m) => m.enabled)
         .flatMap((m) => {
           const role = store.roles.find((r) => r.id === m.roleId);
-          return role && availableRole(store, role)
+          return role && availableRole(store, role, CURRENT_USER)
             ? [
                 {
                   name: role.published!.definition.name,
@@ -786,7 +786,7 @@ function AssessmentPanel() {
     perform(() => {
       const previous = records[0];
       const next = [current, ...records].slice(0, 50);
-      localStorage.setItem(ASSESSMENT_KEY, JSON.stringify(next));
+      localStorage.setItem(personalStorageKey(ASSESSMENT_KEY), JSON.stringify(next));
       setRecords(next);
       setSelected(current);
       setView("report");
@@ -1153,11 +1153,11 @@ export default function DigitalTwinTrainingWorkspace() {
     [event, setEvent] = useState<Event | null>(null),
     [selectedGrowthEventId, setSelectedGrowthEventId] = useState<string | null>(null),
     [day, setDay] = useState(() =>
-      new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Shanghai" }),
+      isNewDemoUser() ? new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Shanghai" }) : "2026-09-28",
     ),
-    [mode, setMode] = useState("week");
+    [mode, setMode] = useState("month");
   const user = store.people.find((p) => p.id === CURRENT_USER)!.name;
-  const resources = effectiveResources(store);
+  const resources = effectiveResources(store, CURRENT_USER);
   const allEvents: Event[] = [
     ...store.growth
       .filter((e) => e.userId === CURRENT_USER)
@@ -1172,7 +1172,7 @@ export default function DigitalTwinTrainingWorkspace() {
         operator: user,
         detail: e.detail,
       })),
-    ...events,
+    ...(isNewDemoUser() ? [] : events),
   ];
   const currentEvents = allEvents
     .filter((e) => {
@@ -1211,20 +1211,25 @@ export default function DigitalTwinTrainingWorkspace() {
           <div>
             
             <h1>{user}的数字分身</h1>
-            <p>公司总经理</p>
+            <p>{isNewDemoUser() ? "岗位信息未提供" : "公司总经理"}</p>
           </div>
         </div>
         <div className="top-identity-actions">
           <button onClick={() => setIdentityOpen(true)}>身份信息</button>
-          <span className="sync">
+          {!isNewDemoUser() && <span className="sync">
             <CircleCheck size={15} />
             身份已同步
-          </span>
+          </span>}
         </div>
       </header>
       <main className="digital-twin-scroll">
         <div className="content">
           <div className="overview-stack">
+            {isNewDemoUser() && localStorage.getItem(personalStorageKey("digital-twin-gm-work-profile-enabled")) !== "true" && <section className="twin-onboarding">
+              <span>从这里开始</span><h2>让你的分身先了解你</h2>
+              <p>先介绍你的工作方式，再按需要设置目标、添加能力和个人资料。</p>
+              <button onClick={() => setProfile("mind")}>建立工作画像 <ArrowRight size={16} /></button>
+            </section>}
             <section className="flat-section">
               <div className="heading">
                 <div>
@@ -1247,7 +1252,7 @@ export default function DigitalTwinTrainingWorkspace() {
                 ))}
               </div>
             </section>
-            <PersonalRoles />
+            {!isNewDemoUser() && <PersonalRoles />}
             <section className="flat-section">
               <div className="heading">
                 <div>
@@ -1291,13 +1296,13 @@ export default function DigitalTwinTrainingWorkspace() {
                 })}
               </div>
             </section>
-            <AssessmentPanel />
+            {isNewDemoUser() ? <section className="flat-section"><div className="heading"><h2>分身评测</h2></div><Empty title="暂无评测结果">本账号尚无评测记录。</Empty></section> : <AssessmentPanel />}
             <section className="twin-overview-section"><div className="heading"><h2>成长曲线</h2></div><div className="growth-curve">
               <header className="growth-curve-heading">
                 <div>
                   
 
-                  <p>按时间查看岗位、能力、画像与知识如何逐步补齐。</p>
+                  <p>按时间查看能力、画像与知识的变化。</p>
                 </div>
                 <small>{currentEvents.length} 条成长事件</small>
               </header>
@@ -1378,7 +1383,7 @@ export default function DigitalTwinTrainingWorkspace() {
                 </button>)}
               </div> : <Empty title="所选周期暂无成长事件" />}
             </div></section>
-            <section className="twin-overview-section"><div className="heading"><h2>对话日志</h2></div><PersonalLogs /></section>
+            <section className="twin-overview-section"><div className="heading"><h2>对话日志</h2></div>{isNewDemoUser() && !store.runs.some(run => run.userId === CURRENT_USER) ? <Empty title="暂无对话记录">使用助理后，在这里查看你的记录。</Empty> : <PersonalLogs />}</section>
           </div>
         </div>
       </main>
@@ -1388,7 +1393,7 @@ export default function DigitalTwinTrainingWorkspace() {
             {[
               ["姓名", user],
 
-              ["岗位", "公司总经理"],
+              ["岗位", isNewDemoUser() ? "岗位信息未提供" : "公司总经理"],
 
 
 
@@ -1471,7 +1476,7 @@ type WorkProfileAnswers = {
   confirmationBoundary: string;
 };
 
-const workProfileDefaults: WorkProfileAnswers = {
+const executiveProfileDefaults: WorkProfileAnswers = {
   scope: "公司级",
   objects: ["人员", "项目", "数据", "流程／制度"],
   role: "公司总经理，统筹公司经营、重点项目与资源配置",
@@ -1499,8 +1504,11 @@ const workProfileSteps = [
 ] as const;
 
 function readWorkProfile(): WorkProfileAnswers {
+  const workProfileDefaults: WorkProfileAnswers = isNewDemoUser()
+    ? { scope: "", objects: [], role: "", scenarios: "", priorities: "", communication: "", incompleteRequest: "", confirmationBoundary: "" }
+    : executiveProfileDefaults;
   try {
-    const saved = JSON.parse(localStorage.getItem("digital-twin-gm-work-profile-answers") || "null");
+    const saved = JSON.parse(localStorage.getItem(personalStorageKey("digital-twin-gm-work-profile-answers")) || "null");
     if (saved && typeof saved === "object") {
       const valid = { ...workProfileDefaults };
       for (const key of Object.keys(valid) as (keyof WorkProfileAnswers)[]) {
@@ -1510,7 +1518,7 @@ function readWorkProfile(): WorkProfileAnswers {
       return valid;
     }
     // Older demos stored only Markdown. Restore its actual content before updating.
-    const markdown = localStorage.getItem("digital-twin-gm-profile-mind") || "";
+    const markdown = localStorage.getItem(personalStorageKey("digital-twin-gm-profile-mind")) || "";
     const restored = { ...workProfileDefaults };
     const keys = ["role", "scenarios", "priorities", "communication", "incompleteRequest", "confirmationBoundary"] as const;
     workProfileSections(restored).forEach(([title], index) => {
@@ -1545,12 +1553,12 @@ function buildWorkProfileMarkdown(answers: WorkProfileAnswers) {
 }
 
 function WorkProfileDialog({ onClose }: { onClose: () => void }) {
-  const profileKey = "digital-twin-gm-profile-mind";
-  const statusKey = "digital-twin-gm-work-profile-enabled";
+  const profileKey = personalStorageKey("digital-twin-gm-profile-mind");
+  const statusKey = personalStorageKey("digital-twin-gm-work-profile-enabled");
   const [answers, setAnswers] = useState(readWorkProfile);
   const [step, setStep] = useState(() => {
     try {
-      return localStorage.getItem(statusKey) !== "false" ? 4 : 0;
+      return (isNewDemoUser() ? localStorage.getItem(statusKey) === "true" : localStorage.getItem(statusKey) !== "false") ? 4 : 0;
     } catch {
       return 0;
     }
@@ -1562,11 +1570,11 @@ function WorkProfileDialog({ onClose }: { onClose: () => void }) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
   const [editing, setEditing] = useState(false);
-  const [materials, setMaterials] = useState<string[]>(["review", "report"]);
+  const [materials, setMaterials] = useState<string[]>(isNewDemoUser() ? [] : ["review", "report"]);
   const [generating, setGenerating] = useState(false);
   const [enabled, setEnabled] = useState(() => {
     try {
-      return localStorage.getItem(statusKey) !== "false";
+      return (isNewDemoUser() ? localStorage.getItem(statusKey) === "true" : localStorage.getItem(statusKey) !== "false");
     } catch {
       return false;
     }
@@ -1595,7 +1603,7 @@ function WorkProfileDialog({ onClose }: { onClose: () => void }) {
     }, 700);
   };
   const activate = () => {
-    localStorage.setItem("digital-twin-gm-work-profile-answers", JSON.stringify(answers));
+    localStorage.setItem(personalStorageKey("digital-twin-gm-work-profile-answers"), JSON.stringify(answers));
     localStorage.setItem(profileKey, markdown);
     localStorage.setItem(statusKey, "true");
     actions.profileGrowth("确认使用个人工作画像");
@@ -1619,11 +1627,16 @@ function WorkProfileDialog({ onClose }: { onClose: () => void }) {
   return (
     <Dialog
       title="工作画像"
-      onClose={onClose}
+      onClose={() => {
+        if (step !== 4 || editing || !enabled) {
+          if (!window.confirm("离开后，本次未确认的画像不会生效。确定离开吗？")) return;
+        }
+        onClose();
+      }}
       wide
       footer={
         <>
-          <button onClick={onClose}>{editing ? "取消更新" : "关闭"}</button>
+          <button onClick={() => { if ((step !== 4 || editing || !enabled) && !window.confirm("放弃本次未确认的画像？")) return; onClose(); }}>{editing ? "取消更新" : "关闭"}</button>
           {step > 0 && step < 3 && (
             <button onClick={() => setStep((current) => Math.max(0, current - 1))}>上一步</button>
           )}
@@ -1684,7 +1697,7 @@ function WorkProfileDialog({ onClose }: { onClose: () => void }) {
             <article><i>AI</i><div><b>{["公司级", "部门级"].includes(answers.scope) ? `在${answers.scope}工作中，当目标与资源发生冲突时，你通常怎么判断优先级？` : `围绕${answers.objects.join("、")}开展工作时，信息不完整你通常会怎么推进？`}</b><p>这个回答会帮助助理理解你的判断顺序。</p></div></article>
             <textarea aria-label="我的判断习惯" value={answers.incompleteRequest} onChange={(e) => update("incompleteRequest", e.target.value)} />
             <article><i>AI</i><div><b>你希望助理怎样表达和汇报？</b><p>选择更符合你习惯的表达方式。</p></div></article>
-            <div className="work-profile-fields"><label><span>沟通与表达偏好</span><select value={answers.communication} onChange={(e) => update("communication", e.target.value)}>{Array.from(new Set([answers.communication, "结论先行，突出关键数据、异常事项和需要决策的问题", "先完整说明背景，再给出判断", "简洁直接，只保留关键结论和行动项"])).map((value) => <option key={value}>{value}</option>)}</select></label></div>
+            <div className="work-profile-fields"><label><span>沟通与表达偏好</span><select value={answers.communication} onChange={(e) => update("communication", e.target.value)}>{Array.from(new Set([answers.communication, "结论先行，突出关键数据、异常事项和需要决策的问题", "先完整说明背景，再给出判断", "简洁直接，只保留关键结论和行动项"])).map((value) => <option key={value} value={value} disabled={!value}>{value || "请选择沟通与表达偏好"}</option>)}</select></label></div>
             <article><i>AI</i><div><b>哪些情况下，助理必须先向你确认？</b><p>这个回答会成为助理执行任务时的工作边界。</p></div></article>
             <textarea aria-label="需要确认的情况" value={answers.confirmationBoundary} onChange={(e) => update("confirmationBoundary", e.target.value)} />
           </section>
@@ -1741,13 +1754,13 @@ function ProfileDialog({
   profile: ProfileTab;
   onClose: () => void;
 }) {
-  const key = `digital-twin-gm-profile-${profile}`,
+  const key = personalStorageKey(`digital-twin-gm-profile-${profile}`),
     title = profileTabs.find((t) => t[0] === profile)![1];
   const [content, setContent] = useState(() => {
       try {
-        return localStorage.getItem(key) || defaultProfileMarkdown[profile];
+        return localStorage.getItem(key) || (isNewDemoUser() ? "" : defaultProfileMarkdown[profile]);
       } catch {
-        return defaultProfileMarkdown[profile];
+        return (isNewDemoUser() ? "" : defaultProfileMarkdown[profile]);
       }
     }),
     [original, setOriginal] = useState(content),
@@ -1787,7 +1800,7 @@ function ProfileDialog({
                         if (content !== original) actions.profileGrowth(title);
                         setOriginal(content);
                         setEditing(false);
-                      }, "已保存个人工作画像") !== false
+                      }, "目标已保存") !== false
                     )
                       setEditing(false);
                   }}
@@ -1812,7 +1825,7 @@ function ProfileDialog({
             onChange={(e) => setContent(e.target.value)}
           />
         ) : (
-          <Markdown content={content} />
+          content.trim() ? <Markdown content={content} /> : <Empty title="尚未设置目标">写下你的工作目标、判断口径和验收标准，让助理了解你当前的重点。</Empty>
         )}
       </Dialog>
       {confirm && (

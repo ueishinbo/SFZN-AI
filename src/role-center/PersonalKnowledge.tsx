@@ -1,3 +1,4 @@
+import { isNewDemoUser, personalStorageKey } from "./demoAccount";
 import { useFeedback } from "./feedback";
 import { useRef, useState } from "react";
 import { Database, Plus, Upload } from "lucide-react";
@@ -22,11 +23,12 @@ const seeds: Knowledge[] = [
 ];
 
 export default function PersonalKnowledge() {
+  const storageKey = personalStorageKey(KEY);
   const [items, setItems] = useState<Knowledge[]>(() => {
       try {
-        return JSON.parse(localStorage.getItem(KEY) || "null") || seeds;
+        return JSON.parse(localStorage.getItem(storageKey) || "null") || (isNewDemoUser() ? [] : seeds);
       } catch {
-        return seeds;
+        return isNewDemoUser() ? [] : seeds;
       }
     }),
     [view, setView] = useState("list"),
@@ -37,7 +39,7 @@ export default function PersonalKnowledge() {
   const input = useRef<HTMLInputElement>(null);
   const { perform, feedback } = useFeedback();
   const save = (next: Knowledge[]) => {
-    localStorage.setItem(KEY, JSON.stringify(next));
+    localStorage.setItem(storageKey, JSON.stringify(next));
     setItems(next);
   };
   return (
@@ -113,12 +115,12 @@ export default function PersonalKnowledge() {
           >
             知识清单
           </button>
-          <button
+          {!isNewDemoUser() && <button
             className={view === "graph" ? "active" : ""}
             onClick={() => setView("graph")}
           >
             知识地图
-          </button>
+          </button>}
         </div>
         {view === "list" && (
           <input

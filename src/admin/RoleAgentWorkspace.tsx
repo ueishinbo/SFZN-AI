@@ -260,7 +260,7 @@ export default function RoleAgentWorkspace({
       </div>
     );
   return (
-    <div className="rc rc-shell">
+    <div className="rc rc-shell role-agent-list">
       <div className="rc-heading">
         <div>
           <h1>岗位智能体管理</h1>

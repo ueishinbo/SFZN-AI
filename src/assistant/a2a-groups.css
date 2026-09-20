@@ -301,3 +301,11 @@
   .a2a-group-running i { animation: none; }
   .assistant-composer-busy-strip svg { animation: none; }
 }
+
+.assistant-demo-account { display: grid; gap: 7px; padding: 10px 4px; color: #718096; font-size: 11px; }
+.assistant-demo-account select { width: 100%; min-width: 0; padding: 9px 10px; color: #243447; background: #fff; border: 1px solid #dce3eb; border-radius: 8px; font: inherit; font-size: 12px; }
+.twin-onboarding { padding: 24px 28px; background: #eff6ff; border: 1px solid #dbeafe; border-radius: 16px; }
+.twin-onboarding > span { color: #56759b; font-size: 12px; }
+.twin-onboarding h2 { margin: 8px 0; color: #253b59; font-size: 21px; }
+.twin-onboarding p { color: #61748c; font-size: 14px; }
+.twin-onboarding button { display: inline-flex; align-items: center; gap: 12px; margin-top: 8px; padding: 10px 16px; border: 0; border-radius: 8px; background: #315d97; color: white; cursor: pointer; }

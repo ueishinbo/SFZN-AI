@@ -6,10 +6,10 @@ import ts from "typescript";
 const cache = resolve("node_modules/.cache");
 await mkdir(cache, { recursive: true });
 const dir = await mkdtemp(resolve(cache, "role-tests-"));
-for (const [name, sourcePath] of Object.entries({ domain: 'src/role-center/domain.ts', store: 'src/role-center/store.ts', positionModels: 'src/admin/positionModels.ts', procurementDemo: 'src/admin/procurementDemo.ts' })) {
+for (const [name, sourcePath] of Object.entries({ demoAccount: 'src/role-center/demoAccount.ts', executiveDemo: 'src/role-center/executiveDemo.ts', domain: 'src/role-center/domain.ts', store: 'src/role-center/store.ts', positionModels: 'src/admin/positionModels.ts', procurementDemo: 'src/admin/procurementDemo.ts' })) {
   const source = await readFile(sourcePath, 'utf8');
   const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText
-    .replace(/from ["'][^"']*\/(domain|procurementDemo|positionModels)["']/g, 'from "./$1.mjs"');
+    .replace(/from ["'][^"']*\/(demoAccount|executiveDemo|domain|procurementDemo|positionModels)["']/g, 'from "./$1.mjs"');
   await writeFile(resolve(dir, `${name}.mjs`), output);
 }
 const purchase = await import(pathToFileURL(resolve(dir, 'procurementDemo.mjs')));

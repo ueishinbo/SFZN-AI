@@ -1,3 +1,4 @@
+import { CURRENT_USER } from "./demoAccount";
 import { useFeedback } from "./feedback";
 import { useState } from "react";
 import {
@@ -8,7 +9,6 @@ import {
   Search,
 } from "lucide-react";
 import {
-  CURRENT_USER,
   availableRole,
   effectiveResources,
   roleGoal,
@@ -47,7 +47,7 @@ export default function PersonalRoles() {
       <div className="rc-cards">
         {roles.map(({ role, member }) => {
           const d = role.published!.definition;
-          const valid = availableRole(store, role);
+          const valid = availableRole(store, role, CURRENT_USER);
           return (
             <article key={role.id} className="rc-role-card">
               <header>
@@ -136,7 +136,7 @@ function PersonalRoleDetail({
   const added = store.memberships[CURRENT_USER]?.some(
     (m) => m.roleId === role.id,
   );
-  const available = availableRole(store, role);
+  const available = availableRole(store, role, CURRENT_USER);
   return (
     <Dialog
       title={d.name}
@@ -202,7 +202,7 @@ export function PersonalCapabilities({ kind }: { kind: ResourceKind }) {
     [market, setMarket] = useState(false),
     [selection, setSelection] = useState<string[]>([]);
   const { perform, feedback } = useFeedback();
-  const resources = effectiveResources(store).filter((r) => r.kind === kind);
+  const resources = effectiveResources(store, CURRENT_USER).filter((r) => r.kind === kind);
   const visible = resources.filter(
     (r) =>
       `${r.name}${r.description}`.includes(query) &&

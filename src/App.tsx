@@ -1,3 +1,4 @@
+import { useDemoAccount } from "./role-center/demoAccount";
 import { useCallback, useEffect, useMemo, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import {
   ArrowLeft,
@@ -378,6 +379,7 @@ function TaskRow({ task, onOpen, onDelete }: { task: Task; onOpen: (task: Task) 
 }
 
 function App() {
+  const demoAccount = useDemoAccount()
   const [appMode, setAppMode] = useState<AppMode>(()=>new URLSearchParams(location.search).get('view')==='admin'?'admin':['twin','assistant'].includes(new URLSearchParams(location.search).get('view')||'')?'assistant':'task')
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [taskSidebarOpenBeforeAssistant, setTaskSidebarOpenBeforeAssistant] = useState(true)
@@ -1125,7 +1127,7 @@ function App() {
             </div>
             {assistantDestination.type === 'feature' && assistantDestination.featureId === 'training' && (
               <div className="assistant-destination-panel">
-                <DigitalTwinTrainingWorkspace />
+                <DigitalTwinTrainingWorkspace key={demoAccount} />
               </div>
             )}
             {assistantDestination.type === 'feature' && assistantDestination.featureId === 'automation' && (

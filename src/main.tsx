@@ -4,6 +4,7 @@ import './index.css'
 import App from './App.tsx'
 import './refinement.css'
 import './navigation-polish.css'
+import './desktop-layout.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

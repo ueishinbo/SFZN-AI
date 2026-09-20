@@ -1,3 +1,4 @@
+import { CURRENT_USER } from "./demoAccount";
 import { withExecutiveDemo } from "./executiveDemo";
 import { withProcurementDemo } from "../admin/procurementDemo";
 import { useSyncExternalStore } from "react";
@@ -6,7 +7,6 @@ import {
   baseDefinition,
   canApprove,
   canEdit,
-  CURRENT_USER,
   currentDefinition,
   effectiveResources,
   emptyScope,
@@ -127,7 +127,15 @@ function load(): Store {
   }
   return withExecutiveDemo(withProcurementDemo(seedStore()));
 }
-let state = load();
+function ensureDemoUser(store: Store): Store {
+  if (!store.people.some(person => person.id === 'demo-new-user')) {
+    store.people.push({ id: 'demo-new-user', name: '林晓', org: 'comac', groups: [], role: 'user', active: true });
+  }
+  store.memberships['demo-new-user'] ??= [];
+  store.personal['demo-new-user'] ??= { ids: [], disabled: [], grants: [] };
+  return store;
+}
+let state = ensureDemoUser(load());
 const listeners = new Set<() => void>();
 export const getStore = () => state;
 const subscribe = (fn: () => void) => {
@@ -141,7 +149,7 @@ export function useRoleStore() {
 }
 window.addEventListener("storage", (event) => {
   if (event.key === KEY) {
-    state = load();
+    state = ensureDemoUser(load());
     listeners.forEach((fn) => fn());
   }
 });
@@ -587,7 +595,7 @@ export const actions = {
         s.memberships[CURRENT_USER] = members.filter((m) => m.roleId !== id);
       } else {
         required(
-          availableRole(s, role),
+          availableRole(s, role, CURRENT_USER),
           "当前岗位已不可用，请检查发布状态或人员范围",
         );
         if (action === "add") {
@@ -846,11 +854,11 @@ export const actions = {
   run(prompt: string) {
     return transaction((s) => {
       required(prompt.trim().length >= 5, "请输入至少 5 个字的具体任务");
-      const enabled = effectiveResources(s).filter((r) => r.enabled);
+      const enabled = effectiveResources(s, CURRENT_USER).filter((r) => r.enabled);
       const roles = (s.memberships[CURRENT_USER] || [])
         .filter((m) => m.enabled)
         .map((m) => s.roles.find((r) => r.id === m.roleId))
-        .filter((r): r is RoleAgent => !!r && availableRole(s, r));
+        .filter((r): r is RoleAgent => !!r && availableRole(s, r, CURRENT_USER));
       const contexts = roles.map((r) => ({
         roleId: r.id,
         name: r.published!.definition.name,
