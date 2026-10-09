@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local exports and raw validation material (may contain credentials)
+/standalone.html
+/docs/验证资料/群聊验证复盘_完整包_20260922/

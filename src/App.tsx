@@ -1,3 +1,4 @@
+import { completeA2A, canManageA2A, completionQuestion } from './assistant/a2aLifecycle'
 import { useDemoAccount } from "./role-center/demoAccount";
 import { useCallback, useEffect, useMemo, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import {
@@ -418,7 +419,7 @@ function App() {
   const taskWorkbench = useWorkspaceWorkbench()
 
   const hasQueuedNotifications = notifications.length > 0
-  const hasPendingA2AConfirmation = a2aConversations.some((conversation) => Boolean(conversation.pendingCurrentUserConfirmation))
+  const hasPendingA2AConfirmation = a2aConversations.some((conversation) => conversation.status !== 'completed' && Boolean(conversation.pendingCurrentUserConfirmation))
   const selectedNotification = notifications.find((notification) => notification.id === selectedNotificationId) ?? null
 
   const receiveNotification = (notification: AssistantNotification) => {
@@ -701,13 +702,25 @@ function App() {
 
   const runA2ACommand = useCallback((value: string): A2ACommandResult => {
     const result = buildA2ACommand(value, a2aConversations)
+    if (result.command.action === 'complete') {
+      if (!canManageA2A(result.conversation)) throw new Error('只有群主可以确认完成本次沟通。')
+      setA2AConversations(current => current.map(conversation => conversation.id === result.conversation.id ? { ...conversation, pendingCurrentUserConfirmation: completionQuestion(conversation) } : conversation))
+      return result
+    }
     if (result.created) setA2AConversations((current) => [result.conversation, ...current])
     setA2ACommands((current) => [...current, result.command])
     return result
   }, [a2aConversations])
 
+  const completeConversation = (id: string) => {
+    const target = a2aConversations.find(conversation => conversation.id === id)
+    if (!target || completeA2A(target) === target) return
+    setA2ACommands(current => current.filter(command => command.conversationId !== id))
+    setA2AConversations(current => current.map(conversation => conversation.id === id ? completeA2A(conversation) : conversation))
+  }
+
   const updateA2AConversationActivity = useCallback((conversationId: string, patch: ConversationActivityPatch) => {
-    setA2AConversations((current) => current.map((conversation) => conversation.id === conversationId
+    setA2AConversations((current) => current.map((conversation) => conversation.id === conversationId && conversation.status !== 'completed'
       ? { ...conversation, ...patch }
       : conversation))
   }, [])
@@ -1109,15 +1122,19 @@ function App() {
                 onNotificationDelivered={finishNotificationDelivery}
                 onNotificationReceived={receiveNotification}
                 onBusyChange={setAssistantBusy}
+                viewedA2AConversationId={surfaceMode === 'assistant' && assistantDestination.type === 'conversation' ? assistantDestination.conversationId : null}
                 a2aConversations={a2aConversations}
                 onRunA2ACommand={runA2ACommand}
                 onWorkspaceVisibilityChange={setAssistantWorkspaceVisible}
+                onOpenA2AConversation={(conversationId) => setAssistantDestination({ type: 'conversation', conversationId })}
               />
             </div>
             <div className={`assistant-destination-panel ${conversationProject ? 'org-conversation-panel' : ''} ${assistantDestination.type === 'conversation' ? '' : 'is-hidden'}`}>
               {conversationProject && <div className="org-conversation-back"><button type="button" onClick={() => { setActiveNav('系统智能'); returnToTaskMode(); }}><ArrowLeft size={16}/>返回{conversationProject.title}项目</button><span>系统智能 · {conversationProject.title}</span></div>}
               <A2AConversationView
                 conversations={a2aConversations}
+                onComplete={completeConversation}
+                onBack={() => setAssistantDestination({ type: 'feature', featureId: 'a2a' })}
                 selectedConversationId={assistantDestination.type === 'conversation' ? assistantDestination.conversationId : null}
                 commands={a2aCommands}
                 onCommandHandled={markA2ACommandHandled}

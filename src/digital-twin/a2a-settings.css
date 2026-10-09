@@ -1,0 +1,22 @@
+.a2a-settings-entry { width: 100%; display: flex; align-items: center; gap: 18px; padding: 22px 24px; text-align: left; background: #fff; border: 1px solid #e1e7ef; border-radius: 14px; color: #324963; cursor: pointer; }
+.a2a-settings-entry:hover { background: #f8fbff; border-color: #bacfe5; }
+.a2a-settings-icon { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 12px; background: #edf4fb; flex-shrink: 0; }
+.a2a-settings-entry-copy { display: grid; gap: 7px; flex: 1; }
+.a2a-settings-entry-copy strong { font-size: 16px; }
+.a2a-settings-entry-copy > span { color: #66778c; font-size: 13px; }
+.a2a-settings-entry-copy small { color: #557494; font-size: 12px; }
+.a2a-settings-body { display: grid; gap: 18px; }
+.a2a-settings-intro { margin: 0; color: #66778c; line-height: 1.7; }
+.a2a-setting-row { display: grid; grid-template-columns: 1fr minmax(220px, 42%); align-items: center; gap: 24px; padding: 16px 0; border-bottom: 1px solid #e8edf3; }
+.a2a-setting-row > span { display: grid; gap: 8px; }
+.a2a-setting-row strong { font-size: 15px; }
+.a2a-setting-row small { color: #68798c; line-height: 1.7; }
+.a2a-setting-row select { width: 100%; padding: 10px; border: 1px solid #d8e1ec; border-radius: 8px; background: #fff; color: #304762; }
+.a2a-settings-boundaries,.a2a-settings-preview { padding: 17px 20px; border-radius: 10px; background: #f4f7fa; }
+.a2a-settings-preview { background: #f0f6fc; }
+.a2a-settings-body h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 14px; }
+.a2a-settings-boundaries p,.a2a-settings-preview p { margin: 6px 0; color: #53677e; line-height: 1.8; font-size: 13px; }
+.a2a-settings-footnote { margin: 0; color: #7c8795; font-size: 12px; line-height: 1.6; }
+.a2a-settings-notice { color: #377258; font-size: 13px; }
+.a2a-settings-error { color: #b42318; }
+@media(max-width: 640px) { .a2a-setting-row { grid-template-columns: 1fr; gap: 12px; } .a2a-settings-entry { padding: 18px; gap: 12px; } }

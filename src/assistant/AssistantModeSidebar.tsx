@@ -77,7 +77,8 @@ export default function AssistantModeSidebar({
             { id: 'automation', label: '定时器', icon: Clock3 },
             { id: 'a2a', label: 'A2A 任务', icon: UsersRound },
           ] as const).filter(({ label }) => matches(label)).map(({ id, label, icon: Icon }) => {
-            const active = destination.type === 'feature' && destination.featureId === id
+            const active = (destination.type === 'feature' && destination.featureId === id)
+              || (id === 'a2a' && destination.type === 'conversation')
             return (
               <button
                 key={id}

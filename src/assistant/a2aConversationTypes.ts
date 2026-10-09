@@ -27,6 +27,9 @@ export type A2AConversationMember = {
 }
 
 export type A2AConversation = {
+  completedAt?: string
+  completionSource?: 'host' | 'model'
+  completionReason?: string
   id: string
   title: string
   scope: A2AConversationScope
@@ -49,7 +52,9 @@ export type A2AConversation = {
   pendingCurrentUserConfirmation?: A2AUserConfirmation
 }
 
+export type A2AAttachment = { id: string; name: string; kind: 'markdown' | 'html'; content: string }
 export type A2AConversationMessage = {
+  attachments?: A2AAttachment[]
   id: string
   conversationId: string
   roundId?: string
@@ -286,6 +291,7 @@ export function buildA2ACommand(value: string, conversations: A2AConversation[])
       ? locatedConversation
       : undefined
   const now = Date.now()
+  if (target?.status === 'completed') throw new Error('该会话已完成，不能继续发送消息。')
 
   if (target) {
     return {
@@ -340,6 +346,19 @@ export function buildA2ACommand(value: string, conversations: A2AConversation[])
   }
 }
 
+// Completed example illustrates the model-decision path; it does not run a model.
+seedA2AConversations.push({
+  id: 'a2a-model-completed-demo', title: '评审时间确认（模型判定演示）', scope: 'direct', mechanism: 'collaboration',
+  status: 'completed', hostUserId: 'current-user', hostName: '张三', members: [knownA2AMembers[0]],
+  speakingOrder: [], round: 1, expectedReplyCount: 1, repliedCount: 1, createdAt: '今天 09:00', updatedAt: '今天 09:02',
+  completionSource: 'model', completionReason: '演示判定：本次目标仅确认会议时间；收到明确答复，无待补问题。',
+  preview: '已确认评审时间为下午三点，本次询问结束',
+  demo: { readOnly: true, completionSummary: '评审时间已确认。', replies: {}, messages: [
+    {id:'model-demo-1',conversationId:'a2a-model-completed-demo',actorUserId:'current-user',actorName:'张三',origin:'initiator_twin',content:'请确认今天评审是否改到下午三点。',sequence:1,createdAt:'09:00'},
+    {id:'model-demo-2',conversationId:'a2a-model-completed-demo',actorUserId:'user-li-si',actorName:'李四',origin:'participant_twin',content:'已确认，评审改为下午三点。',sequence:2,createdAt:'09:01'},
+  ] },
+})
+
 export function createSeedConversationMessages(conversation: A2AConversation): A2AConversationMessage[] {
   if (conversation.demo) return conversation.demo.messages
   const baseMessage = {
@@ -362,6 +381,10 @@ export function createSeedConversationMessages(conversation: A2AConversation): A
     id: 'a2a-seed-direct-collaboration',
     roundId: 'round-direct-1',
     content: '请确认供应商本周交付节点和主要风险，今天下班前回复。',
+    attachments: [
+      { id: 'supplier-checklist', name: '供应商交付核对清单.md', kind: 'markdown', content: '# 供应商交付核对清单\n\n> 本文件为原型演示附件。\n\n## 需要确认的内容\n\n- 本周各批次的计划与实际交付节点\n- 尚未到货的物料及影响范围\n- 需要补充核实的风险信息\n\n## 回复要求\n\n请注明信息来源，未确认的内容标记为待核实。' },
+      { id: 'supplier-material', name: '交付沟通说明.html', kind: 'html', content: '<!doctype html><html lang="zh"><meta charset="utf-8"><style>body{font:15px/1.8 system-ui;padding:28px;color:#34465a}h1{font-size:24px}aside{background:#eff5fa;padding:16px;border-radius:10px}</style><h1>交付沟通说明</h1><aside>本页为原型演示附件，不代表真实业务数据。</aside><h2>本次沟通目的</h2><p>核对供应商本周交付节点与主要风险。</p><h2>请提供</h2><ul><li>已核实的交付信息</li><li>仍需补充的材料</li><li>风险说明与依据</li></ul></html>' }
+    ],
     createdAt: '今天 08:40',
   }]
 
@@ -420,3 +443,5 @@ export function createSeedConversationMessages(conversation: A2AConversation): A
     },
   ]
 }
+
+export const fileSize = (content: string) => `${(new Blob([content]).size / 1024).toFixed(1)} KB`

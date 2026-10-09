@@ -898,3 +898,16 @@
   .assistant-message-streaming > span svg { animation: none; }
   .assistant-composer-blocked-message > span svg { animation: none; }
 }
+.assistant-a2a-link { display: inline; margin: 8px 0 0; padding: 0; border: 0; border-radius: 0; background: none; color: #246fa8; font: inherit; cursor: pointer; text-align: left; }
+.assistant-a2a-link:hover { background: none; text-decoration: underline; }
+.assistant-a2a-link:focus-visible { outline: 2px solid #246fa8; outline-offset: 3px; }
+
+.assistant-message--a2a-notice .assistant-message-body { margin-left:44px; }
+.assistant-a2a-reminder { padding:4px 0; }
+.assistant-a2a-reminder + .assistant-a2a-reminder { margin-top:18px; }
+.assistant-a2a-reminder > header { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:10px; }
+.assistant-a2a-source { padding:3px 8px; border-radius:4px; background:#dcf4e7; color:#23764c; font-size:12px; font-weight:600; }
+.assistant-a2a-title { color:#387959; font-size:14px; font-weight:500; overflow-wrap:anywhere; }
+.assistant-a2a-state { color:#84918e; font-size:12px; }
+.assistant-a2a-reminder > p { margin:0; }
+@media(max-width:760px) { .assistant-message--a2a-notice .assistant-message-body { margin-left:0; } }

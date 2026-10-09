@@ -1,3 +1,5 @@
+import { a2aBoardState } from '../assistant/a2aLifecycle'
+import A2ACollaborationSettings from "./A2ACollaborationSettings";
 import { CURRENT_USER, isNewDemoUser, personalStorageKey } from "../role-center/demoAccount";
 import { useFeedback } from "../role-center/feedback";
 import {
@@ -179,25 +181,15 @@ const events: Event[] = [
   },
 ];
 function taskFrom(c: A2AConversation): Task {
-  const status: TaskStatus =
-    c.status === "waiting_user_confirmation"
-      ? "confirm"
-      : c.status === "waiting_replies" || c.status === "response_received"
-        ? "doing"
-        : "done";
-  const speaker =
-    c.members[Math.min(c.repliedCount, Math.max(c.members.length - 1, 0))];
+  const status: TaskStatus = a2aBoardState(c);
   return {
     id: `t-${c.id}`,
     conversationId: c.id,
     title: c.title,
     status,
-    kind: `${c.scope === "group" ? "多人" : "单人"}${c.mechanism === "collaboration" ? "协作" : "通知"}`,
-    owner:
-      status === "doing" && speaker
-        ? `${speaker.name}的数字分身`
-        : `${c.hostName}的数字分身`,
-    people: c.members.map((m) => `${m.name}的数字分身`),
+    kind: c.scope === "group" ? "群聊" : "单人",
+    owner: c.hostName,
+    people: c.members.map((m) => m.name),
     update: c.updatedAt,
     detail:
       c.pendingCurrentUserConfirmation?.question ??
@@ -205,9 +197,9 @@ function taskFrom(c: A2AConversation): Task {
   };
 }
 const cols: [TaskStatus, string, string][] = [
-  ["doing", "进行中", "等待分身回复或继续执行"],
-  ["confirm", "待我确认", "需要你做出决定"],
-  ["done", "已完成", "已送达或协作已结束"],
+  ["confirm", "待我处理", "需要你补充信息或作出决定"],
+  ["doing", "进行中", "仍可继续沟通的会话"],
+  ["done", "已完成", "本次沟通已完成，记录仅供查看"],
 ];
 
 export function A2ATaskBoard({
@@ -217,21 +209,24 @@ export function A2ATaskBoard({
   a2aConversations: A2AConversation[];
   onOpenA2AConversation: (id: string) => void;
 }) {
-  const [taskId, setTaskId] = useState<string | null>(null);
   const tasks = useMemo(() => a2aConversations.map(taskFrom), [a2aConversations]);
-  const selectedTask = tasks.find((task) => task.id === taskId);
+
 
   return (
     <section className="a2a-task-board">
       <header className="a2a-task-board-heading">
         <div>
           <h1>A2A 任务</h1>
-          <p>集中查看协作进度、待确认事项与已完成任务。</p>
+          <p>查看在办通信与需要本人处理的事项。</p>
         </div>
       </header>
-      <div className="board a2a-task-board-grid">
+      <div className="board a2a-task-board-grid is-three-column">
         {cols.map(([id, title, desc]) => {
           const list = tasks.filter((task) => task.status === id);
+          if (id === 'done') list.sort((a, b) => {
+            const time = (conversationId: string) => a2aConversations.find(c => c.id === conversationId)?.completedAt ?? '';
+            return time(b.conversationId).localeCompare(time(a.conversationId));
+          });
           return (
             <section key={id}>
               <header>
@@ -240,7 +235,7 @@ export function A2ATaskBoard({
               </header>
               <div>
                 {list.length ? list.map((task) => (
-                  <button className="task" key={task.id} onClick={() => setTaskId(task.id)}>
+                  <button className="task" key={task.id} onClick={() => onOpenA2AConversation(task.conversationId)}>
                     <span>{task.kind}</span>
                     <b>{task.title}</b>
                     <p>{task.detail}</p>
@@ -248,7 +243,7 @@ export function A2ATaskBoard({
                       {task.people.map((person) => <i key={person}>{person.slice(0, 1)}</i>)}
                       <small>{task.people.join(" · ")}</small>
                     </div>
-                    <footer><span>{task.owner}</span><time>{task.update}</time></footer>
+                    <footer><span>发起人：{task.owner}</span><time>{task.update}</time></footer>
                   </button>
                 )) : <div className="rc"><Empty title={`暂无${title}任务`} /></div>}
               </div>
@@ -256,19 +251,7 @@ export function A2ATaskBoard({
           );
         })}
       </div>
-      {selectedTask && (
-        <Dialog
-          title={selectedTask.title}
-          onClose={() => setTaskId(null)}
-          footer={<><button onClick={() => setTaskId(null)}>关闭</button><button className="rc-primary" onClick={() => { onOpenA2AConversation(selectedTask.conversationId); setTaskId(null); }}>进入对应会话</button></>}
-        >
-          <div className="rc-stack">
-            <p>{selectedTask.detail}</p>
-            <p>执行人：{selectedTask.owner}</p>
-            <p>参与分身：{selectedTask.people.join("、")}</p>
-          </div>
-        </Dialog>
-      )}
+
     </section>
   );
 }
@@ -1252,6 +1235,7 @@ export default function DigitalTwinTrainingWorkspace() {
                 ))}
               </div>
             </section>
+            <A2ACollaborationSettings />
             {!isNewDemoUser() && <PersonalRoles />}
             <section className="flat-section">
               <div className="heading">
