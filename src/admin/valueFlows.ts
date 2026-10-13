@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { availableRole, type Store } from "../role-center/domain";
+import type { Store } from "../role-center/domain";
 
 /**
  * 价值流 = C大脑本体中的业务流程，本项目只读引用。
@@ -48,6 +48,8 @@ export type ValueFlow = {
   updatedAt: string;
   nodes: FlowNode[];
   edges: FlowEdge[];
+  /** 父价值流：子流是父流某个价值节点的分解，本体给出 */
+  parentId?: string;
 };
 
 export const NODE_KIND_LABEL: Record<FlowNodeKind, string> = {
@@ -197,31 +199,6 @@ export function removeBinding(flowId: string, nodeId: string, roleId: string) {
 }
 
 /* ---------------- 派生状态 ---------------- */
-
-export type HolderInfo = { count: number; names: string[] };
-
-/** 谁把这个岗位智能体加到了自己的分身（memberships 实时派生，只读） */
-export function holders(store: Store, roleId: string): HolderInfo {
-  const names: string[] = [];
-  for (const [userId, list] of Object.entries(store.memberships)) {
-    if (!list.some((membership) => membership.roleId === roleId && membership.enabled))
-      continue;
-    const role = store.roles.find((item) => item.id === roleId);
-    if (!role || !availableRole(store, role, userId)) continue;
-    const person = store.people.find((item) => item.id === userId);
-    if (person) names.push(person.name);
-  }
-  return { count: names.length, names };
-}
-
-export function holdersText(info: HolderInfo): string {
-  if (info.count === 0)
-    return "还没人把它加到自己的分身，绑了也暂时没人干活";
-  const listed = info.names.slice(0, 3).join("、");
-  return info.count <= 3
-    ? `${listed} 已把它加到自己的分身`
-    : `${listed} 等 ${info.count} 人已把它加到自己的分身`;
-}
 
 export type FlowStatus = "none" | "partial" | "done";
 
@@ -434,8 +411,306 @@ function buildFullRdFlow(): ValueFlow {
   };
 }
 
+/** 目录中尚未引入本项目的价值流（演示数据，接口会议后替换为 C大脑目录端点） */
+const qualityReviewFlow: ValueFlow = {
+  id: "vf-quality-review",
+  code: "VF-V-021",
+  name: "质量问题整改流程",
+  version: "V1.4",
+  updatedAt: "2026-09-20",
+  nodes: [
+    n("q1", "value", "问题识别与定级", 200, 140, "质量问题模型"),
+    n("q2", "value", "原因分析", 480, 220, "根因分析模型"),
+    n("q3", "value", "整改措施制定", 760, 300, "整改措施模型"),
+    n("q4", "value", "整改验证与闭环", 1040, 380, "闭环验证模型"),
+    n("qd1", "document", "质量问题单", 60, 260),
+    n("qd2", "document", "原因分析报告", 620, 460),
+    n("qd3", "document", "整改验证记录", 1200, 540),
+    n("qo1", "org-owner", "质量管理部", 340, 420),
+    n("qo2", "org-owner", "综合项目室", 900, 140),
+  ],
+  edges: [
+    e("qf1", "flow", "q1", "q2"),
+    e("qf2", "flow", "q2", "q3"),
+    e("qf3", "flow", "q3", "q4"),
+    e("qf4", "flow", "q4", "q2"), // 验证不通过 · 退回重新分析
+    e("qi1", "input", "qd1", "q1"),
+    e("qo-1", "output", "q2", "qd2"),
+    e("qo-2", "output", "q4", "qd3"),
+    e("qw1", "owner", "qo1", "q1"),
+    e("qw2", "owner", "qo1", "q4"),
+    e("qu1", "user", "qo2", "q3"),
+  ],
+};
+
+const equipmentAcceptFlow: ValueFlow = {
+  id: "vf-equipment-accept",
+  code: "VF-P-007",
+  name: "设备到货验收流程",
+  version: "V1.0",
+  updatedAt: "2026-08-30",
+  nodes: [
+    n("a-start", "start", "开始", 100, 240),
+    n("a1", "activity", "到货清点", 340, 240),
+    n("a2", "activity", "性能验收", 620, 240),
+    n("a-end", "end", "结束", 900, 240),
+    n("ad1", "document", "到货交接单", 200, 80),
+    n("ad2", "document", "验收报告", 700, 420),
+    n("ar1", "org-resource", "采购管理部", 480, 80),
+  ],
+  edges: [
+    e("af1", "flow", "a-start", "a1"),
+    e("af2", "flow", "a1", "a2"),
+    e("af3", "flow", "a2", "a-end"),
+    e("ai1", "input", "ad1", "a1"),
+    e("ao1", "output", "a2", "ad2"),
+    e("ares1", "resource", "ar1", "a1"),
+    e("ares2", "resource", "ar1", "a2"),
+  ],
+};
+
+const budgetFlow: ValueFlow = {
+  id: "vf-budget-exec",
+  code: "VF-P-011",
+  name: "预算调整与执行流程",
+  version: "V2.2",
+  updatedAt: "2026-09-12",
+  nodes: [
+    n("b-start", "start", "开始", 100, 240),
+    n("b1", "activity", "提交预算调整", 340, 240),
+    n("b2", "activity", "分析预算影响", 600, 240),
+    n("b3", "activity", "审批调整方案", 860, 240),
+    n("b-end", "end", "结束", 1120, 240),
+    n("bd1", "document", "预算调整申请单", 240, 80),
+    n("bd2", "document", "预算影响分析表", 700, 420),
+    n("br1", "org-resource", "财务部", 480, 80),
+  ],
+  edges: [
+    e("bf1", "flow", "b-start", "b1"),
+    e("bf2", "flow", "b1", "b2"),
+    e("bf3", "flow", "b2", "b3"),
+    e("bf4", "flow", "b3", "b-end"),
+    e("bf5", "flow", "b3", "b1"), // 未通过 · 退回补充
+    e("bi1", "input", "bd1", "b1"),
+    e("bo1", "output", "b2", "bd2"),
+    e("brs1", "resource", "br1", "b2"),
+    e("brs2", "resource", "br1", "b3"),
+  ],
+};
+
+const supplyKitFlow: ValueFlow = {
+  id: "vf-supply-kit",
+  code: "VF-V-033",
+  name: "供应链齐套保障流程",
+  version: "V1.1",
+  updatedAt: "2026-10-02",
+  nodes: [
+    n("s1", "value", "缺件识别", 220, 160, "齐套分析模型"),
+    n("s2", "value", "替代物料评估", 520, 240, "物料替代模型"),
+    n("s3", "value", "到货检验与放行", 820, 320, "检验放行模型"),
+    n("sd1", "document", "缺件清单", 80, 300),
+    n("sd2", "document", "替代物料评估单", 640, 480),
+    n("so1", "org-owner", "供应链管理部", 380, 440),
+    n("so2", "org-owner", "质量管理部", 960, 140),
+  ],
+  edges: [
+    e("sf1", "flow", "s1", "s2"),
+    e("sf2", "flow", "s2", "s3"),
+    e("si1", "input", "sd1", "s1"),
+    e("so-1", "output", "s2", "sd2"),
+    e("sw1", "owner", "so1", "s1"),
+    e("sw2", "owner", "so2", "s3"),
+    e("su1", "user", "so1", "s3"),
+  ],
+};
+
+const docApproveFlow: ValueFlow = {
+  id: "vf-doc-approve",
+  parentId: "vf-product-design",
+  code: "VF-P-015",
+  name: "技术文件审批流程",
+  version: "V1.3",
+  updatedAt: "2026-09-05",
+  nodes: [
+    n("t-start", "start", "开始", 100, 220),
+    n("t1", "activity", "文件编制", 340, 220),
+    n("t2", "activity", "会签审批", 620, 220),
+    n("t-end", "end", "结束", 900, 220),
+    n("td1", "document", "待审技术文件", 240, 70),
+    n("td2", "document", "已会签文件", 700, 400),
+    n("tr1", "org-resource", "综合项目室", 480, 70),
+  ],
+  edges: [
+    e("tf1", "flow", "t-start", "t1"),
+    e("tf2", "flow", "t1", "t2"),
+    e("tf3", "flow", "t2", "t-end"),
+    e("ti1", "input", "td1", "t1"),
+    e("to1", "output", "t2", "td2"),
+    e("trs1", "resource", "tr1", "t2"),
+  ],
+};
+
+/** 产品研发全流程的子流：设计阶段的分解 */
+const uiDesignFlow: ValueFlow = {
+  id: "vf-ui-design",
+  parentId: "vf-full-rd",
+  code: "VF-P-019",
+  name: "软件UI设计流程",
+  version: "V1.0",
+  updatedAt: "2026-09-30",
+  nodes: [
+    n("u-start", "start", "开始", 100, 200),
+    n("u1", "activity", "交互原型设计", 360, 200),
+    n("u2", "activity", "视觉规范输出", 640, 200),
+    n("u-end", "end", "结束", 900, 200),
+    n("ud1", "document", "评审完的PRD文档", 240, 60),
+    n("ud2", "document", "软件UI设计稿", 720, 360),
+    n("ur1", "org-resource", "交互体验室", 480, 60),
+  ],
+  edges: [
+    e("uf1", "flow", "u-start", "u1"),
+    e("uf2", "flow", "u1", "u2"),
+    e("uf3", "flow", "u2", "u-end"),
+    e("ui1", "input", "ud1", "u1"),
+    e("uo1", "output", "u2", "ud2"),
+    e("ur1e", "resource", "ur1", "u1"),
+  ],
+};
+
+/** 产品研发全流程的子流：测试阶段的分解 */
+const testExecFlow: ValueFlow = {
+  id: "vf-test-exec",
+  parentId: "vf-full-rd",
+  code: "VF-V-024",
+  name: "测试执行流程",
+  version: "V1.2",
+  updatedAt: "2026-10-05",
+  nodes: [
+    n("x1", "value", "用例执行", 260, 160, "用例执行模型"),
+    n("x2", "value", "缺陷回归", 560, 240, "缺陷管理模型"),
+    n("x3", "value", "测试结论出具", 860, 320, "测试结论模型"),
+    n("xd1", "document", "测试方案表", 100, 300),
+    n("xd2", "document", "测试报告", 980, 480),
+    n("xo1", "org-owner", "测试运维部", 420, 440),
+  ],
+  edges: [
+    e("xf1", "flow", "x1", "x2"),
+    e("xf2", "flow", "x2", "x3"),
+    e("xf3", "flow", "x2", "x1"), // 回归不通过 · 重执行
+    e("xi1", "input", "xd1", "x1"),
+    e("xo-1", "output", "x3", "xd2"),
+    e("xw1", "owner", "xo1", "x1"),
+    e("xw2", "owner", "xo1", "x3"),
+  ],
+};
+
 export const valueFlows: ValueFlow[] = [
   productDesignFlow,
   systemRdFlow,
   buildFullRdFlow(),
+  qualityReviewFlow,
+  equipmentAcceptFlow,
+  budgetFlow,
+  supplyKitFlow,
+  docApproveFlow,
+  uiDesignFlow,
+  testExecFlow,
 ];
+
+/** 直接子流 */
+export const childFlows = (flowId: string) =>
+  valueFlows.filter((flow) => flow.parentId === flowId);
+
+/** 全部后代流 ID（含自身） */
+export function descendantIds(flowId: string): string[] {
+  const out = [flowId];
+  for (const child of childFlows(flowId)) out.push(...descendantIds(child.id));
+  return out;
+}
+
+/* ---------------- 引入关系（工作队列成员，本项目可写） ----------------
+ * 引入的是引用而非副本：只记录 flowId、引入时版本与引入人；
+ * 节点与边始终以 valueFlows（本体快照）为准。 */
+
+const INTRO_KEY = "comac-flow-introductions-v1";
+export type Introduction = {
+  introducedAt: string;
+  introducedBy: string;
+  versionAtIntro: string;
+};
+export type FlowIntroductions = Record<string, Introduction>;
+
+/** 演示种子：三条已引入；系统产研开发流故意记一个旧版本，用于演示版本漂移提示 */
+const SEED_INTRO: FlowIntroductions = {
+  "vf-product-design": { introducedAt: "2026-09-28 10:20:00", introducedBy: "赵敏", versionAtIntro: "V1.2" },
+  "vf-system-rd": { introducedAt: "2026-09-28 10:24:00", introducedBy: "赵敏", versionAtIntro: "V1.9" },
+  "vf-full-rd": { introducedAt: "2026-10-09 09:10:00", introducedBy: "赵敏", versionAtIntro: "V3.1" },
+  "vf-ui-design": { introducedAt: "2026-10-09 09:16:00", introducedBy: "赵敏", versionAtIntro: "V1.0" },
+};
+
+let introductions: FlowIntroductions = loadIntroductions();
+const introListeners = new Set<() => void>();
+
+function loadIntroductions(): FlowIntroductions {
+  try {
+    const raw = localStorage.getItem(INTRO_KEY);
+    if (raw) {
+      const saved: unknown = JSON.parse(raw);
+      if (saved && typeof saved === "object") return saved as FlowIntroductions;
+    }
+  } catch {
+    /* 浏览器存储不可用时使用种子 */
+  }
+  return structuredClone(SEED_INTRO);
+}
+
+function persistIntros() {
+  try {
+    localStorage.setItem(INTRO_KEY, JSON.stringify(introductions));
+  } catch {
+    /* 保持当前会话可用 */
+  }
+  introListeners.forEach((listener) => listener());
+}
+
+export function useFlowIntroductions(): FlowIntroductions {
+  return useSyncExternalStore(
+    (listener) => {
+      introListeners.add(listener);
+      return () => introListeners.delete(listener);
+    },
+    () => introductions,
+  );
+}
+
+export function introduceFlow(flowId: string, by = "赵敏") {
+  const flow = valueFlows.find((item) => item.id === flowId);
+  if (!flow || introductions[flowId]) return;
+  // 子流是父流的分解：父流未引入时不允许单独引入子流
+  if (flow.parentId && !introductions[flow.parentId]) return;
+  introductions = {
+    ...introductions,
+    [flowId]: {
+      introducedAt: new Date().toISOString().slice(0, 19).replace("T", " "),
+      introducedBy: by,
+      versionAtIntro: flow.version,
+    },
+  };
+  persistIntros();
+}
+
+/** 取消引入：全量删除引入记录与该流（含已引入子流）的全部绑定。绑定不是创造型资产，不设归档态。 */
+export function removeIntroducedFlow(flowId: string) {
+  const targets = new Set(descendantIds(flowId));
+  const nextBindings: FlowBindings = {};
+  for (const [key, value] of Object.entries(bindings)) {
+    const owner = key.split("#")[0];
+    if (!targets.has(owner)) nextBindings[key] = value;
+  }
+  bindings = nextBindings;
+  persist();
+  const next = { ...introductions };
+  for (const id of targets) delete next[id];
+  introductions = next;
+  persistIntros();
+}

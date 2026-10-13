@@ -1,10 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Maximize2, Search, ZoomIn, ZoomOut } from "lucide-react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
+import { Maximize2, ZoomIn, ZoomOut } from "lucide-react";
 import {
   EDGE_KIND_LABEL,
-  NODE_KIND_LABEL,
   bindingKey,
   isBindable,
+  type FlowEdge,
   type FlowEdgeKind,
   type FlowNode,
   type FlowNodeKind,
@@ -24,20 +30,91 @@ const NODE_STYLE: Record<
   FlowNodeKind,
   { stroke: string; fill: string; chip: string; chipText: string }
 > = {
-  value: { stroke: "#35b8c9", fill: "#f2fbfd", chip: "#35b8c9", chipText: "V" },
-  activity: { stroke: "#e8875a", fill: "#fdf6f1", chip: "#e8875a", chipText: "P" },
-  "org-owner": { stroke: "#b9a6e0", fill: "#f7f4fc", chip: "#9077c9", chipText: "D" },
-  "org-resource": { stroke: "#9aa7b5", fill: "#f5f7f9", chip: "#7d8b99", chipText: "R" },
-  document: { stroke: "#8fbf6f", fill: "#f4faee", chip: "#6da24e", chipText: "" },
+  // 可绑定节点用更饱和的描边，与只读上下文拉开视觉层级
+  value: { stroke: "#22a3b8", fill: "#f2fbfd", chip: "#22a3b8", chipText: "V" },
+  activity: { stroke: "#e07a48", fill: "#fdf6f1", chip: "#e07a48", chipText: "P" },
+  "org-owner": { stroke: "#c0b0e2", fill: "#f8f6fc", chip: "#9077c9", chipText: "D" },
+  "org-resource": { stroke: "#a7b3c0", fill: "#f6f8fa", chip: "#7d8b99", chipText: "R" },
+  document: { stroke: "#a3c98a", fill: "#f6fbf1", chip: "#6da24e", chipText: "" },
   start: { stroke: "#9aa7b5", fill: "#ffffff", chip: "", chipText: "" },
   end: { stroke: "#9aa7b5", fill: "#ffffff", chip: "", chipText: "" },
 };
 
-function nodeSize(node: FlowNode) {
+/** 芯片最多显示字数：由卡片宽度决定，尽量显示全名 */
+const chipMaxChars = (cardWidth: number) => Math.max(4, Math.floor((cardWidth - 44) / 10.5));
+const chipWidth = (name: string, maxChars: number) => Math.min(name.length, maxChars) * 10.5 + 24;
+
+/** 芯片按卡片可用宽度贪心分行，最多两行；nodeSize 与渲染共用，保证高度一致 */
+function chipLayout(names: string[], cardWidth: number, maxChars: number): string[][] {
+  const budget = cardWidth - 20;
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let rowW = 0;
+  for (const nm of names) {
+    const cw = chipWidth(nm, maxChars) + 5;
+    if (row.length && rowW + cw > budget) {
+      rows.push(row);
+      row = [];
+      rowW = 0;
+      if (rows.length === 2) return rows;
+    }
+    row.push(nm);
+    rowW += cw;
+  }
+  if (row.length && rows.length < 2) rows.push(row);
+  return rows;
+}
+
+function nodeSize(node: FlowNode, chipNames?: string[]) {
   if (node.kind === "start" || node.kind === "end") return { w: 68, h: 68 };
-  const w = Math.min(236, Math.max(116, node.name.length * 13 + 44));
-  const h = isBindable(node.kind) ? 66 : 46;
+  // 名称与「关联模型」副行都参与定宽，尽量整行放下，放不下再折行截断
+  const subW = node.linkedModel ? (node.linkedModel.length + 5) * 10 + 24 : 0;
+  const w = Math.min(236, Math.max(116, node.name.length * 13 + 44, subW));
+  const rows = chipNames ? chipLayout(chipNames, w, chipMaxChars(w)).length : 0;
+  const h = (isBindable(node.kind) ? 66 : 46) + rows * 22;
   return { w, h };
+}
+
+/** 估算文本宽度：CJK ≈ 1em，拉丁/数字 ≈ 0.56em，超出折行宽度则截断加省略号 */
+function fitText(text: string, maxWidth: number, fontSize: number): string {
+  const widthOf = (ch: string) =>
+    (/[⺀-鿿　-〿＀-｠가-힯]/.test(ch) ? 1 : 0.56) * fontSize;
+  let total = 0;
+  for (const ch of text) total += widthOf(ch);
+  if (total <= maxWidth) return text;
+  let acc = 0;
+  let out = "";
+  for (const ch of text) {
+    const w = widthOf(ch);
+    if (acc + w > maxWidth - fontSize * 0.8) break;
+    out += ch;
+    acc += w;
+  }
+  return `${out}…`;
+}
+
+/** 从节点中心朝 (tx,ty) 方向求边界交点，让连线端点停在形状外沿而不是穿过卡片 */
+function boundaryPoint(
+  node: FlowNode,
+  size: { w: number; h: number },
+  tx: number,
+  ty: number,
+  gap: number,
+) {
+  const dx = tx - node.x;
+  const dy = ty - node.y;
+  if (node.kind === "start" || node.kind === "end") {
+    const dist = Math.hypot(dx, dy) || 1;
+    const r = size.h / 2 + gap;
+    return { x: node.x + (dx / dist) * r, y: node.y + (dy / dist) * r };
+  }
+  const hw = size.w / 2 + gap;
+  const hh = size.h / 2 + gap;
+  const sx = dx === 0 ? Infinity : hw / Math.abs(dx);
+  const sy = dy === 0 ? Infinity : hh / Math.abs(dy);
+  const s = Math.min(sx, sy);
+  if (!isFinite(s)) return { x: node.x + hw, y: node.y };
+  return { x: node.x + dx * s, y: node.y + dy * s };
 }
 
 type Transform = { x: number; y: number; k: number };
@@ -45,26 +122,25 @@ type Transform = { x: number; y: number; k: number };
 export default function FlowGraphCanvas({
   flow,
   bindings,
+  roleNames,
   selectedNodeId,
   onSelectNode,
-  onInspectNode,
   focusNodeId,
   focusNonce,
 }: {
   flow: ValueFlow;
   bindings: Record<string, string[]>;
+  roleNames: Record<string, string>;
   selectedNodeId: string | null;
   onSelectNode: (nodeId: string | null) => void;
-  onInspectNode: (nodeId: string) => void;
   focusNodeId: string | null;
   focusNonce: number;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
+  const minimapRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState<Transform>({ x: 40, y: 40, k: 0.6 });
   const [hoverNode, setHoverNode] = useState<string | null>(null);
   const [hoverEdge, setHoverEdge] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
-  const [legendOpen, setLegendOpen] = useState(false);
   const drag = useRef<{ x: number; y: number } | null>(null);
 
   const bounds = useMemo(() => {
@@ -96,7 +172,29 @@ export default function FlowGraphCanvas({
     fit();
     setHoverNode(null);
     setHoverEdge(null);
-    setQuery("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flow.id]);
+
+  // 容器尺寸变化（如绑定面板开合）时重新适应全图，避免节点被裁切
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    let last = { w: el.clientWidth, h: el.clientHeight };
+    const observer = new ResizeObserver(() => {
+      const { clientWidth: w, clientHeight: h } = el;
+      if (Math.abs(w - last.w) < 24 && Math.abs(h - last.h) < 24) return;
+      const prev = last;
+      last = { w, h };
+      // 容器尺寸变化（开合绑定面板、窗口缩放）时保持视野：
+      // 原容器中心对应的世界点仍居中，缩放比不变。不重置用户已调好的位置。
+      setTransform((current) => {
+        const wx = (prev.w / 2 - current.x) / current.k;
+        const wy = (prev.h / 2 - current.y) / current.k;
+        return { ...current, x: w / 2 - wx * current.k, y: h / 2 - wy * current.k };
+      });
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flow.id]);
 
@@ -145,6 +243,70 @@ export default function FlowGraphCanvas({
     });
   };
 
+  const nodeById = useMemo(
+    () => new Map(flow.nodes.map((node) => [node.id, node])),
+    [flow],
+  );
+  const roleName = (roleId: string) => roleNames[roleId] || roleId;
+
+  const sizeById = useMemo(
+    () =>
+      new Map(
+        flow.nodes.map((node) => {
+          const names = (bindings[bindingKey(flow.id, node.id)] || []).map(roleName);
+          return [node.id, nodeSize(node, names)];
+        }),
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [flow, bindings, roleNames],
+  );
+
+  /**
+   * 边几何：
+   * - 端点裁剪到节点边界（矩形/圆求交），箭头不再被卡片盖住；
+   * - 同一对节点间的多条边（平行/双向）按组分配弯曲偏移，避免重叠；
+   * - 弯曲量随距离自适应并设上下限，长边不再甩出大弧。
+   */
+  const edgeGeoms = useMemo(() => {
+    const pairKey = (edge: FlowEdge) =>
+      edge.from < edge.to ? `${edge.from}\u0000${edge.to}` : `${edge.to}\u0000${edge.from}`;
+    const totals = new Map<string, number>();
+    for (const edge of flow.edges) {
+      const key = pairKey(edge);
+      totals.set(key, (totals.get(key) || 0) + 1);
+    }
+    const seen = new Map<string, number>();
+    const geoms = new Map<string, { d: string; mid: { x: number; y: number } }>();
+    for (const edge of flow.edges) {
+      const from = nodeById.get(edge.from);
+      const to = nodeById.get(edge.to);
+      const fromSize = sizeById.get(edge.from);
+      const toSize = sizeById.get(edge.to);
+      if (!from || !to || !fromSize || !toSize) continue;
+      const key = pairKey(edge);
+      const idx = seen.get(key) || 0;
+      seen.set(key, idx + 1);
+      const total = totals.get(key) || 1;
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      const base = Math.min(46, Math.max(14, dist * 0.12));
+      const bend = total === 1 ? base : base * 0.55 + (idx - (total - 1) / 2) * 34;
+      const cx = (from.x + to.x) / 2 + (-dy / dist) * bend;
+      const cy = (from.y + to.y) / 2 + (dx / dist) * bend;
+      const start = boundaryPoint(from, fromSize, cx, cy, 3);
+      const end = boundaryPoint(to, toSize, cx, cy, 5);
+      geoms.set(edge.id, {
+        d: `M ${start.x.toFixed(1)} ${start.y.toFixed(1)} Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${end.x.toFixed(1)} ${end.y.toFixed(1)}`,
+        mid: {
+          x: 0.25 * start.x + 0.5 * cx + 0.25 * end.x,
+          y: 0.25 * start.y + 0.5 * cy + 0.25 * end.y,
+        },
+      });
+    }
+    return geoms;
+  }, [flow, nodeById, sizeById]);
+
   const connected = useMemo(() => {
     if (!hoverNode) return null;
     const nodes = new Set([hoverNode]);
@@ -159,22 +321,28 @@ export default function FlowGraphCanvas({
     return { nodes, edges };
   }, [hoverNode, flow]);
 
-  const showAllLabels = transform.k >= 0.85;
-  const matches = query.trim()
-    ? flow.nodes.filter((node) => node.name.includes(query.trim())).slice(0, 8)
-    : [];
+  // 缩放分级显示标签：全图视野只保留结构，中距显示执行顺序，近距显示全部。
+  // 阈值按「屏幕像素下 10px 字号是否还可读」定，避免 fit 大图时糊成一片。
+  const showAllLabels = transform.k >= 0.8;
+  const showFlowLabels = transform.k >= 0.62;
+  // 线宽随缩小做平方根补偿：fit 大图时线条仍保持可读的屏幕像素宽度
+  const strokeScale = Math.min(1.8, Math.max(1, 1 / Math.sqrt(transform.k)));
+  const nodeStrokeScale = Math.min(1.5, strokeScale);
 
-  const edgePath = (from: FlowNode, to: FlowNode) => {
-    const dx = to.x - from.x;
-    const dy = to.y - from.y;
-    const mx = (from.x + to.x) / 2 - dy * 0.12;
-    const my = (from.y + to.y) / 2 + dx * 0.12;
-    return `M ${from.x} ${from.y} Q ${mx} ${my} ${to.x} ${to.y}`;
-  };
-  const edgeMid = (from: FlowNode, to: FlowNode) => {
-    const dx = to.x - from.x;
-    const dy = to.y - from.y;
-    return { x: (from.x + to.x) / 2 - dy * 0.06, y: (from.y + to.y) / 2 + dx * 0.06 };
+  // 小地图交互：点击/拖动把视野中心移到对应世界坐标
+  const miniPan = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const el = wrapRef.current;
+    const svg = minimapRef.current?.querySelector("svg");
+    if (!el || !svg) return;
+    const rect = svg.getBoundingClientRect();
+    const wx = (event.clientX - rect.left) / miniScale + bounds.minX;
+    const wy = (event.clientY - rect.top) / miniScale + bounds.minY;
+    const view = el.getBoundingClientRect();
+    setTransform((current) => ({
+      ...current,
+      x: view.width / 2 - wx * current.k,
+      y: view.height / 2 - wy * current.k,
+    }));
   };
 
   const world = {
@@ -187,6 +355,7 @@ export default function FlowGraphCanvas({
   const miniScale = Math.min(mini.w / (bounds.maxX - bounds.minX), mini.h / (bounds.maxY - bounds.minY));
 
   return (
+    <div className="fd-canvas-block">
     <div className="fg-wrap" ref={wrapRef}>
       <svg
         className="fg-svg"
@@ -195,8 +364,11 @@ export default function FlowGraphCanvas({
           (event.target as Element).setPointerCapture?.(event.pointerId);
         }}
         onPointerMove={(event) => {
-          if (!drag.current) return;
-          setTransform((current) => ({ ...current, x: event.clientX - drag.current!.x, y: event.clientY - drag.current!.y }));
+          const origin = drag.current;
+          if (!origin) return;
+          const nextX = event.clientX - origin.x;
+          const nextY = event.clientY - origin.y;
+          setTransform((current) => ({ ...current, x: nextX, y: nextY }));
         }}
         onPointerUp={() => {
           drag.current = null;
@@ -209,21 +381,57 @@ export default function FlowGraphCanvas({
               <path d="M 0 0 L 10 5 L 0 10 z" fill={EDGE_COLORS[kind]} />
             </marker>
           ))}
+          <filter id="fg-card-shadow" x="-25%" y="-25%" width="150%" height="150%">
+            <feDropShadow dx="0" dy="1.5" stdDeviation="2.5" floodColor="#1d3a5c" floodOpacity="0.16" />
+          </filter>
+          <pattern id="fg-dots" width="26" height="26" patternUnits="userSpaceOnUse">
+            <circle cx="1.3" cy="1.3" r={Math.min(4.5, 1.5 / transform.k)} fill="#cfd9e5" />
+          </pattern>
         </defs>
         <g transform={`translate(${transform.x} ${transform.y}) scale(${transform.k})`}>
+          <rect
+            x={bounds.minX - 4000}
+            y={bounds.minY - 4000}
+            width={bounds.maxX - bounds.minX + 8000}
+            height={bounds.maxY - bounds.minY + 8000}
+            fill="url(#fg-dots)"
+            pointerEvents="none"
+          />
           {flow.edges.map((edge) => {
-            const from = flow.nodes.find((node) => node.id === edge.from);
-            const to = flow.nodes.find((node) => node.id === edge.to);
-            if (!from || !to) return null;
+            const geom = edgeGeoms.get(edge.id);
+            if (!geom) return null;
             const dim = connected && !connected.edges.has(edge.id);
-            const labelVisible = showAllLabels || hoverEdge === edge.id || (hoverNode !== null && (edge.from === hoverNode || edge.to === hoverNode));
-            const mid = edgeMid(from, to);
+            const emphasized =
+              hoverEdge === edge.id ||
+              (!!hoverNode && (edge.from === hoverNode || edge.to === hoverNode)) ||
+              (!!selectedNodeId && (edge.from === selectedNodeId || edge.to === selectedNodeId));
+            const labelVisible =
+              showAllLabels ||
+              (showFlowLabels && edge.kind === "flow") ||
+              emphasized;
+            const baseWidth = (edge.kind === "flow" ? 2.2 : 1.3) * strokeScale;
+            const flowing =
+              !!selectedNodeId && (edge.from === selectedNodeId || edge.to === selectedNodeId);
             return (
-              <g key={edge.id} opacity={dim ? 0.16 : 1}>
-                <path d={edgePath(from, to)} fill="none" stroke={EDGE_COLORS[edge.kind]} strokeWidth={hoverEdge === edge.id ? 2.4 : 1.4} markerEnd={`url(#fg-arrow-${edge.kind})`} />
-                <path d={edgePath(from, to)} fill="none" stroke="transparent" strokeWidth={14} style={{ pointerEvents: "stroke", cursor: "pointer" }} onPointerEnter={() => setHoverEdge(edge.id)} onPointerLeave={() => setHoverEdge(null)} onClick={(event) => event.stopPropagation()} />
+              <g key={edge.id} opacity={dim ? 0.18 : 1}>
+                <path d={geom.d} fill="none" stroke={EDGE_COLORS[edge.kind]} strokeWidth={emphasized ? baseWidth + 0.9 : baseWidth} strokeOpacity={flowing ? 0.18 : 1} markerEnd={`url(#fg-arrow-${edge.kind})`} />
+                {flowing && (
+                  <path
+                    d={geom.d}
+                    fill="none"
+                    stroke={EDGE_COLORS[edge.kind]}
+                    strokeWidth={baseWidth + 0.7}
+                    strokeLinecap="round"
+                    strokeDasharray="9 8"
+                    className="fg-flow-anim"
+                    pointerEvents="none"
+                  />
+                )}
+                <path d={geom.d} fill="none" stroke="transparent" strokeWidth={14} style={{ pointerEvents: "stroke", cursor: "pointer" }} onPointerEnter={() => setHoverEdge(edge.id)} onPointerLeave={() => setHoverEdge(null)} onClick={(event) => event.stopPropagation()}>
+                  <title>{`${EDGE_KIND_LABEL[edge.kind]}：${nodeById.get(edge.from)?.name || edge.from} → ${nodeById.get(edge.to)?.name || edge.to}`}</title>
+                </path>
                 {labelVisible && (
-                  <text x={mid.x} y={mid.y - 6} className="fg-edge-label" fill={EDGE_COLORS[edge.kind]} textAnchor="middle">
+                  <text x={geom.mid.x} y={geom.mid.y - 6} className="fg-edge-label" fill={EDGE_COLORS[edge.kind]} textAnchor="middle">
                     {EDGE_KIND_LABEL[edge.kind]}
                   </text>
                 )}
@@ -231,67 +439,113 @@ export default function FlowGraphCanvas({
             );
           })}
           {flow.nodes.map((node) => {
-            const { w, h } = nodeSize(node);
+            const { w, h } = sizeById.get(node.id) || nodeSize(node);
             const style = NODE_STYLE[node.kind];
             const dim = connected && !connected.nodes.has(node.id);
             const bindable = isBindable(node.kind);
             const count = (bindings[bindingKey(flow.id, node.id)] || []).length;
             const selected = selectedNodeId === node.id;
+            const hovered = hoverNode === node.id;
             const circle = node.kind === "start" || node.kind === "end";
+            const name = fitText(node.name, w - (circle ? 14 : 40), 13);
+            const sub = node.linkedModel ? fitText(`关联模型：${node.linkedModel}`, w - 24, 10) : null;
+            const nameY = -h / 2 + (sub ? 26 : 33);
+            const subY = -h / 2 + 47;
+            const textX = circle ? 0 : -w / 2 + 32;
+            const boundIds = bindable ? bindings[bindingKey(flow.id, node.id)] || [] : [];
+            const boundNames = boundIds.map(roleName);
+            const maxChars = chipMaxChars(w);
+            const chipRowsLayout = chipLayout(boundNames, w, maxChars);
+            const chipRows = chipRowsLayout.length;
+            const overflow = boundNames.length - chipRowsLayout.flat().length;
+            const tip = `${node.name}${node.linkedModel ? ` · 关联模型：${node.linkedModel}` : ""}\n${
+              bindable
+                ? count
+                  ? `已绑定 ${count} 个岗位智能体 · 点击配置绑定`
+                  : "待配置 · 点击绑定岗位智能体"
+                : "只读上下文 · 悬停查看关联"
+            }`;
             return (
               <g
                 key={node.id}
                 transform={`translate(${node.x} ${node.y})`}
-                opacity={dim ? 0.22 : 1}
-                style={{ cursor: "pointer" }}
+                opacity={dim ? 0.3 : 1}
+                style={{ cursor: bindable ? "pointer" : "default" }}
                 onPointerEnter={() => setHoverNode(node.id)}
                 onPointerLeave={() => setHoverNode(null)}
                 onPointerDown={(event) => event.stopPropagation()}
                 onClick={(event) => {
+                  if (!bindable) return;
                   event.stopPropagation();
-                  if (bindable) onSelectNode(node.id);
-                  else onInspectNode(node.id);
+                  onSelectNode(node.id);
                 }}
               >
-                {selected && !circle && <rect x={-w / 2 - 5} y={-h / 2 - 5} width={w + 10} height={h + 10} rx={12} fill="none" stroke="#146abd" strokeWidth={2} />}
-                {selected && circle && <circle r={h / 2 + 5} fill="none" stroke="#146abd" strokeWidth={2} />}
-                {circle ? (
-                  <circle r={h / 2} fill={style.fill} stroke={style.stroke} strokeWidth={1.4} />
-                ) : (
-                  <rect x={-w / 2} y={-h / 2} width={w} height={h} rx={8} fill={style.fill} stroke={style.stroke} strokeWidth={1.4} strokeDasharray={node.kind === "value" ? "5 4" : undefined} />
+                <title>{tip}</title>
+                {selected && !circle && <rect x={-w / 2 - 6} y={-h / 2 - 6} width={w + 12} height={h + 12} rx={12} fill="none" stroke="#146abd" strokeWidth={2.4} />}
+                {selected && circle && <circle r={h / 2 + 6} fill="none" stroke="#146abd" strokeWidth={2.4} />}
+                {bindable && count === 0 && !selected && (
+                  <rect className="fg-todo-ring" style={{ strokeWidth: 1.6 * nodeStrokeScale }} x={-w / 2 - 4} y={-h / 2 - 4} width={w + 8} height={h + 8} rx={11} />
                 )}
                 {circle ? (
-                  <text textAnchor="middle" dominantBaseline="central" className="fg-node-name">{node.name}</text>
+                  <circle r={h / 2} fill={style.fill} stroke={style.stroke} strokeWidth={(hovered ? 2.4 : 1.4) * nodeStrokeScale} />
+                ) : (
+                  <rect
+                    x={-w / 2}
+                    y={-h / 2}
+                    width={w}
+                    height={h}
+                    rx={8}
+                    fill={style.fill}
+                    stroke={style.stroke}
+                    strokeWidth={(hovered ? (bindable ? 3 : 2.2) : bindable ? 2 : 1.2) * nodeStrokeScale}
+                    filter={bindable ? "url(#fg-card-shadow)" : undefined}
+                  />
+                )}
+                {circle ? (
+                  <text textAnchor="middle" dominantBaseline="central" className="fg-node-name">{name}</text>
                 ) : (
                   <>
                     {style.chipText && (
-                      <rect x={-w / 2 + 9} y={-h / 2 + 9} width={16} height={16} rx={4} fill={style.chip} />
+                      <rect x={-w / 2 + 9} y={nameY - 8} width={16} height={16} rx={4} fill={style.chip} />
                     )}
                     {style.chipText && (
-                      <text x={-w / 2 + 17} y={-h / 2 + 17} textAnchor="middle" dominantBaseline="central" className="fg-chip-text">{style.chipText}</text>
+                      <text x={-w / 2 + 17} y={nameY} textAnchor="middle" dominantBaseline="central" className="fg-chip-text">{style.chipText}</text>
                     )}
                     {!style.chipText && node.kind === "document" && (
-                      <rect x={-w / 2 + 9} y={-h / 2 + 10} width={13} height={16} rx={2} fill="none" stroke={style.chip} strokeWidth={1.6} />
+                      <rect x={-w / 2 + 10} y={nameY - 8} width={13} height={16} rx={2} fill="none" stroke={style.chip} strokeWidth={1.6} />
                     )}
-                    <text x={style.chipText || node.kind === "document" ? -w / 2 + 32 : 0} y={node.linkedModel ? -6 : 0} textAnchor={style.chipText || node.kind === "document" ? "start" : "middle"} dominantBaseline="central" className="fg-node-name">
-                      {node.name}
+                    <text x={textX} y={nameY} textAnchor={circle ? "middle" : "start"} dominantBaseline="central" className={bindable ? "fg-node-name" : "fg-node-name fg-node-name--ctx"}>
+                      {name}
                     </text>
-                    {node.linkedModel && (
-                      <text x={-w / 2 + 10} y={14} textAnchor="start" className="fg-node-sub">
-                        关联模型：{node.linkedModel}
+                    {sub && (
+                      <text x={-w / 2 + 12} y={subY} textAnchor="start" className="fg-node-sub">
+                        {sub}
                       </text>
                     )}
+                    {chipRows > 0 &&
+                      chipRowsLayout.flatMap((rowNames, row) => {
+                        const rowBottom = h / 2 - 6 - (chipRows - 1 - row) * 22;
+                        let x = -w / 2 + 10;
+                        return rowNames.map((chipName, col) => {
+                          const cw = chipWidth(chipName, maxChars);
+                          const cx = x;
+                          x += cw + 5;
+                          const isLast = row === chipRows - 1 && col === rowNames.length - 1;
+                          return (
+                            <g key={chipName + row + col} transform={`translate(${cx} ${rowBottom - 17})`}>
+                              <rect width={cw} height={17} rx={8.5} fill="#e8f2fc" stroke="#b9d4ee" strokeWidth={0.8} />
+                              <circle cx={8} cy={8.5} r={2.6} fill="#146abd" />
+                              <text x={14} y={8.5} dominantBaseline="central" className="fg-chip-name">
+                                {chipName.length > maxChars ? `${chipName.slice(0, maxChars)}…` : chipName}
+                              </text>
+                              {isLast && overflow > 0 && (
+                                <text x={cw + 8} y={8.5} dominantBaseline="central" className="fg-chip-more">+{overflow}</text>
+                              )}
+                            </g>
+                          );
+                        });
+                      })}
                   </>
-                )}
-                {bindable && (
-                  count > 0 ? (
-                    <g transform={`translate(${w / 2 - 2} ${-h / 2 + 2})`}>
-                      <circle r={10} fill="#146abd" />
-                      <text textAnchor="middle" dominantBaseline="central" className="fg-badge-text">{count}</text>
-                    </g>
-                  ) : (
-                    <circle cx={w / 2 - 2} cy={-h / 2 + 2} r={8} fill="#ffffff" stroke="#146abd" strokeWidth={1.6} />
-                  )
                 )}
               </g>
             );
@@ -305,22 +559,19 @@ export default function FlowGraphCanvas({
         <button type="button" title="适应全图" onClick={fit}><Maximize2 size={16} /></button>
       </div>
 
-      <div className="fg-search">
-        <Search size={15} />
-        <input value={query} placeholder="搜索节点名称" onChange={(event) => setQuery(event.target.value)} />
-        {matches.length > 0 && (
-          <div className="fg-search-list">
-            {matches.map((node) => (
-              <button type="button" key={node.id} onClick={() => { centerOn(node.id, 1.1); setQuery(""); if (isBindable(node.kind)) onSelectNode(node.id); }}>
-                <span>{NODE_KIND_LABEL[node.kind]}</span>
-                <strong>{node.name}</strong>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="fg-minimap" aria-hidden>
+      <div
+        className="fg-minimap"
+        ref={minimapRef}
+        role="img"
+        aria-label="缩略导航图，点击或拖动可移动视野"
+        onPointerDown={(event) => {
+          event.currentTarget.setPointerCapture(event.pointerId);
+          miniPan(event);
+        }}
+        onPointerMove={(event) => {
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) miniPan(event);
+        }}
+      >
         <svg width={mini.w} height={mini.h}>
           {flow.nodes.map((node) => (
             <rect
@@ -335,28 +586,7 @@ export default function FlowGraphCanvas({
           <rect x={(world.x - bounds.minX) * miniScale} y={(world.y - bounds.minY) * miniScale} width={world.w * miniScale} height={world.h * miniScale} fill="rgba(20,106,189,0.12)" stroke="#146abd" strokeWidth={1} />
         </svg>
       </div>
-
-      <button type="button" className="fg-legend-toggle" onClick={() => setLegendOpen((open) => !open)}>
-        {legendOpen ? "收起图例" : "图例"}
-      </button>
-      {legendOpen && (
-        <div className="fg-legend">
-          <section>
-            <h4>节点</h4>
-            {(Object.keys(NODE_KIND_LABEL) as FlowNodeKind[]).map((kind) => (
-              <p key={kind}><i className={`fg-dot fg-dot--${kind}`} />{NODE_KIND_LABEL[kind]}{isBindable(kind) ? "（可绑定）" : ""}</p>
-            ))}
-            <p><i className="fg-dot fg-dot--bound" />角标数字 = 已绑智能体数</p>
-            <p><i className="fg-dot fg-dot--empty" />空心角标 = 未绑定</p>
-          </section>
-          <section>
-            <h4>连线</h4>
-            {(Object.keys(EDGE_KIND_LABEL) as FlowEdgeKind[]).map((kind) => (
-              <p key={kind}><i className="fg-line" style={{ background: EDGE_COLORS[kind] }} />{EDGE_KIND_LABEL[kind]}</p>
-            ))}
-          </section>
-        </div>
-      )}
+    </div>
     </div>
   );
 }
