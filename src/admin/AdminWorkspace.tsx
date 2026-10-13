@@ -2,6 +2,7 @@ import { useFeedback } from "../role-center/feedback";
 import { useEffect, useState } from "react";
 import ProcessSimulationPage from "../process-simulation/ProcessSimulationPage";
 import DefinitionWorkspace from "./DefinitionWorkspace";
+import FlowDefinition from "./FlowDefinition";
 import type { Position } from "./positionModels";
 import RoleAgentWorkspace from "./RoleAgentWorkspace";
 import AdminSidebar from "./AdminSidebar";
@@ -49,12 +50,18 @@ export default function AdminWorkspace({ onReturn }: { onReturn: () => void }) {
         onAccount={(id) => navigate(() => actions.setAdmin(id))}
       />
       <main className="admin-content">
-        {activePage === "organizationDefinition" || activePage === "processDefinition" ? (
-          <DefinitionWorkspace page={activePage} onTrial={() => setActivePage("processSimulation")} onConfigure={(position) => {
-            setEntryPosition(position);
-            setViewKey(n => n + 1);
-            setActivePage("roleAgents");
-          }} />
+        {activePage === "organizationDefinition" ? (
+          <DefinitionWorkspace
+            page="organizationDefinition"
+            onTrial={() => setActivePage("processSimulation")}
+            onConfigure={(position) => {
+              setEntryPosition(position);
+              setViewKey((n) => n + 1);
+              setActivePage("roleAgents");
+            }}
+          />
+        ) : activePage === "processDefinition" ? (
+          <FlowDefinition />
         ) : activePage === "roleAgents" ? (
           <RoleAgentWorkspace
             key={viewKey}
