@@ -373,7 +373,7 @@ export default function FlowGraphCanvas({
         onPointerUp={() => {
           drag.current = null;
         }}
-        onClick={() => onSelectNode(null)}
+
       >
         <defs>
           {(Object.keys(EDGE_COLORS) as FlowEdgeKind[]).map((kind) => (
