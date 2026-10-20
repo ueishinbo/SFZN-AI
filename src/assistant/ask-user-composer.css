@@ -14,5 +14,12 @@
 .ask-user-composer-options strong { font-size: 14px; font-weight: 600; }
 .ask-user-composer-options small { color: #7b8895; font-size: 12px; line-height: 1.5; }
 .ask-user-waiting { font-size: 12px; color: #8593a1; margin: 12px; }
+.ask-user-member-option { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 8px; cursor: pointer; }
+.ask-user-member-option:hover { background: #f1f3f5; }
+.ask-user-member-option input { accent-color: #397aa6; }
+.ask-user-composer .ask-user-composer-options > button:disabled { opacity: .45; cursor: not-allowed; }
 .a2a-private-assistant > header:has(.a2a-right-view-tabs) { padding-right: 14px; }
 .a2a-right-view-tabs button { white-space: nowrap; }
+.ask-user-field { display: grid; gap: 6px; padding: 8px 12px; font-size: 13px; }
+.ask-user-composer .ask-user-field textarea, .ask-user-composer .ask-user-field input { box-sizing: border-box; width: 100%; height: auto; padding: 10px; border: 1px solid #dce1e6; border-radius: 8px; font: inherit; background: #fff; }
+.ask-user-composer .ask-user-field textarea { min-height: 72px; resize: vertical; }

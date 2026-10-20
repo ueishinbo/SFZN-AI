@@ -1,3 +1,4 @@
+import { CBrainAskUser } from './CBrainAskUser'
 import { A2AIntentDemo, type IntentDemoQuestion } from './A2AIntentDemo'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -65,10 +66,16 @@ type AssistantMessage = {
   retrySubagent?: boolean
   a2aReminders?: { conversationId: string; requestId: string; title: string; question: string }[]
   askUserDemo?: IntentDemoQuestion
+  groupDraft?: { goal: string; members?: string }
   a2aConversationId?: string
+  delegatedTaskId?: string
+  cBrainLink?: string
+  cBrainQuestion?: 'category' | 'form'
 }
 
 type AssistantWorkspaceProps = {
+  onCreateTask: (goal:string)=>string
+  onOpenTask: (id:string)=>void
   onCreateReminderAutomation: (item: CollaborationItem) => boolean
   notificationToDeliver: AssistantNotification | null
   onNotificationAccepted: (notificationId: string) => void
@@ -88,12 +95,16 @@ const initialMessages: AssistantMessage[] = [
     role: 'assistant',
     content: `早上好。助理长会话会持续记住必要上下文。你可以直接输入以下示例口令体验 Demo：
 
+• “帮我持续推进用户研究工具采购准备”：建立任务，从主会话整理材料、发起沟通。
 • “模拟长任务”或“总结协作进展”：触发长会话堵塞，期间收到的 A2A 与定时任务消息会进入消息通知中心。
 • “本周供应商交付风险找谁确认”：体验 Ask User 澄清联系意图和对象。
+• “帮我建个群讨论数字宠物需求”：通过输入区 Ask User 依次补齐目标、参与人、最大轮次，再创建群聊并发送。
 • “帮我问一下供应商本周交付风险”：联系意图明确，只补充对象。
+• “帮我处理一下表单”：体验 C大脑入口的 Ask User 澄清。
+• “帮我打开 IT运维工单应用”：直接获得应用入口链接。
 • “查看所有任务”：查询并展示全部协作任务。
 • “派任务给张三”：生成写入 C 项目管理平台的任务草稿。
-• “创建仅 A2A 任务给张三”：生成不写入 C 项目管理平台的 A2A 原生任务草稿。
+• “创建仅 A2A 会话给张三”：生成不写入 C 项目管理平台的 A2A 原生任务草稿。
 • “催一下张三”：定位已有任务并生成催办确认。
 • “设置自动催办”：为当前任务创建自动催办。
 • “回复当前进展”：生成任务进展回复确认。
@@ -101,7 +112,7 @@ const initialMessages: AssistantMessage[] = [
 • “请王五确认供应商交付风险”：创建可跟踪的单聊协作。
 • “通知李四、王五年度安排已更新”：创建群聊通知。
 • “和陈工、刘工发起方案评审协作”：创建严格顺序回复的群聊协作。
-• 新建会话后可从左侧进入；中间只展示分身正式记录，发送、回复和 Ask User 确认都在右侧私人分身对话中完成。
+• 新建会话后可从左侧进入；中间与自己的分身沟通并处理 Ask User；顶部查看目标与进展，右侧查看协作记录和 Workspace。
 • “组织一次专项评审”：进入评审策划问答流程。
 • “用子智能体分析客户支援”：体验多个子智能体并行协作；补充“模拟失败”可体验失败与重试。
 
@@ -333,6 +344,7 @@ function TaskFilePreview({ item }: { item: CollaborationItem }) {
 }
 
 export default function AssistantWorkspace({
+  onCreateTask, onOpenTask,
   onCreateReminderAutomation,
   notificationToDeliver,
   onNotificationAccepted,
@@ -503,7 +515,7 @@ export default function AssistantWorkspace({
           : '本次只记录送达，不创建待办，也不要求对方回复。'
       finishModelResponse(
         messageId,
-        `${result.command.action === 'complete' ? `已为${typeName}“${conversation.title}”发起完成确认` : result.created ? `${typeName}“${conversation.title}”已经创建` : `已通过你的数字分身向“${conversation.title}”代发消息`}。参与人：${members}。${behavior}可进入 A2A 会话继续沟通。`,
+        `${result.command.action === 'complete' ? `已为${typeName}“${conversation.title}”发起完成确认` : result.created ? `${typeName}“${conversation.title}”已经创建` : `已通过你的数字分身向“${conversation.title}”代发消息`}。参与人：${members}。${behavior}可查看任务沟通继续沟通。`,
       )
       setMessages((current) => current.map((message) => message.id === messageId
         ? { ...message, a2aConversationId: conversation.id }
@@ -863,7 +875,8 @@ export default function AssistantWorkspace({
 
   const intentDemoInFlight = useRef(false)
   const answerIntentDemo = (id: string, answer: string) => {
-    if (intentDemoInFlight.current) return
+    const pending = messages.find(message => message.id === id)
+    if (intentDemoInFlight.current || !pending?.askUserDemo) return
     intentDemoInFlight.current = true
     setMessages(current => current.map(message => message.id === id ? { ...message, askUserDemo: undefined } : message))
     if (answer === 'cancel' || answer === 'query') {
@@ -873,24 +886,64 @@ export default function AssistantWorkspace({
     } else if (answer === 'contact') {
       appendMessage({ role: 'user', content: '联系同事的分身确认' })
       appendMessage({ role: 'assistant', content: '好的，只需要补充联系对象。', askUserDemo: 'person' })
+    } else if (pending.askUserDemo === 'pet-goal') {
+      appendMessage({ role: 'user', content: answer })
+      appendMessage({ role: 'assistant', content: `本次目标：${answer}。接下来选一下需要参与的同事。`, askUserDemo: 'pet-members', groupDraft: { goal: answer } })
+    } else if (pending.askUserDemo === 'pet-members' && pending.groupDraft) {
+      appendMessage({ role: 'user', content: `邀请${answer}` })
+      appendMessage({ role: 'assistant', content: `参与人是你和${answer}。最后确定本次最多进行几轮沟通。`, askUserDemo: 'pet-rounds', groupDraft: { ...pending.groupDraft, members: answer } })
+    } else if (pending.askUserDemo === 'pet-rounds' && pending.groupDraft?.members) {
+      const { goal, members } = pending.groupDraft
+      const result = onRunA2ACommand(`新建数字宠物群聊协作，邀请${members}，最多${answer}轮：${goal}`)
+      appendMessage({ role: 'user', content: `最多 ${answer} 轮，创建群聊并发送` })
+      appendMessage({ role: 'assistant', content: `已邀请${members}创建群聊，最多进行 ${answer} 轮，并发送开场消息：“${goal}”。`, a2aConversationId: result.conversation.id })
     } else {
       const result = onRunA2ACommand(`新建单聊协作，请${answer}确认：请说明供应商本周交付节点及主要风险。`)
       appendMessage({ role: 'user', content: `联系${answer}` })
-      appendMessage({ role: 'assistant', content: `已创建与${answer}的单聊，询问供应商本周交付节点及主要风险。可进入 A2A 会话继续沟通。`, a2aConversationId: result.conversation.id })
+      appendMessage({ role: 'assistant', content: `已创建与${answer}的单聊，询问供应商本周交付节点及主要风险。可查看任务沟通继续沟通。`, a2aConversationId: result.conversation.id })
     }
     // The answered prompt is removed before another answer can be submitted.
     queueMicrotask(() => { intentDemoInFlight.current = false })
   }
 
-  const activeAskUser = messages.find(message => message.askUserDemo)
+  const resolveCBrainEntry = (value: string) => {
+    if (/it运维工单/i.test(value.replace(/\s/g, ''))) {
+      appendMessage({ role: 'assistant', content: '已找到「IT运维工单」应用。', cBrainLink: '打开 IT运维工单应用' })
+      return
+    }
+    const form = ['请假申请', '差旅报销', '日常费用报销'].find(name => value.includes(name))
+    if (form) {
+      const title = form === '请假申请' ? form : `${form}申请`
+      appendMessage({ role: 'assistant', content: `已找到「${form === '请假申请' ? '人事' : '财务'}系统 · ${title}」表单。`, cBrainLink: `打开${title}` })
+    } else if (value.includes('报销')) {
+      appendMessage({ role: 'assistant', content: '找到两个报销入口，请确认你想打开哪一个。', cBrainQuestion: 'form' })
+    } else {
+      appendMessage({ role: 'assistant', content: '请补充表单名称或用途，我来帮你找到对应入口。', cBrainQuestion: 'category' })
+    }
+  }
+
+  const answerCBrainQuestion = (id: string, answer: string | null) => {
+    if (intentDemoInFlight.current || !messages.some(message => message.id === id && message.cBrainQuestion)) return
+    intentDemoInFlight.current = true
+    setMessages(current => current.map(message => message.id === id ? { ...message, cBrainQuestion: undefined } : message))
+    if (answer === null) {
+      appendMessage({ role: 'assistant', content: '已取消本次查找。' })
+    } else {
+      appendMessage({ role: 'user', content: answer })
+      resolveCBrainEntry(answer)
+    }
+    queueMicrotask(() => { intentDemoInFlight.current = false })
+  }
+
+  const activeAskUser = messages.find(message => message.askUserDemo || message.cBrainQuestion)
   const hadAskUser = useRef(false)
   useEffect(() => {
     if (hadAskUser.current && !activeAskUser) composerRef.current?.focus()
     hadAskUser.current = Boolean(activeAskUser)
   }, [activeAskUser])
 
-  const submitPrompt = () => {
-    const value = prompt.trim()
+  const submitPrompt = (example?: string) => {
+    const value = (example ?? prompt).trim()
     if (!value) return
     if (isModelResponding) {
       if (isA2AConversationIntent(value, a2aConversations)) {
@@ -906,6 +959,23 @@ export default function AssistantWorkspace({
       setActiveSubagentId(null)
     }
 
+    if (/持续推进|持续跟进|创建任务/.test(value)) {
+      appendMessage({role:'user',content:value})
+      const id=onCreateTask(value)
+      appendMessage({role:'assistant',content:'已把这项委托建立为任务。进入任务后，我们可以先整理背景和材料，再按需联系其他人。',delegatedTaskId:id})
+      return
+    }
+    if (/表单|请假申请|差旅报销|日常费用报销|it运维工单/i.test(value.replace(/\s/g, '')) && /处理|打开|找/.test(value)) {
+      appendMessage({ role: 'user', content: value })
+      resolveCBrainEntry(value)
+      return
+    }
+    const petDemo = ['帮我建个群讨论数字宠物需求', '帮我拉个群讨论数字宠物需求', '帮我创建一个数字宠物需求讨论群'].includes(value.replace(/[。！!]+$/, ''))
+    if (petDemo) {
+      appendMessage({ role: 'user', content: value })
+      appendMessage({ role: 'assistant', content: '可以。我会先补齐沟通目标、参与人和最大轮次，信息齐全后创建群聊并发出首条消息。先明确这次希望解决什么问题。', askUserDemo: 'pet-goal' })
+      return
+    }
     const intentDemo = value.includes('本周') && value.includes('交付风险') && (value.includes('找谁确认') || value.includes('帮我问一下'))
     if (intentDemo) {
       setMessages(current => current.map(message => message.askUserDemo ? { ...message, askUserDemo: undefined } : message))
@@ -1091,15 +1161,17 @@ export default function AssistantWorkspace({
                   const prefix = [`“${reminder.title}”`, `${reminder.title}：`, `${reminder.title}:`].find(value => reminder.question.startsWith(value))
                   const question = prefix ? reminder.question.slice(prefix.length).trim() : reminder.question
                   return <div className="assistant-a2a-reminder" key={reminder.requestId}>
-                    <header><span className="assistant-a2a-source">A2A 任务</span><span className="assistant-a2a-title">{reminder.title}</span>{status !== '待你处理' && <span className="assistant-a2a-state">{status}</span>}</header>
+                    <header><span className="assistant-a2a-source">A2A 会话</span><span className="assistant-a2a-title">{reminder.title}</span>{status !== '待你处理' && <span className="assistant-a2a-state">{status}</span>}</header>
                     <p>{question}</p>
                     {conversation && <button className="assistant-a2a-link" type="button" onClick={() => onOpenA2AConversation(reminder.conversationId)}>{status === '待你处理' ? '前往处理' : '查看会话'}</button>}
                   </div>
                 })}
                 {message.taskList && <TaskQueryResult items={items} scope={message.taskList} onOpen={openTaskFile} />}
+                {message.delegatedTaskId && <button className="assistant-a2a-link" onClick={()=>onOpenTask(message.delegatedTaskId!)}>查看任务 ↗</button>}
+                {message.cBrainLink && <a className="assistant-cbrain-link" href={`${import.meta.env.BASE_URL}cbrain-blank.html`}>{message.cBrainLink}<ChevronRight size={16} /></a>}
                 {message.a2aConversationId && (
                   <button className="assistant-a2a-link" type="button" onClick={() => onOpenA2AConversation(message.a2aConversationId!)}>
-                    进入 A2A 会话
+                    查看任务沟通
                   </button>
                 )}
                 {message.retrySubagent && (
@@ -1122,7 +1194,9 @@ export default function AssistantWorkspace({
 
         {queuedA2ARequests.length > 0 && <div className="assistant-queued-command">{queuedA2ARequests.length} 条 A2A 发送请求已排队，当前任务结束后会依次处理。</div>}
         <section className={`assistant-composer ${activeAskUser ? 'has-ask-user' : ''} ${isModelResponding ? 'assistant-composer--blocked' : ''}`} aria-label="助理输入器">
-          {activeAskUser ? <A2AIntentDemo question={activeAskUser.askUserDemo!}
+          {activeAskUser?.cBrainQuestion ? <CBrainAskUser key={activeAskUser.id} question={activeAskUser.cBrainQuestion}
+            onAnswer={answer => answerCBrainQuestion(activeAskUser.id, answer)}
+            onCancel={() => answerCBrainQuestion(activeAskUser.id, null)} /> : activeAskUser ? <A2AIntentDemo key={activeAskUser.id} question={activeAskUser.askUserDemo!}
             onAnswer={answer => answerIntentDemo(activeAskUser.id, answer)}
             onCancel={() => answerIntentDemo(activeAskUser.id, 'cancel')} /> : <>
           {isModelResponding && (
@@ -1157,7 +1231,7 @@ export default function AssistantWorkspace({
                 className={`assistant-send-button ${prompt.trim() && (!isModelResponding || canSubmitWhileBusy) ? 'ready' : ''}`}
                 type="button"
                 disabled={isModelResponding && !canSubmitWhileBusy}
-                onClick={submitPrompt}
+                onClick={() => submitPrompt()}
                 aria-label={isModelResponding ? '将 A2A 请求加入队列' : '发送'}
               >
                 <Send size={20} />

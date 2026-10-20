@@ -27,6 +27,8 @@ export type A2AConversationMember = {
 }
 
 export type A2AConversation = {
+  issue?: { id: string; title: string; goal: string }
+  sourceTask?: { platform: string; application: string; taskId: string; titleAtReference: string; referencedAt: string; url?: string; unavailable?: boolean }
   completedAt?: string
   completionSource?: 'host' | 'model'
   completionReason?: string
@@ -42,13 +44,14 @@ export type A2AConversation = {
   speakingOrder: string[]
   goal?: string
   round: number
+  maxRounds?: number
   expectedReplyCount: number
   repliedCount: number
   createdAt: string
   updatedAt: string
   preview: string
   /** Optional local demo scenario; never sent to a backend. */
-  demo?: { privateMessages?: { role: 'user' | 'assistant'; content: string }[]; readOnly?: boolean; messages: A2AConversationMessage[]; replies: Record<string, string>; completionSummary: string }
+  demo?: { roundSummaries?: Record<string, string>; roundReplies?: Record<string, Record<string, string>>; privateMessages?: { role: 'user' | 'assistant'; content: string }[]; readOnly?: boolean; messages: A2AConversationMessage[]; replies: Record<string, string>; completionSummary: string }
   pendingCurrentUserConfirmation?: A2AUserConfirmation
 }
 
@@ -67,6 +70,7 @@ export type A2AConversationMessage = {
 }
 
 export type A2AConversationCommand = {
+  replyToUserIds?: string[]
   id: string
   conversationId: string
   action: 'send' | 'complete'
@@ -246,6 +250,7 @@ function inferMechanism(value: string): A2AMechanism {
 }
 
 function inferGroupTitle(value: string, mechanism: A2AMechanism) {
+  if (value.includes('数字宠物')) return '数字宠物首期需求讨论'
   if (value.includes('供应商')) return mechanism === 'notice' ? '供应商事项通知' : '供应商交付风险协作群'
   if (value.includes('发动机')) return mechanism === 'notice' ? '发动机专项通知' : '发动机专项协作群'
   if (value.includes('评审')) return mechanism === 'notice' ? '专项评审通知' : '专项方案评审群'
@@ -254,7 +259,7 @@ function inferGroupTitle(value: string, mechanism: A2AMechanism) {
 }
 
 function extractMessageContent(value: string) {
-  const colonIndex = Math.max(value.lastIndexOf('：'), value.lastIndexOf(':'))
+  const colonIndex = value.search(/[：:]/)
   if (colonIndex >= 0 && colonIndex < value.length - 1) return value.slice(colonIndex + 1).trim()
   return value.trim()
 }
@@ -326,6 +331,7 @@ export function buildA2ACommand(value: string, conversations: A2AConversation[])
     speakingOrder: resolvedMembers.map((member) => member.userId),
     goal: mechanism === 'collaboration' ? extractMessageContent(value) : undefined,
     round: 1,
+    maxRounds: scope === 'group' ? Number(value.match(/最多\s*(\d+)\s*轮/)?.[1]) || undefined : undefined,
     expectedReplyCount: mechanism === 'collaboration' ? resolvedMembers.length : 0,
     repliedCount: 0,
     createdAt: '刚刚',

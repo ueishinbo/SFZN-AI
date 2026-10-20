@@ -1,4 +1,4 @@
-import { a2aBoardState } from '../assistant/a2aLifecycle'
+export { default as A2ATaskBoard } from '../assistant/A2AIssueBoard'
 import A2ACollaborationSettings from "./A2ACollaborationSettings";
 import { CURRENT_USER, isNewDemoUser, personalStorageKey } from "../role-center/demoAccount";
 import { useFeedback } from "../role-center/feedback";
@@ -23,8 +23,7 @@ import {
   Upload,
   UserRound,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { A2AConversation } from "../assistant/a2aConversationTypes";
+import { useEffect, useRef, useState } from "react";
 import "./digital-twin.css";
 import "./assessment.css";
 import "./assessment-modal.css";
@@ -51,18 +50,6 @@ import {
 
 type ProfileTab = "mind" | "goals";
 type ResourceTab = "experts" | "skills" | "mcp" | "libraries";
-type TaskStatus = "doing" | "confirm" | "done";
-type Task = {
-  id: string;
-  conversationId: string;
-  title: string;
-  kind: string;
-  status: TaskStatus;
-  owner: string;
-  people: string[];
-  update: string;
-  detail: string;
-};
 type Event = {
   id: string;
   date: string;
@@ -180,81 +167,6 @@ const events: Event[] = [
     detail: "访谈结果已本人确认，纳入用户心智。",
   },
 ];
-function taskFrom(c: A2AConversation): Task {
-  const status: TaskStatus = a2aBoardState(c);
-  return {
-    id: `t-${c.id}`,
-    conversationId: c.id,
-    title: c.title,
-    status,
-    kind: c.scope === "group" ? "群聊" : "单人",
-    owner: c.hostName,
-    people: c.members.map((m) => m.name),
-    update: c.updatedAt,
-    detail:
-      c.pendingCurrentUserConfirmation?.question ??
-      (c.goal ? `协作目标：${c.goal}。${c.preview}` : c.preview),
-  };
-}
-const cols: [TaskStatus, string, string][] = [
-  ["confirm", "待我处理", "需要你补充信息或作出决定"],
-  ["doing", "进行中", "仍可继续沟通的会话"],
-  ["done", "已完成", "本次沟通已完成，记录仅供查看"],
-];
-
-export function A2ATaskBoard({
-  a2aConversations,
-  onOpenA2AConversation,
-}: {
-  a2aConversations: A2AConversation[];
-  onOpenA2AConversation: (id: string) => void;
-}) {
-  const tasks = useMemo(() => a2aConversations.map(taskFrom), [a2aConversations]);
-
-
-  return (
-    <section className="a2a-task-board">
-      <header className="a2a-task-board-heading">
-        <div>
-          <h1>A2A 任务</h1>
-          <p>查看在办通信与需要本人处理的事项。</p>
-        </div>
-      </header>
-      <div className="board a2a-task-board-grid is-three-column">
-        {cols.map(([id, title, desc]) => {
-          const list = tasks.filter((task) => task.status === id);
-          if (id === 'done') list.sort((a, b) => {
-            const time = (conversationId: string) => a2aConversations.find(c => c.id === conversationId)?.completedAt ?? '';
-            return time(b.conversationId).localeCompare(time(a.conversationId));
-          });
-          return (
-            <section key={id}>
-              <header>
-                <div><i /><b>{title}</b><small>{desc}</small></div>
-                <em>{list.length}</em>
-              </header>
-              <div>
-                {list.length ? list.map((task) => (
-                  <button className="task" key={task.id} onClick={() => onOpenA2AConversation(task.conversationId)}>
-                    <span>{task.kind}</span>
-                    <b>{task.title}</b>
-                    <p>{task.detail}</p>
-                    <div>
-                      {task.people.map((person) => <i key={person}>{person.slice(0, 1)}</i>)}
-                      <small>{task.people.join(" · ")}</small>
-                    </div>
-                    <footer><span>发起人：{task.owner}</span><time>{task.update}</time></footer>
-                  </button>
-                )) : <div className="rc"><Empty title={`暂无${title}任务`} /></div>}
-              </div>
-            </section>
-          );
-        })}
-      </div>
-
-    </section>
-  );
-}
 function changeDate(d: string, mode: string, n: number) {
   const v = new Date(`${d}T12:00:00`);
   if (mode === "month") {

@@ -144,6 +144,8 @@
 .assistant-inserted-notification > small { color: #929eac; font-size: 10px; }
 .assistant-message-name { display: block; margin: 4px 0 7px; font-size: 15px; }
 .assistant-message-body > p { margin: 0; font-size: 15px; line-height: 1.7; white-space: pre-line; }
+.assistant-cbrain-link { display: inline-flex; align-items: center; gap: 4px; margin-top: 10px; color: #0969b2; font-size: 14px; font-weight: 650; text-decoration: underline; text-underline-offset: 3px; }
+.assistant-cbrain-link:hover { color: #064d86; }
 .assistant-message-streaming > span {
   margin-left: 9px;
   display: inline-flex;

@@ -1,3 +1,7 @@
+import { useProductState } from './assistant/localProductStore'
+import { issueOf, issueOptions, type CollaborationIssue } from './assistant/a2aIssues'
+import type { A2AGroupInput } from './assistant/CreateA2AGroupDialog'
+import { DEMO_ACCOUNTS, CURRENT_USER as activeDemoUser } from './role-center/demoAccount'
 import { completeA2A, canManageA2A, completionQuestion } from './assistant/a2aLifecycle'
 import { useDemoAccount } from "./role-center/demoAccount";
 import { useCallback, useEffect, useMemo, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
@@ -40,15 +44,17 @@ import type { AppMode } from './app/appTypes'
 import AdminWorkspace from './admin/AdminWorkspace'
 import AutomationWorkspace from './automation/AutomationWorkspace'
 import AssistantWorkspace from './assistant/AssistantWorkspace'
+import TaskWorkspace from './assistant/TaskWorkspace'
+import type { A2AFocus } from './assistant/A2AIssueBoard'
 import A2AConversationView, { type ConversationActivityPatch } from './assistant/A2AConversationView'
 import AssistantModeSidebar, { type AssistantDestination } from './assistant/AssistantModeSidebar'
 import AssistantFeaturePlaceholder from './assistant/AssistantFeaturePlaceholder'
 import {
   buildA2ACommand,
-  seedA2AConversations,
   type A2ACommandResult,
   type A2AConversation,
   type A2AConversationCommand,
+  type A2AConversationMessage,
 } from './assistant/a2aConversationTypes'
 import type { CollaborationItem } from './assistant/mockCollaboration'
 import NotificationCenter from './assistant/NotificationCenter'
@@ -60,8 +66,9 @@ import {
 import WorkspaceWorkbench, { WorkspaceHeaderControls, type WorkspaceOutputItem } from './workspace/WorkspaceWorkbench'
 import ExternalAgentWorkspace from './external-agent/ExternalAgentWorkspace'
 import OrganizationWorkbench from './organization/OrganizationWorkbench'
-import { projectConversations, projects, conversationIdFor } from './organization/projectData'
-import DigitalTwinTrainingWorkspace, { A2ATaskBoard } from './digital-twin/DigitalTwinTrainingWorkspace'
+import { projectConversations } from './organization/projectData'
+import { a2aDemoScenarios } from './assistant/a2aDemoScenarios'
+import DigitalTwinTrainingWorkspace from './digital-twin/DigitalTwinTrainingWorkspace'
 import { useWorkspaceWorkbench, type WorkspaceTab } from './workspace/useWorkspaceWorkbench'
 import type { WorkspaceTreeNode } from './workspace/workspaceTypes'
 import {
@@ -381,7 +388,7 @@ function TaskRow({ task, onOpen, onDelete }: { task: Task; onOpen: (task: Task) 
 
 function App() {
   const demoAccount = useDemoAccount()
-  const [appMode, setAppMode] = useState<AppMode>(()=>new URLSearchParams(location.search).get('view')==='admin'?'admin':['twin','assistant'].includes(new URLSearchParams(location.search).get('view')||'')?'assistant':'task')
+  const [appMode, setAppMode] = useState<AppMode>(()=>new URLSearchParams(location.search).get('view')==='admin'?'admin':['twin','assistant','a2a'].includes(new URLSearchParams(location.search).get('view')||'')?'assistant':'task')
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [taskSidebarOpenBeforeAssistant, setTaskSidebarOpenBeforeAssistant] = useState(true)
   const [sidebarMode, setSidebarMode] = useState<'default' | 'notifications'>('default')
@@ -400,16 +407,23 @@ function App() {
   const [assistantDestination, setAssistantDestination] = useState<AssistantDestination>(() => {
     const view = new URLSearchParams(location.search).get('view')
     if (view === 'twin') return { type: 'feature', featureId: 'training' }
-    if (view === 'a2a') return { type: 'feature', featureId: 'a2a' }
+    if (view === 'a2a') {
+      const conversationId = new URLSearchParams(location.search).get('conversation')
+      return conversationId ? {type:'conversation',conversationId} : {type:'feature',featureId:'a2a'}
+    }
     return { type: 'assistant' }
   })
-  const [a2aConversations, setA2AConversations] = useState<A2AConversation[]>(() => [...seedA2AConversations, ...projectConversations])
+  const [delegatedTasks,setDelegatedTasks] = useProductState<CollaborationIssue[]>('delegated-tasks',[])
+  const [taskWorkspaceFocus,setTaskWorkspaceFocus] = useState<{id:string;serial:number}>()
+  const [a2aRecords, setA2ARecords] = useState<Record<string, A2AConversationMessage[]>>({})
+  const [a2aFocus, setA2AFocus] = useState<A2AFocus | undefined>()
+  const [a2aConversations, setA2AConversations] = useProductState<A2AConversation[]>('conversations',() => [...a2aDemoScenarios, ...projectConversations])
   // Refresh observer scripts after edits without retaining the previous initiator identity.
   useEffect(() => {
     setA2AConversations(current => current.map(conversation =>
       projectConversations.find(seed => seed.id === conversation.id && seed.demo?.readOnly) ?? conversation,
     ))
-  }, [projectConversations])
+  }, [setA2AConversations])
   const [a2aCommands, setA2ACommands] = useState<A2AConversationCommand[]>([])
   const [notifications, setNotifications] = useState<AssistantNotification[]>(createSeedNotifications)
   const [selectedNotificationId, setSelectedNotificationId] = useState<string | null>(null)
@@ -700,6 +714,21 @@ function App() {
     '--artifact-drawer-width': `${artifactDrawerWidth}px`,
   } as CSSProperties
 
+  const createA2AGroup = (input: A2AGroupInput) => {
+    const id = `a2a-manual-${crypto.randomUUID()}`
+    const conversation: A2AConversation = {
+      id, issue: input.issue ?? {id:`issue-${id}`,title:input.title,goal:input.goal}, sourceTask: input.sourceTask, title: input.title, scope:input.members.length === 1 ? 'direct' : 'group', mechanism:'collaboration', status:'waiting_replies',
+      hostUserId:'current-user', hostName:DEMO_ACCOUNTS.find(account => account.id === activeDemoUser)?.name ?? '当前用户',
+      members:input.members, speakingOrder:input.members.map(member => member.userId), goal:input.goal,
+      maxRounds:input.maxRounds, round:1, expectedReplyCount:input.members.length, repliedCount:0,
+      createdAt:'刚刚', updatedAt:'刚刚', preview:input.goal,
+    }
+    setA2AConversations(current => [conversation,...current])
+    setA2ACommands(current => [...current,{id:`a2a-opening-${id}`,conversationId:id,action:'send',content:input.goal,createdAt:'刚刚'}])
+    if (!input.stayInTask) setAssistantDestination({type:'conversation',conversationId:id})
+    return id
+  }
+
   const runA2ACommand = useCallback((value: string): A2ACommandResult => {
     const result = buildA2ACommand(value, a2aConversations)
     if (result.command.action === 'complete') {
@@ -707,10 +736,19 @@ function App() {
       setA2AConversations(current => current.map(conversation => conversation.id === result.conversation.id ? { ...conversation, pendingCurrentUserConfirmation: completionQuestion(conversation) } : conversation))
       return result
     }
-    if (result.created) setA2AConversations((current) => [result.conversation, ...current])
+    if (result.created) {
+      const explicitIssue = issueOptions(a2aConversations).filter(issue => value.includes(`针对“${issue.title}”`) || value.includes(`针对${issue.title}事项`))
+      if (explicitIssue.length === 1) {
+        const { source, ...issue } = explicitIssue[0]
+        result.conversation = { ...result.conversation, issue, sourceTask: source }
+      } else {
+        result.conversation = { ...result.conversation, issue: issueOf(result.conversation) }
+      }
+      setA2AConversations((current) => [result.conversation, ...current])
+    }
     setA2ACommands((current) => [...current, result.command])
     return result
-  }, [a2aConversations])
+  }, [a2aConversations, setA2AConversations])
 
   const completeConversation = (id: string) => {
     const target = a2aConversations.find(conversation => conversation.id === id)
@@ -723,7 +761,7 @@ function App() {
     setA2AConversations((current) => current.map((conversation) => conversation.id === conversationId && conversation.status !== 'completed'
       ? { ...conversation, ...patch }
       : conversation))
-  }, [])
+  }, [setA2AConversations])
 
   const markA2ACommandHandled = useCallback((commandId: string) => {
     setA2ACommands((current) => current.filter((command) => command.id !== commandId))
@@ -770,17 +808,16 @@ function App() {
       : appMode === 'assistant'
         ? assistantDestination.type === 'feature' && assistantDestination.featureId === 'training'
           ? 'twin'
-          : assistantDestination.type === 'feature' && assistantDestination.featureId === 'a2a'
+          : assistantDestination.type === 'conversation' || (assistantDestination.type === 'feature' && assistantDestination.featureId === 'a2a')
             ? 'a2a'
             : 'assistant'
         : 'task'
     url.searchParams.set('view', view)
+    if (appMode === 'assistant' && assistantDestination.type === 'conversation') url.searchParams.set('conversation',assistantDestination.conversationId)
+    else url.searchParams.delete('conversation')
     history.replaceState(null, '', url)
   }, [appMode, assistantDestination])
 
-  const conversationProject = assistantDestination.type === 'conversation'
-    ? projects.find(project => project.tasks.some(task => conversationIdFor(task) === assistantDestination.conversationId))
-    : undefined
   const surfaceMode = appMode
 
   return (
@@ -792,7 +829,7 @@ function App() {
             destination={assistantDestination}
             onClose={() => setSidebarOpen(false)}
             onSelectAssistant={() => setAssistantDestination({ type: 'assistant' })}
-            onSelectFeature={(featureId) => setAssistantDestination({ type: 'feature', featureId })}
+            onSelectFeature={(featureId) => {if(featureId === 'a2a')setTaskWorkspaceFocus({id:'',serial:Date.now()});setAssistantDestination({ type: 'feature', featureId })}}
             onEnterAdmin={enterAdminMode}
           />
         ) : surfaceMode === 'task' ? (
@@ -1116,6 +1153,8 @@ function App() {
           <div className={`app-mode-panel ${surfaceMode === 'assistant' ? '' : 'is-hidden'}`}>
             <div className={`assistant-destination-panel ${assistantDestination.type === 'assistant' ? '' : 'is-hidden'}`}>
               <AssistantWorkspace
+                onCreateTask={(goal) => {const task={id:`task-${crypto.randomUUID()}`,title:goal.replace(/^(请|帮我|请帮我|创建任务[：:]?)|[。！!]$/g,'').trim(),goal};setDelegatedTasks(current=>[task,...current]);return task.id}}
+                onOpenTask={(id)=>{setTaskWorkspaceFocus({id,serial:Date.now()});setAssistantDestination({type:'feature',featureId:'a2a'})}}
                 onCreateReminderAutomation={createReminderAutomation}
                 notificationToDeliver={notificationToDeliver}
                 onNotificationAccepted={acceptQueuedNotification}
@@ -1129,12 +1168,13 @@ function App() {
                 onOpenA2AConversation={(conversationId) => setAssistantDestination({ type: 'conversation', conversationId })}
               />
             </div>
-            <div className={`assistant-destination-panel ${conversationProject ? 'org-conversation-panel' : ''} ${assistantDestination.type === 'conversation' ? '' : 'is-hidden'}`}>
-              {conversationProject && <div className="org-conversation-back"><button type="button" onClick={() => { setActiveNav('系统智能'); returnToTaskMode(); }}><ArrowLeft size={16}/>返回{conversationProject.title}项目</button><span>系统智能 · {conversationProject.title}</span></div>}
+            <div className={`assistant-destination-panel ${assistantDestination.type === 'conversation' ? '' : 'is-hidden'}`}>
               <A2AConversationView
+                onRecordsChange={setA2ARecords}
+                focusRequest={a2aFocus}
                 conversations={a2aConversations}
                 onComplete={completeConversation}
-                onBack={() => setAssistantDestination({ type: 'feature', featureId: 'a2a' })}
+                onBack={() => {const c=a2aConversations.find(c=>assistantDestination.type === 'conversation' && c.id===assistantDestination.conversationId);setTaskWorkspaceFocus({id:c?issueOf(c).id:'',serial:Date.now()});setAssistantDestination({ type: 'feature', featureId: 'a2a' })}}
                 selectedConversationId={assistantDestination.type === 'conversation' ? assistantDestination.conversationId : null}
                 commands={a2aCommands}
                 onCommandHandled={markA2ACommandHandled}
@@ -1152,11 +1192,14 @@ function App() {
                 <AutomationWorkspace tasks={automationTasks} runs={automationRuns} setTasks={setAutomationTasks} setRuns={setAutomationRuns} />
               </div>
             )}
-            {assistantDestination.type === 'feature' && assistantDestination.featureId === 'a2a' && (
-              <div className="assistant-destination-panel">
-                <A2ATaskBoard a2aConversations={a2aConversations} onOpenA2AConversation={(conversationId) => setAssistantDestination({ type: 'conversation', conversationId })} />
-              </div>
-            )}
+            <div className={`assistant-destination-panel ${assistantDestination.type === 'feature' && assistantDestination.featureId === 'a2a' ? '' : 'is-hidden'}`}>
+              <TaskWorkspace incomingTasks={delegatedTasks} taskFocus={taskWorkspaceFocus}
+                onRenameIssue={(id,title) => {setA2AConversations(current => current.map(c => issueOf(c).id === id ? {...c,issue:{...issueOf(c),title}} : c));setDelegatedTasks(current=>current.map(t=>t.id===id?{...t,title}:t))}}
+                records={a2aRecords} onCreateGroup={createA2AGroup} a2aConversations={a2aConversations} onOpenA2AConversation={(conversationId, target) => {
+                setA2AFocus(target ? { conversationId, ...target, serial: Date.now() } : undefined)
+                setAssistantDestination({ type: 'conversation', conversationId })
+              }} />
+            </div>
             {assistantDestination.type === 'feature' && !['training', 'automation', 'a2a'].includes(assistantDestination.featureId) && (
               <div className="assistant-destination-panel">
                 <AssistantFeaturePlaceholder featureId={assistantDestination.featureId} />
