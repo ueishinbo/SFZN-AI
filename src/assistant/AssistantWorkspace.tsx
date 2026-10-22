@@ -45,6 +45,7 @@ import {
   type A2AConversation,
 } from './a2aConversationTypes'
 import './assistant.css'
+import { cancelsTaskCreation, isTaskDelegationRequest, normalizeTaskCreationPrompt, taskDelegationGoal, TASK_CREATION_EXAMPLE, TASK_CREATION_PREFIX, TASK_CREATION_PROMPT, TASK_GOAL_PLACEHOLDER } from './taskProductModel'
 
 type TaskListScope = 'attention' | 'all' | 'incoming' | 'outgoing'
 
@@ -74,6 +75,8 @@ type AssistantMessage = {
 }
 
 type AssistantWorkspaceProps = {
+  isVisible: boolean
+  taskCreationRequest?: { serial: number }
   onCreateTask: (goal:string)=>string
   onOpenTask: (id:string)=>void
   onCreateReminderAutomation: (item: CollaborationItem) => boolean
@@ -344,7 +347,7 @@ function TaskFilePreview({ item }: { item: CollaborationItem }) {
 }
 
 export default function AssistantWorkspace({
-  onCreateTask, onOpenTask,
+  onCreateTask, onOpenTask, isVisible, taskCreationRequest,
   onCreateReminderAutomation,
   notificationToDeliver,
   onNotificationAccepted,
@@ -365,6 +368,12 @@ export default function AssistantWorkspace({
   const [items, setItems] = useState<CollaborationItem[]>(collaborationSeeds)
   const [messages, setMessages] = useState<AssistantMessage[]>(initialMessages)
   const [prompt, setPrompt] = useState('')
+  const [taskCreationMode, setTaskCreationMode] = useState(false)
+  const [taskCreationError, setTaskCreationError] = useState('')
+  const taskSelectionPending = useRef(false)
+  const appliedTaskRequest = useRef<number | undefined>(undefined)
+  const previousAssistantDraft = useRef<string | null>(null)
+  const taskSubmissionInFlight = useRef(false)
   const [selectedFileId, setSelectedFileId] = useState('assistant-memory-main')
   const [selectedItemId, setSelectedItemId] = useState('collab-engine-review')
   const [isModelResponding, setIsModelResponding] = useState(false)
@@ -942,13 +951,69 @@ export default function AssistantWorkspace({
     hadAskUser.current = Boolean(activeAskUser)
   }, [activeAskUser])
 
+  useEffect(() => {
+    if (!isVisible || !taskCreationRequest || appliedTaskRequest.current === taskCreationRequest.serial || activeAskUser || isModelResponding) return
+    appliedTaskRequest.current = taskCreationRequest.serial
+    taskSelectionPending.current = true
+    if (!taskCreationMode) {
+      previousAssistantDraft.current = prompt
+      setTaskCreationMode(true)
+      setTaskCreationError('')
+      setPrompt(TASK_CREATION_PROMPT)
+    }
+  }, [isVisible, taskCreationRequest, activeAskUser, isModelResponding, taskCreationMode, prompt])
+
+  useEffect(() => {
+    if (!isVisible || !taskCreationMode || !taskSelectionPending.current) return
+    const input = composerRef.current
+    if (!input || input.offsetParent === null) return
+    input.focus()
+    if (input.value === TASK_CREATION_PROMPT) input.setSelectionRange(TASK_CREATION_PREFIX.length, TASK_CREATION_PREFIX.length + TASK_GOAL_PLACEHOLDER.length)
+    taskSelectionPending.current = false
+  }, [isVisible, taskCreationMode, taskCreationRequest, prompt])
+
+  const closeTaskCreation = () => {
+    setTaskCreationMode(false)
+    setTaskCreationError('')
+    setPrompt(previousAssistantDraft.current ?? '')
+    previousAssistantDraft.current = null
+    composerRef.current?.focus()
+  }
+
   const submitPrompt = (example?: string) => {
-    const value = (example ?? prompt).trim()
-    if (!value) return
+    const value = taskCreationMode ? normalizeTaskCreationPrompt(example ?? prompt) : (example ?? prompt).trim()
+    if (!value || activeAskUser || taskSubmissionInFlight.current) return
     if (isModelResponding) {
-      if (isA2AConversationIntent(value, a2aConversations)) {
+      if (!taskCreationMode && isA2AConversationIntent(value, a2aConversations)) {
         setQueuedA2ARequests((current) => [...current, value])
         setPrompt('')
+      }
+      return
+    }
+    if (taskCreationMode && cancelsTaskCreation(value)) {
+      appendMessage({ role: 'user', content: value })
+      appendMessage({ role: 'assistant', content: '好的，本次不创建任务。' })
+      closeTaskCreation()
+      return
+    }
+    if (taskCreationMode || isTaskDelegationRequest(value)) {
+      const goal = taskDelegationGoal(value)
+      if (!goal) {
+        setTaskCreationMode(true)
+        setTaskCreationError('请先填写要推进的具体事项，结果可以稍后再补充。')
+        composerRef.current?.focus()
+        return
+      }
+      taskSubmissionInFlight.current = true
+      try {
+        const id = onCreateTask(goal)
+        appendMessage({ role: 'user', content: value })
+        appendMessage({ role: 'assistant', content: `已建立任务「${goal.split(/[。；\n]/)[0]}」。进入任务后，我们可以先整理背景和材料，再按需联系其他人。`, delegatedTaskId: id })
+        closeTaskCreation()
+      } catch {
+        setTaskCreationError('任务创建失败，内容已保留，请重试。')
+      } finally {
+        queueMicrotask(() => { taskSubmissionInFlight.current = false })
       }
       return
     }
@@ -959,12 +1024,6 @@ export default function AssistantWorkspace({
       setActiveSubagentId(null)
     }
 
-    if (/持续推进|持续跟进|创建任务/.test(value)) {
-      appendMessage({role:'user',content:value})
-      const id=onCreateTask(value)
-      appendMessage({role:'assistant',content:'已把这项委托建立为任务。进入任务后，我们可以先整理背景和材料，再按需联系其他人。',delegatedTaskId:id})
-      return
-    }
     if (/表单|请假申请|差旅报销|日常费用报销|it运维工单/i.test(value.replace(/\s/g, '')) && /处理|打开|找/.test(value)) {
       appendMessage({ role: 'user', content: value })
       resolveCBrainEntry(value)
@@ -1097,7 +1156,9 @@ export default function AssistantWorkspace({
     })
   }
 
-  const canSubmitWhileBusy = isModelResponding && isA2AConversationIntent(prompt.trim(), a2aConversations)
+  const canSubmitWhileBusy = isModelResponding && !taskCreationMode && isA2AConversationIntent(prompt.trim(), a2aConversations)
+  const taskCreationPending = taskCreationRequest && appliedTaskRequest.current !== taskCreationRequest.serial
+  const canSubmitPrompt = Boolean(prompt.trim()) && (!isModelResponding || canSubmitWhileBusy) && (!taskCreationMode || Boolean(taskDelegationGoal(prompt)) || cancelsTaskCreation(prompt))
 
   return (
     <div className={[
@@ -1194,11 +1255,13 @@ export default function AssistantWorkspace({
 
         {queuedA2ARequests.length > 0 && <div className="assistant-queued-command">{queuedA2ARequests.length} 条 A2A 发送请求已排队，当前任务结束后会依次处理。</div>}
         <section className={`assistant-composer ${activeAskUser ? 'has-ask-user' : ''} ${isModelResponding ? 'assistant-composer--blocked' : ''}`} aria-label="助理输入器">
+          {taskCreationPending && <p className="assistant-task-pending" role="status">新建任务入口已准备好，{activeAskUser ? '完成或取消当前提问' : '当前回复结束'}后即可填写。</p>}
           {activeAskUser?.cBrainQuestion ? <CBrainAskUser key={activeAskUser.id} question={activeAskUser.cBrainQuestion}
             onAnswer={answer => answerCBrainQuestion(activeAskUser.id, answer)}
             onCancel={() => answerCBrainQuestion(activeAskUser.id, null)} /> : activeAskUser ? <A2AIntentDemo key={activeAskUser.id} question={activeAskUser.askUserDemo!}
             onAnswer={answer => answerIntentDemo(activeAskUser.id, answer)}
             onCancel={() => answerIntentDemo(activeAskUser.id, 'cancel')} /> : <>
+          {taskCreationMode && <div className="assistant-task-entry"><span><ClipboardCheck size={15} />新建任务</span><button type="button" onClick={closeTaskCreation}>取消新建</button></div>}
           {isModelResponding && (
             <div className="assistant-composer-busy-strip">
               <LoaderCircle size={14} />
@@ -1207,18 +1270,22 @@ export default function AssistantWorkspace({
           )}
           <textarea
             ref={composerRef}
+            aria-label="助理消息输入"
+            aria-describedby={taskCreationMode ? 'task-creation-hint' : undefined}
             value={prompt}
-            onChange={(event) => setPrompt(event.target.value)}
+            onChange={(event) => { setPrompt(event.target.value); setTaskCreationError('') }}
             onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey) {
+              if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
                 event.preventDefault()
                 submitPrompt()
               }
             }}
-            placeholder={isModelResponding
+            placeholder={taskCreationMode ? TASK_CREATION_EXAMPLE : isModelResponding
               ? '例如：通知李四、王五下午评审改到三点'
               : '问我待办、派发、催办，或让我发起和回复 A2A 会话…'}
           />
+          {taskCreationMode && <p className="assistant-task-hint" id="task-creation-hint">具体事项必填。结果暂不明确，可以先只填写具体事项。</p>}
+          {taskCreationError && <p className="assistant-task-error" role="alert">{taskCreationError}</p>}
           <div className="assistant-composer-toolbar">
             <div>
               <button type="button" disabled={isModelResponding}><Layers3 size={17} /><span>商飞大模型 L1-S1</span></button>
@@ -1228,9 +1295,9 @@ export default function AssistantWorkspace({
               <button className="assistant-composer-icon" type="button" disabled={isModelResponding} aria-label="添加附件"><Paperclip size={19} /></button>
               <button className="assistant-composer-icon assistant-composer-sparkle" type="button" disabled={isModelResponding} aria-label="智能增强"><Sparkles size={19} /></button>
               <button
-                className={`assistant-send-button ${prompt.trim() && (!isModelResponding || canSubmitWhileBusy) ? 'ready' : ''}`}
+                className={`assistant-send-button ${canSubmitPrompt ? 'ready' : ''}`}
                 type="button"
-                disabled={isModelResponding && !canSubmitWhileBusy}
+                disabled={!canSubmitPrompt}
                 onClick={() => submitPrompt()}
                 aria-label={isModelResponding ? '将 A2A 请求加入队列' : '发送'}
               >

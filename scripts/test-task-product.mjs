@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { nextMissing, parseGroupRequest, isGroupRequest, productPeople, taskSnapshot } from '../src/assistant/taskProductModel.ts'
+import { nextMissing, parseGroupRequest, isGroupRequest, productPeople, taskSnapshot, taskDelegationGoal, normalizeTaskCreationPrompt, TASK_CREATION_PROMPT } from '../src/assistant/taskProductModel.ts'
 const task={id:'pet',title:'数字宠物首期需求',goal:'明确范围',items:[]}
 const full=parseGroupRequest('帮我拉陈工、刘工建个群，确认数字宠物首期交互边界，最多3轮',task,productPeople)
 assert.equal(isGroupRequest('帮我拉陈工、刘工建个群，确认数字宠物首期交互边界，最多3轮'),true)
@@ -15,4 +15,15 @@ assert.equal(nextMissing({...full,rounds:'1.5'}),'rounds')
 const ended={...task,items:[{status:'completed',preview:'沟通结束'}]}
 assert.match(taskSnapshot(ended).summary,/等待你核对任务目标/)
 assert.match(taskSnapshot(task,true).summary,/你已确认/)
-console.log('Task product checks passed: missing information, direct creation, negation, rounds, independent completion.')
+assert.equal(taskDelegationGoal(TASK_CREATION_PROMPT),'')
+assert.equal(taskDelegationGoal('帮我推进［具体事项］，希望最终明确首期范围'),'')
+assert.equal(taskDelegationGoal('帮我推进 ，希望最终明确首期范围'),'')
+assert.equal(taskDelegationGoal('帮我推进， 希望最终［达成什么结果］'),'')
+assert.equal(taskDelegationGoal('帮我推进数字宠物首期需求评审，希望最终［达成什么结果］'),'数字宠物首期需求评审')
+assert.equal(normalizeTaskCreationPrompt('帮我推进数字宠物首期需求评审，希望最终［达成什么结果］'),'帮我推进数字宠物首期需求评审')
+assert.equal(taskDelegationGoal('帮我推进数字宠物首期需求评审，希望最终  '),'数字宠物首期需求评审')
+assert.equal(taskDelegationGoal('帮我推进数字宠物首期需求评审，希望最终明确首期范围和待确认事项'),'数字宠物首期需求评审，希望最终明确首期范围和待确认事项')
+assert.equal(taskDelegationGoal('整理产品发布检查清单'),'整理产品发布检查清单')
+assert.equal(taskDelegationGoal('创建任务，整理产品发布检查清单'),'整理产品发布检查清单')
+assert.equal(taskDelegationGoal('取消新建任务'),'')
+console.log('Task product checks passed: missing information, optional task result, direct creation, negation, rounds, independent completion.')

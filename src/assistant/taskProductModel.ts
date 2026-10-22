@@ -2,9 +2,51 @@ import type { A2AConversation, A2AConversationMember } from './a2aConversationTy
 import type { CollaborationIssue } from './a2aIssues'
 
 export type TaskItem = CollaborationIssue & { items: A2AConversation[]; source?: A2AConversation['sourceTask'] }
-export type TaskChat = { id: string; role: 'user' | 'assistant'; content: string; conversationIds?: string[]; fileId?: string; time?: string }
+export type TaskChat = { id: string; role: 'user' | 'assistant'; content: string; conversationIds?: string[]; referenceQuote?: string; fileId?: string; time?: string }
 export type GroupDraft = { title: string; goal: string; memberIds: string[]; rounds: string }
 export type DraftStep = 'goal' | 'people' | 'rounds'
+
+export function taskPendingReview(items:A2AConversation[], selectedId:string|null) {
+ const pending=items.filter(c=>c.status!=='completed'&&c.pendingCurrentUserConfirmation)
+ return pending.find(c=>c.id===selectedId)??pending[0]
+}
+
+// Viewing a collaboration is deliberately not an input to message routing.
+export function resolveTaskSendTarget(text:string, items:A2AConversation[], referenceId?:string) {
+ const named=items.filter(c=>text.includes(c.title))
+ const reference=items.find(c=>c.id===referenceId)
+ const matched=named.length?named:reference?[reference]:items.filter(c=>c.status!=='completed'&&((/测试/.test(text)&&/测试/.test(c.title))||(/评审/.test(text)&&/评审/.test(c.title))))
+ if(matched.length===1)return matched[0]
+ if(matched.length>1)return undefined
+ const active=items.filter(c=>c.status!=='completed')
+ return active.length===1?active[0]:undefined
+}
+
+export const TASK_GOAL_PLACEHOLDER = '［具体事项］'
+export const TASK_RESULT_PLACEHOLDER = '［达成什么结果］'
+export const TASK_CREATION_PREFIX = '帮我推进'
+export const TASK_CREATION_PROMPT = `${TASK_CREATION_PREFIX}${TASK_GOAL_PLACEHOLDER}，希望最终${TASK_RESULT_PLACEHOLDER}`
+export const TASK_CREATION_EXAMPLE = '例如：帮我推进数字宠物首期需求评审，希望最终明确首期范围和待确认事项。'
+
+export function normalizeTaskCreationPrompt(text:string) {
+ return text.trim().replace(/[，,；;\s]*希望最终\s*(?:［达成什么结果］)?[。！!\s]*$/u,'').trim()
+}
+
+export function cancelsTaskCreation(text:string) {
+ return /(先别|不要|暂不|不用|不需要|取消).{0,8}(创建|新建|建立|任务)/.test(text)
+}
+export function isTaskDelegationRequest(text:string) {
+ return !cancelsTaskCreation(text)&&/^(?:请帮我|帮我|请)?\s*(?:(?:创建|新建|建立)(?:一个|一项|个)?任务|持续推进|持续跟进)/.test(text.trim())
+}
+export function taskDelegationGoal(text:string) {
+ if(text.includes(TASK_GOAL_PLACEHOLDER)||text.includes('［描述要推进的事情和希望达成的结果］')||cancelsTaskCreation(text))return ''
+ const goal=normalizeTaskCreationPrompt(text)
+  .replace(/^(?:请帮我|帮我|请)?\s*(?:创建|新建|建立)(?:一个|一项|个)?任务[，,：:\s]*/, '')
+  .replace(/^(?:请帮我|帮我|请)\s*推进\s*/,'')
+  .replace(/^[，,：:\s]+|[，,。！!？?\s]+$/g,'').trim()
+ if(!goal.split('希望最终')[0].replace(/[，,：:\s]/g,'')||goal.includes(TASK_RESULT_PLACEHOLDER))return ''
+ return goal
+}
 
 export const productPeople: A2AConversationMember[] = [
  {userId:'user-chen-gong',name:'陈工',department:'测试',color:'orange'},
@@ -46,7 +88,7 @@ export function seedTaskChat(task:TaskItem):TaskChat[] {
   seed('assistant','我先把首期目标收敛为 **“看得见任务状态，随时唤起助理，平时不打扰”**。\n\n基础范围包括桌面展示、位置拖动、点击唤起和无声状态反馈。主动聊天、声音提醒暂不默认纳入。\n\n还需要研发和测试一起明确三个边界：窗口置顶、免打扰时的表现，以及多个任务同时运行时显示哪个状态。'),
   seed('user','跟陈工、刘工对齐一下。另外测试迟迟没反馈，你单独问一下陈工卡在哪，别在评审群里混着催。'),
   seed('assistant','已分别发起两路沟通：\n\n**需求评审**：和陈工、刘工核对首期范围及交互边界。\n**测试跟进**：单独请陈工说明未开始验证的原因、前置材料和下一次反馈时间。',['demo-review-interactive','demo-pet-test-followup']),
-  seed('assistant','陈工反馈：目前只有上周体验包，本次待测版本和变更清单还没齐，测试尚未启动。他会在 **16:00 反馈材料齐备情况及可安排的测试时间**，这不是测试完成时间。\n\n我把需求范围和待确认项整理成了工作稿。评审群还有一个范围问题需要你决定，可以进入该会话继续。',['demo-review-interactive','demo-pet-test-followup'],'task-pet-scope'),
+  seed('assistant','陈工反馈：目前只有上周体验包，本次待测版本和变更清单还没齐，测试尚未启动。他会在 **16:00 反馈材料齐备情况及可安排的测试时间**，这不是测试完成时间。\n\n我把需求范围和待确认项整理成了工作稿。评审群还有一个范围问题需要你决定，可以在下方待处理事项中确认；右侧可核对两路协作记录。',['demo-review-interactive','demo-pet-test-followup'],'task-pet-scope'),
  ]
  if(task.items.some(c=>c.id==='demo-purchase-process'))return [
   seed('user','产品团队要采购20个用户研究工具账号，按年订阅。我们可能会上传访谈录音，先帮我把需要准备什么、哪些条款容易有问题弄清楚。现在还没决定供应商。'),

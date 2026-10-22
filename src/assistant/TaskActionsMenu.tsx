@@ -1,15 +1,14 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { Check, MoreHorizontal, Pencil, RotateCcw, Trash2 } from 'lucide-react'
+import { Check, MoreHorizontal, Pencil } from 'lucide-react'
 
 type Props = {
   title: string
   completed: boolean
   onChangeStatus: () => void
   onEdit: () => void
-  onDelete: () => void
 }
 
-export default function TaskActionsMenu({ title, completed, onChangeStatus, onEdit, onDelete }: Props) {
+export default function TaskActionsMenu({ title, completed, onChangeStatus, onEdit }: Props) {
   const [open, setOpen] = useState(false)
   const [above, setAbove] = useState(false)
   const root = useRef<HTMLDivElement>(null)
@@ -47,10 +46,8 @@ export default function TaskActionsMenu({ title, completed, onChangeStatus, onEd
       setOpen(value => !value)
     }}><MoreHorizontal size={20}/></button>
     {open && <div className={`tp-action-menu ${above ? 'opens-above' : ''}`} id={menuId} role="menu" aria-label="任务操作" ref={menu}>
-      <button role="menuitem" onClick={() => run(onChangeStatus)}>{completed ? <RotateCcw size={16}/> : <Check size={16}/>}<span>{completed ? '恢复进行中' : '标记已完成'}</span></button>
+      {!completed && <button role="menuitem" onClick={() => run(onChangeStatus)}><Check size={16}/><span>标记已完成</span></button>}
       <button role="menuitem" onClick={() => run(onEdit)}><Pencil size={16}/><span>编辑名称与目标</span></button>
-      <div className="tp-menu-divider" role="separator"/>
-      <button className="tp-menu-delete" role="menuitem" onClick={() => run(onDelete)}><Trash2 size={16}/><span>删除任务</span></button>
     </div>}
   </div>
 }

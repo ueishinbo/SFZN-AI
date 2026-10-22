@@ -39,6 +39,8 @@ type PrivateAssistantMessage = {
 }
 
 type A2AConversationViewProps = {
+  headless?: boolean
+  onTaskFeedback?: (id: string, content: string) => void
   onRecordsChange?: (records: Record<string, A2AConversationMessage[]>) => void
   focusRequest?: A2AFocus
   conversations: A2AConversation[]
@@ -111,6 +113,7 @@ function createRoundCompletionConfirmation(conversation: A2AConversation): A2AUs
 }
 
 export default function A2AConversationView({
+  headless, onTaskFeedback,
   conversations,
   onRecordsChange,
   focusRequest,
@@ -225,7 +228,10 @@ export default function A2AConversationView({
     }))
   }
 
+  const feedbackRef = useRef(onTaskFeedback)
+  feedbackRef.current = onTaskFeedback
   const appendPrivateMessage = (conversationId: string, message: Omit<PrivateAssistantMessage, 'id'>) => {
+    if (message.role === 'assistant') feedbackRef.current?.(conversationId, message.content)
     setPrivateMessagesByConversation((current) => ({
       ...current,
       [conversationId]: [...(current[conversationId] ?? []), {
@@ -337,6 +343,7 @@ export default function A2AConversationView({
         onCommandHandled(command.id)
         if (!canManageA2A(conversation)) { appendPrivateMessage(conversation.id, {role:'assistant', content:'只有群主可以确认完成本次沟通。'}); return }
         onComplete(conversation.id)
+        appendPrivateMessage(conversation.id, {role:'assistant', content:`「${conversation.title}」已结束，记录与材料会保留在当前任务中。任务是否完成仍由你决定。`})
         setRunningSpeakerByConversation(current => ({...current, [conversation.id]:null}))
         return
       }
@@ -372,6 +379,7 @@ export default function A2AConversationView({
         createdAt: command.createdAt,
       })
       onCommandHandled(command.id)
+      if (!isRecipientReply) appendPrivateMessage(conversation.id, {role:'assistant', content:`已发送到「${conversation.title}」。${recipients.length ? `等待${recipients.map(m => m.name).join('、')}回复。` : ''}`})
       if (isRecipientReply) {
         onConversationActivity(conversation.id, {status:'response_received', repliedCount: Math.min(conversation.expectedReplyCount, conversation.repliedCount + 1), pendingCurrentUserConfirmation:undefined, updatedAt:'刚刚', preview:'已按本人意见回复，等待发起人安排后续沟通。'})
         appendPrivateMessage(conversation.id, {role:'assistant', content:'已按你的意见发送到协作记录。本轮不再重复发言，等待发起人继续；没有操作业务系统。'})
@@ -458,6 +466,8 @@ export default function A2AConversationView({
       window.setTimeout(() => privateComposerRef.current?.focus(), 40)
     }
   }
+
+  if (headless) return null
 
   if (!selectedConversation) {
     return (

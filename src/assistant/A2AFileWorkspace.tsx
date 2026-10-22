@@ -5,8 +5,8 @@ import { fileSize, type A2AAttachment } from './a2aConversationTypes'
 import './a2a-files.css'
 
 export type ConversationFile = A2AAttachment & { sender: string; sentAt: string }
-export default function A2AFileWorkspace({ files, request }: {
-  files: ConversationFile[]; request?: { id: string; serial: number }
+export default function A2AFileWorkspace({ files, request, scope = 'conversation' }: {
+  scope?: 'task' | 'conversation'; files: ConversationFile[]; request?: { id: string; serial: number }
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [listing, setListing] = useState(true)
@@ -33,11 +33,11 @@ export default function A2AFileWorkspace({ files, request }: {
     } catch { setDownloadError('无法下载文件，请重试。') }
   }
 
-  return <section className="a2a-files" aria-label="会话文件">
+  return <section className="a2a-files" aria-label={scope === 'task' ? '任务文件' : '会话文件'}>
     <div className="a2a-files-list" style={{ display: listing ? undefined : 'none' }}>
       {files.length ? files.map(file => <button className="a2a-file-row" key={file.id} onClick={() => open(file.id)}>
         <FileText size={22}/><span><strong>{file.name}</strong><small>{file.sender} · {file.sentAt}</small><small>{file.kind === 'html' ? 'HTML' : 'Markdown'} · {fileSize(file.content)}</small></span>
-      </button>) : <div className="a2a-files-empty"><FileText size={32}/><strong>当前会话暂无文件</strong><p>在会话中发送的文件会显示在这里。</p></div>}
+      </button>) : <div className="a2a-files-empty"><FileText size={32}/><strong>{scope === 'task' ? '当前任务暂无文件' : '当前会话暂无文件'}</strong><p>{scope === 'task' ? '你添加的材料、整理的输出物和有权查看的协作附件会显示在这里。' : '在会话中发送的文件会显示在这里。'}</p></div>}
     </div>
     <section className="a2a-file-preview" aria-label="文件预览" style={{ display: listing ? 'none' : 'flex' }}>
       <header className="a2a-file-preview-header">

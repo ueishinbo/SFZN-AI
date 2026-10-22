@@ -26,9 +26,7 @@ import {
   LayoutPanelLeft,
   LayoutGrid,
   Layers3,
-  Maximize2,
   Mic,
-  Minimize2,
   Paperclip,
   Plus,
   Presentation,
@@ -45,7 +43,7 @@ import AdminWorkspace from './admin/AdminWorkspace'
 import AutomationWorkspace from './automation/AutomationWorkspace'
 import AssistantWorkspace from './assistant/AssistantWorkspace'
 import TaskWorkspace from './assistant/TaskWorkspace'
-import type { A2AFocus } from './assistant/A2AIssueBoard'
+import { seedTaskChat, type TaskChat } from './assistant/taskProductModel'
 import A2AConversationView, { type ConversationActivityPatch } from './assistant/A2AConversationView'
 import AssistantModeSidebar, { type AssistantDestination } from './assistant/AssistantModeSidebar'
 import AssistantFeaturePlaceholder from './assistant/AssistantFeaturePlaceholder'
@@ -207,24 +205,14 @@ h1{margin:0;color:#182334;font-size:46px;letter-spacing:-1.5px}p{margin:14px 0 2
 
 function HtmlBrowserPreview({ artifact, onOpenSource }: { artifact: Artifact; onOpenSource: () => void }) {
   const [refreshKey, setRefreshKey] = useState(0)
-  const [expanded, setExpanded] = useState(false)
-  useEffect(() => {
-    if (!expanded) return undefined
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setExpanded(false)
-    }
-    document.addEventListener('keydown', closeOnEscape)
-    return () => document.removeEventListener('keydown', closeOnEscape)
-  }, [expanded])
   return (
-    <div className={`workspace-browser-view ${expanded ? 'workspace-browser-view--expanded' : ''}`}>
+    <div className="workspace-browser-view">
       <div className="workspace-browser-toolbar">
         <button type="button" aria-label="后退" title="后退" disabled><ArrowLeft size={17} /></button>
         <button type="button" aria-label="前进" title="前进" disabled><ArrowRight size={17} /></button>
         <div className="workspace-browser-address"><FileCode2 size={16} /><span>comac://workspace/outputs/{artifact.name}</span></div>
         <button type="button" aria-label="刷新" title="刷新" onClick={() => setRefreshKey((value) => value + 1)}><RefreshCw size={17} /></button>
         <button className="workspace-browser-source" type="button" title="查看源文件" onClick={onOpenSource}><FileCode2 size={17} /><span>源文件</span></button>
-        <button type="button" aria-label={expanded ? '退出全屏预览' : '全屏预览'} title={expanded ? '退出全屏预览' : '全屏预览'} onClick={() => setExpanded((value) => !value)}>{expanded ? <Minimize2 size={17} /> : <Maximize2 size={17} />}</button>
       </div>
       <iframe key={refreshKey} sandbox="" title={`${artifact.name} 运行预览`} srcDoc={generatedHtmlDocument} />
     </div>
@@ -414,10 +402,26 @@ function App() {
     return { type: 'assistant' }
   })
   const [delegatedTasks,setDelegatedTasks] = useProductState<CollaborationIssue[]>('delegated-tasks',[])
-  const [taskWorkspaceFocus,setTaskWorkspaceFocus] = useState<{id:string;serial:number}>()
+  const [taskWorkspaceFocus,setTaskWorkspaceFocus] = useState<{id:string;serial:number;conversationId?:string}>()
+  const [taskCreationRequest,setTaskCreationRequest] = useState<{serial:number}>()
   const [a2aRecords, setA2ARecords] = useState<Record<string, A2AConversationMessage[]>>({})
-  const [a2aFocus, setA2AFocus] = useState<A2AFocus | undefined>()
+  const [taskHistory, setTaskHistory] = useProductState<Record<string,TaskChat[]>>('task-history',{})
   const [a2aConversations, setA2AConversations] = useProductState<A2AConversation[]>('conversations',() => [...a2aDemoScenarios, ...projectConversations])
+  // Existing links and notifications now resolve inside the parent task.
+  useEffect(() => {
+    if (assistantDestination.type !== 'conversation') return
+    const c = a2aConversations.find(c => c.id === assistantDestination.conversationId)
+    if (!c) return
+    setTaskWorkspaceFocus({id:issueOf(c).id, conversationId:c.id, serial:Date.now()})
+    setAssistantDestination({type:'feature',featureId:'a2a'})
+  }, [assistantDestination, a2aConversations])
+  const reportTaskFeedback = (conversationId:string, content:string) => {
+    const c = a2aConversations.find(c => c.id === conversationId)
+    if (!c) return
+    const issue = issueOf(c)
+    const task = {...issue, items:a2aConversations.filter(item => issueOf(item).id === issue.id)}
+    setTaskHistory(current => ({...current,[issue.id]:[...(current[issue.id] ?? seedTaskChat(task)), {id:crypto.randomUUID(),role:'assistant',content,conversationIds:[c.id],time:new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}]}))
+  }
   // Refresh observer scripts after edits without retaining the previous initiator identity.
   useEffect(() => {
     setA2AConversations(current => current.map(conversation =>
@@ -1153,7 +1157,9 @@ function App() {
           <div className={`app-mode-panel ${surfaceMode === 'assistant' ? '' : 'is-hidden'}`}>
             <div className={`assistant-destination-panel ${assistantDestination.type === 'assistant' ? '' : 'is-hidden'}`}>
               <AssistantWorkspace
-                onCreateTask={(goal) => {const task={id:`task-${crypto.randomUUID()}`,title:goal.replace(/^(请|帮我|请帮我|创建任务[：:]?)|[。！!]$/g,'').trim(),goal};setDelegatedTasks(current=>[task,...current]);return task.id}}
+                isVisible={surfaceMode === 'assistant' && assistantDestination.type === 'assistant'}
+                taskCreationRequest={taskCreationRequest}
+                onCreateTask={(goal) => {const task={id:`task-${crypto.randomUUID()}`,title:goal.split(/[。；\n]/)[0].trim(),goal};setDelegatedTasks(current=>[task,...current]);return task.id}}
                 onOpenTask={(id)=>{setTaskWorkspaceFocus({id,serial:Date.now()});setAssistantDestination({type:'feature',featureId:'a2a'})}}
                 onCreateReminderAutomation={createReminderAutomation}
                 notificationToDeliver={notificationToDeliver}
@@ -1171,7 +1177,8 @@ function App() {
             <div className={`assistant-destination-panel ${assistantDestination.type === 'conversation' ? '' : 'is-hidden'}`}>
               <A2AConversationView
                 onRecordsChange={setA2ARecords}
-                focusRequest={a2aFocus}
+                headless
+                onTaskFeedback={reportTaskFeedback}
                 conversations={a2aConversations}
                 onComplete={completeConversation}
                 onBack={() => {const c=a2aConversations.find(c=>assistantDestination.type === 'conversation' && c.id===assistantDestination.conversationId);setTaskWorkspaceFocus({id:c?issueOf(c).id:'',serial:Date.now()});setAssistantDestination({ type: 'feature', featureId: 'a2a' })}}
@@ -1194,11 +1201,12 @@ function App() {
             )}
             <div className={`assistant-destination-panel ${assistantDestination.type === 'feature' && assistantDestination.featureId === 'a2a' ? '' : 'is-hidden'}`}>
               <TaskWorkspace incomingTasks={delegatedTasks} taskFocus={taskWorkspaceFocus}
+                history={taskHistory} setHistory={setTaskHistory}
+                onConversationActivity={updateA2AConversationActivity}
+                onSubmitCommand={submitA2AConversationCommand}
+                onStartTask={()=>{setTaskCreationRequest(current=>({serial:(current?.serial??0)+1}));setAssistantDestination({type:'assistant'})}}
                 onRenameIssue={(id,title) => {setA2AConversations(current => current.map(c => issueOf(c).id === id ? {...c,issue:{...issueOf(c),title}} : c));setDelegatedTasks(current=>current.map(t=>t.id===id?{...t,title}:t))}}
-                records={a2aRecords} onCreateGroup={createA2AGroup} a2aConversations={a2aConversations} onOpenA2AConversation={(conversationId, target) => {
-                setA2AFocus(target ? { conversationId, ...target, serial: Date.now() } : undefined)
-                setAssistantDestination({ type: 'conversation', conversationId })
-              }} />
+                records={a2aRecords} onCreateGroup={createA2AGroup} a2aConversations={a2aConversations} />
             </div>
             {assistantDestination.type === 'feature' && !['training', 'automation', 'a2a'].includes(assistantDestination.featureId) && (
               <div className="assistant-destination-panel">

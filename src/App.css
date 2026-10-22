@@ -1145,7 +1145,6 @@ body.artifact-drawer-resizing {
   flex-direction: column;
   background: #f4f6f8;
 }
-.workspace-browser-view--expanded { position: fixed; inset: 0; z-index: 100; }
 .workspace-browser-toolbar {
   height: 50px;
   flex: 0 0 50px;
