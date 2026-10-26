@@ -36,7 +36,7 @@ export function cancelsTaskCreation(text:string) {
  return /(先别|不要|暂不|不用|不需要|取消).{0,8}(创建|新建|建立|任务)/.test(text)
 }
 export function isTaskDelegationRequest(text:string) {
- return !cancelsTaskCreation(text)&&/^(?:请帮我|帮我|请)?\s*(?:(?:创建|新建|建立)(?:一个|一项|个)?任务|持续推进|持续跟进)/.test(text.trim())
+ return !cancelsTaskCreation(text)&&/^(?:请帮我|帮我|请)?\s*(?:(?:创建|新建|建立)(?:一个|一项|个)?任务|推进|持续推进|持续跟进)/.test(text.trim())
 }
 export function taskDelegationGoal(text:string) {
  if(text.includes(TASK_GOAL_PLACEHOLDER)||text.includes('［描述要推进的事情和希望达成的结果］')||cancelsTaskCreation(text))return ''

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { nextMissing, parseGroupRequest, isGroupRequest, productPeople, taskSnapshot, taskDelegationGoal, normalizeTaskCreationPrompt, TASK_CREATION_PROMPT } from '../src/assistant/taskProductModel.ts'
+import { nextMissing, parseGroupRequest, isGroupRequest, productPeople, taskSnapshot, taskDelegationGoal, isTaskDelegationRequest, normalizeTaskCreationPrompt, TASK_CREATION_PROMPT } from '../src/assistant/taskProductModel.ts'
 const task={id:'pet',title:'数字宠物首期需求',goal:'明确范围',items:[]}
 const full=parseGroupRequest('帮我拉陈工、刘工建个群，确认数字宠物首期交互边界，最多3轮',task,productPeople)
 assert.equal(isGroupRequest('帮我拉陈工、刘工建个群，确认数字宠物首期交互边界，最多3轮'),true)
@@ -27,3 +27,9 @@ assert.equal(taskDelegationGoal('整理产品发布检查清单'),'整理产品�
 assert.equal(taskDelegationGoal('创建任务，整理产品发布检查清单'),'整理产品发布检查清单')
 assert.equal(taskDelegationGoal('取消新建任务'),'')
 console.log('Task product checks passed: missing information, optional task result, direct creation, negation, rounds, independent completion.')
+
+assert.equal(isTaskDelegationRequest(TASK_CREATION_PROMPT),true)
+assert.equal(isTaskDelegationRequest('帮我推进数字宠物需求评审'),true)
+assert.equal(isTaskDelegationRequest(''),false)
+assert.equal(isTaskDelegationRequest('今天有什么待办？'),false)
+assert.equal(isTaskDelegationRequest('不要创建任务'),false)

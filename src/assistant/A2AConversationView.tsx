@@ -497,7 +497,7 @@ export default function A2AConversationView({
           <div className="a2a-heading-start">
             <button className="a2a-back-button" type="button" aria-label="返回" title="返回所属任务" onClick={onBack}><ArrowLeft size={20} /></button>
             <div className="a2a-heading-copy">
-            <button className="a2a-parent-task-link" onClick={onBack}>我的任务 / {issueOf(selectedConversation).title}</button>
+            <button className="a2a-parent-task-link" onClick={onBack}>助理任务 / {issueOf(selectedConversation).title}</button>
             <h2>{selectedConversation.title}</h2>
 
             {progress.status && <div className="a2a-conversation-badges">

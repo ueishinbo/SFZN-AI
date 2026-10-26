@@ -45,7 +45,7 @@ import {
   type A2AConversation,
 } from './a2aConversationTypes'
 import './assistant.css'
-import { cancelsTaskCreation, isTaskDelegationRequest, normalizeTaskCreationPrompt, taskDelegationGoal, TASK_CREATION_EXAMPLE, TASK_CREATION_PREFIX, TASK_CREATION_PROMPT, TASK_GOAL_PLACEHOLDER } from './taskProductModel'
+import { isTaskDelegationRequest, normalizeTaskCreationPrompt, taskDelegationGoal, TASK_CREATION_EXAMPLE, TASK_CREATION_PREFIX, TASK_CREATION_PROMPT, TASK_GOAL_PLACEHOLDER } from './taskProductModel'
 
 type TaskListScope = 'attention' | 'all' | 'incoming' | 'outgoing'
 
@@ -96,30 +96,12 @@ const initialMessages: AssistantMessage[] = [
   {
     id: 'assistant-briefing',
     role: 'assistant',
-    content: `早上好。助理长会话会持续记住必要上下文。你可以直接输入以下示例口令体验 Demo：
+    content: `你好，可以直接告诉我你想推进的事情。例如：
 
-• “帮我持续推进用户研究工具采购准备”：建立任务，从主会话整理材料、发起沟通。
-• “模拟长任务”或“总结协作进展”：触发长会话堵塞，期间收到的 A2A 与定时任务消息会进入消息通知中心。
-• “本周供应商交付风险找谁确认”：体验 Ask User 澄清联系意图和对象。
-• “帮我建个群讨论数字宠物需求”：通过输入区 Ask User 依次补齐目标、参与人、最大轮次，再创建群聊并发送。
-• “帮我问一下供应商本周交付风险”：联系意图明确，只补充对象。
-• “帮我处理一下表单”：体验 C大脑入口的 Ask User 澄清。
-• “帮我打开 IT运维工单应用”：直接获得应用入口链接。
-• “查看所有任务”：查询并展示全部协作任务。
-• “派任务给张三”：生成写入 C 项目管理平台的任务草稿。
-• “创建仅 A2A 会话给张三”：生成不写入 C 项目管理平台的 A2A 原生任务草稿。
-• “催一下张三”：定位已有任务并生成催办确认。
-• “设置自动催办”：为当前任务创建自动催办。
-• “回复当前进展”：生成任务进展回复确认。
-• “通知李四下午评审改到三点”：创建单聊通知。
-• “请王五确认供应商交付风险”：创建可跟踪的单聊协作。
-• “通知李四、王五年度安排已更新”：创建群聊通知。
-• “和陈工、刘工发起方案评审协作”：创建严格顺序回复的群聊协作。
-• 新建会话后可从左侧进入；中间与自己的分身沟通并处理 Ask User；顶部查看目标与进展，右侧查看协作记录和 Workspace。
-• “组织一次专项评审”：进入评审策划问答流程。
-• “用子智能体分析客户支援”：体验多个子智能体并行协作；补充“模拟失败”可体验失败与重试。
+• “帮我推进整理产品发布检查清单，希望最终明确发布前需要确认的事项。”
+• “帮我建个群讨论数字宠物需求。”
 
-需要 A2A 时由模型调用工具，并在当前用户私人分身对话中通过 Ask User 补齐信息；信息完整后再创建会话。`,
+已有任务可以从左侧“助理任务”进入，在任务中与我讨论，并在右侧查看各路协作记录和资料。`,
   },
 ]
 
@@ -368,11 +350,10 @@ export default function AssistantWorkspace({
   const [items, setItems] = useState<CollaborationItem[]>(collaborationSeeds)
   const [messages, setMessages] = useState<AssistantMessage[]>(initialMessages)
   const [prompt, setPrompt] = useState('')
-  const [taskCreationMode, setTaskCreationMode] = useState(false)
+  const taskCreationMode = isTaskDelegationRequest(prompt)
   const [taskCreationError, setTaskCreationError] = useState('')
   const taskSelectionPending = useRef(false)
   const appliedTaskRequest = useRef<number | undefined>(undefined)
-  const previousAssistantDraft = useRef<string | null>(null)
   const taskSubmissionInFlight = useRef(false)
   const [selectedFileId, setSelectedFileId] = useState('assistant-memory-main')
   const [selectedItemId, setSelectedItemId] = useState('collab-engine-review')
@@ -955,12 +936,8 @@ export default function AssistantWorkspace({
     if (!isVisible || !taskCreationRequest || appliedTaskRequest.current === taskCreationRequest.serial || activeAskUser || isModelResponding) return
     appliedTaskRequest.current = taskCreationRequest.serial
     taskSelectionPending.current = true
-    if (!taskCreationMode) {
-      previousAssistantDraft.current = prompt
-      setTaskCreationMode(true)
-      setTaskCreationError('')
-      setPrompt(TASK_CREATION_PROMPT)
-    }
+    setTaskCreationError('')
+    setPrompt(TASK_CREATION_PROMPT)
   }, [isVisible, taskCreationRequest, activeAskUser, isModelResponding, taskCreationMode, prompt])
 
   useEffect(() => {
@@ -972,14 +949,6 @@ export default function AssistantWorkspace({
     taskSelectionPending.current = false
   }, [isVisible, taskCreationMode, taskCreationRequest, prompt])
 
-  const closeTaskCreation = () => {
-    setTaskCreationMode(false)
-    setTaskCreationError('')
-    setPrompt(previousAssistantDraft.current ?? '')
-    previousAssistantDraft.current = null
-    composerRef.current?.focus()
-  }
-
   const submitPrompt = (example?: string) => {
     const value = taskCreationMode ? normalizeTaskCreationPrompt(example ?? prompt) : (example ?? prompt).trim()
     if (!value || activeAskUser || taskSubmissionInFlight.current) return
@@ -990,16 +959,9 @@ export default function AssistantWorkspace({
       }
       return
     }
-    if (taskCreationMode && cancelsTaskCreation(value)) {
-      appendMessage({ role: 'user', content: value })
-      appendMessage({ role: 'assistant', content: '好的，本次不创建任务。' })
-      closeTaskCreation()
-      return
-    }
     if (taskCreationMode || isTaskDelegationRequest(value)) {
       const goal = taskDelegationGoal(value)
       if (!goal) {
-        setTaskCreationMode(true)
         setTaskCreationError('请先填写要推进的具体事项，结果可以稍后再补充。')
         composerRef.current?.focus()
         return
@@ -1009,7 +971,8 @@ export default function AssistantWorkspace({
         const id = onCreateTask(goal)
         appendMessage({ role: 'user', content: value })
         appendMessage({ role: 'assistant', content: `已建立任务「${goal.split(/[。；\n]/)[0]}」。进入任务后，我们可以先整理背景和材料，再按需联系其他人。`, delegatedTaskId: id })
-        closeTaskCreation()
+        setPrompt('')
+        setTaskCreationError('')
       } catch {
         setTaskCreationError('任务创建失败，内容已保留，请重试。')
       } finally {
@@ -1158,7 +1121,7 @@ export default function AssistantWorkspace({
 
   const canSubmitWhileBusy = isModelResponding && !taskCreationMode && isA2AConversationIntent(prompt.trim(), a2aConversations)
   const taskCreationPending = taskCreationRequest && appliedTaskRequest.current !== taskCreationRequest.serial
-  const canSubmitPrompt = Boolean(prompt.trim()) && (!isModelResponding || canSubmitWhileBusy) && (!taskCreationMode || Boolean(taskDelegationGoal(prompt)) || cancelsTaskCreation(prompt))
+  const canSubmitPrompt = Boolean(prompt.trim()) && (!isModelResponding || canSubmitWhileBusy) && (!taskCreationMode || Boolean(taskDelegationGoal(prompt)))
 
   return (
     <div className={[
@@ -1212,7 +1175,7 @@ export default function AssistantWorkspace({
                   </div>
                 ) : !message.a2aReminders ? (
                   <p className={message.streaming ? 'assistant-message-streaming' : ''}>
-                    {message.content}
+                    {message.id === 'assistant-briefing' ? initialMessages[0].content : message.content}
                     {message.streaming && <span><LoaderCircle size={15} />模型输出中</span>}
                   </p>
                 ) : null}
@@ -1261,7 +1224,6 @@ export default function AssistantWorkspace({
             onCancel={() => answerCBrainQuestion(activeAskUser.id, null)} /> : activeAskUser ? <A2AIntentDemo key={activeAskUser.id} question={activeAskUser.askUserDemo!}
             onAnswer={answer => answerIntentDemo(activeAskUser.id, answer)}
             onCancel={() => answerIntentDemo(activeAskUser.id, 'cancel')} /> : <>
-          {taskCreationMode && <div className="assistant-task-entry"><span><ClipboardCheck size={15} />新建任务</span><button type="button" onClick={closeTaskCreation}>取消新建</button></div>}
           {isModelResponding && (
             <div className="assistant-composer-busy-strip">
               <LoaderCircle size={14} />
@@ -1282,7 +1244,7 @@ export default function AssistantWorkspace({
             }}
             placeholder={taskCreationMode ? TASK_CREATION_EXAMPLE : isModelResponding
               ? '例如：通知李四、王五下午评审改到三点'
-              : '问我待办、派发、催办，或让我发起和回复 A2A 会话…'}
+              : '告诉我你想推进的事情，或需要联系谁…'}
           />
           {taskCreationMode && <p className="assistant-task-hint" id="task-creation-hint">具体事项必填。结果暂不明确，可以先只填写具体事项。</p>}
           {taskCreationError && <p className="assistant-task-error" role="alert">{taskCreationError}</p>}

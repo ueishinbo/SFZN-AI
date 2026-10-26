@@ -40,7 +40,7 @@ export default function AssistantModeSidebar({
 
   const normalizedQuery = query.trim().toLocaleLowerCase()
   const matches = (label: string) => label.toLocaleLowerCase().includes(normalizedQuery)
-  const hasResults = ['我的助理', '定时器', '我的任务', '数字分身', '后台管理'].some(matches)
+  const hasResults = ['我的助理', '定时器', '助理任务', '数字分身', '后台管理'].some(matches)
 
   return (
     <aside className={`sidebar assistant-mode-sidebar ${open ? '' : 'sidebar--closed'}`}>
@@ -75,7 +75,7 @@ export default function AssistantModeSidebar({
         <nav className="assistant-feature-nav" aria-label="助理功能">
           {([
             { id: 'automation', label: '定时器', icon: Clock3 },
-            { id: 'a2a', label: '我的任务', icon: UsersRound },
+            { id: 'a2a', label: '助理任务', icon: UsersRound },
           ] as const).filter(({ label }) => matches(label)).map(({ id, label, icon: Icon }) => {
             const active = (destination.type === 'feature' && destination.featureId === id)
               || (id === 'a2a' && destination.type === 'conversation')

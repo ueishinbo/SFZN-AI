@@ -47,7 +47,7 @@ export default function TaskActionsMenu({ title, completed, onChangeStatus, onEd
     }}><MoreHorizontal size={20}/></button>
     {open && <div className={`tp-action-menu ${above ? 'opens-above' : ''}`} id={menuId} role="menu" aria-label="任务操作" ref={menu}>
       {!completed && <button role="menuitem" onClick={() => run(onChangeStatus)}><Check size={16}/><span>标记已完成</span></button>}
-      <button role="menuitem" onClick={() => run(onEdit)}><Pencil size={16}/><span>编辑名称与目标</span></button>
+      <button role="menuitem" onClick={() => run(onEdit)}><Pencil size={16}/><span>编辑名称</span></button>
     </div>}
   </div>
 }

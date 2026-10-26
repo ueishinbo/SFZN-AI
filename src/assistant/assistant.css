@@ -338,17 +338,10 @@
   line-height: 1.6;
 }
 .assistant-composer textarea::placeholder { color: #a3adba; }
-.assistant-task-entry { display: flex; align-items: center; justify-content: space-between; padding: 14px 6px 0; font-size: 12px; color: #47779d; }
-.assistant-task-entry > span { display: inline-flex; align-items: center; gap: 7px; }
-.assistant-task-entry > button { border: 0; padding: 4px 0 4px 12px; background: transparent; color: #8393a3; font-size: 12px; cursor: pointer; }
-.assistant-task-entry > button:hover { color: #355f82; }
-.assistant-task-entry + textarea { height: 90px; padding-top: 12px; }
 .assistant-task-pending, .assistant-task-error { margin: 12px 6px; font-size: 12px; line-height: 1.6; }
 .assistant-task-pending { color: #74879b; }
 .assistant-task-error { color: #a26442; }
 .assistant-task-hint { margin: 0 6px 8px; color: #74879b; font-size: 12px; line-height: 1.6; }
-.assistant-composer:has(.assistant-task-entry) { height: auto; }
-.assistant-chat-pane:has(.assistant-task-entry) .assistant-thread { padding-bottom: 290px; }
 .assistant-composer--blocked { background: rgba(248,250,252,.98); }
 .assistant-composer-blocked-message {
   width: 100%;
