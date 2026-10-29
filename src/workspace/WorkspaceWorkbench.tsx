@@ -19,11 +19,15 @@ import {
   Folder,
   FolderOpen,
   ListFilter,
+  Maximize2,
+  Minimize2,
+  Minus,
   PanelRight,
   Plus,
   Presentation,
   Search,
   X,
+  ZoomIn,
 } from 'lucide-react'
 import type { WorkspaceTab } from './useWorkspaceWorkbench'
 import type { WorkspaceFileKind, WorkspaceTreeNode } from './workspaceTypes'
@@ -275,11 +279,42 @@ export default function WorkspaceWorkbench({
 }: WorkspaceWorkbenchProps) {
   const [expanded, setExpanded] = useState(() => new Set(defaultExpandedIds))
   const [filterQuery, setFilterQuery] = useState('')
+  const [fullscreen, setFullscreen] = useState(false)
+  const [zoomByTab, setZoomByTab] = useState<Record<string, number>>({})
+  const fullscreenButtonRef = useRef<HTMLButtonElement>(null)
+  const exitButtonRef = useRef<HTMLButtonElement>(null)
   const allNodes = useMemo(() => flattenNodes(nodes), [nodes])
   const filteredNodes = useMemo(() => filterNodes(nodes, filterQuery), [filterQuery, nodes])
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0]
   const activeNode = activeTab ? allNodes.find((node) => node.id === activeTab.nodeId) : undefined
   const latestHtml = outputs.find((output) => output.kind === 'html')
+  const isOutput = Boolean(activeTab && outputs.some((output) => output.nodeId === activeTab.nodeId || (output.objectId && output.objectId === activeTab.objectId)))
+  const canZoom = activeTab?.mode !== 'browser'
+  const zoom = activeTab ? zoomByTab[activeTab.id] ?? 100 : 100
+
+  useEffect(() => {
+    if (!fullscreen) return undefined
+    exitButtonRef.current?.focus()
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.stopPropagation()
+        setFullscreen(false)
+      }
+    }
+    document.addEventListener('keydown', closeOnEscape, true)
+    return () => {
+      document.removeEventListener('keydown', closeOnEscape, true)
+      fullscreenButtonRef.current?.focus()
+    }
+  }, [fullscreen])
+
+  useEffect(() => {
+    if (!isOutput || !activeTab) setFullscreen(false)
+  }, [activeTab, isOutput])
+
+  const setZoom = (value: number) => {
+    if (activeTab) setZoomByTab((current) => ({ ...current, [activeTab.id]: Math.max(50, Math.min(200, value)) }))
+  }
 
   useEffect(() => {
     if (!selectedNodeId) return
@@ -307,7 +342,7 @@ export default function WorkspaceWorkbench({
   }
 
   return (
-    <aside className={`workspace-workbench ${className}`.trim()} style={style} aria-label="Workspace 工作台">
+    <aside className={`workspace-workbench ${fullscreen ? 'workspace-workbench--fullscreen' : ''} ${className}`.trim()} style={style} aria-label="Workspace 工作台">
       {resizeHandlers && (
         <button className="workspace-workbench-resize" type="button" title="拖拽调整 Workspace 宽度" {...resizeHandlers}><span /></button>
       )}
@@ -338,6 +373,7 @@ export default function WorkspaceWorkbench({
       </header>
 
       <div className="workspace-contextbar">
+        {fullscreen && <strong className="workspace-fullscreen-title" title={activeTab?.title}>{activeTab?.title}</strong>}
         <div className="workspace-contextbar-path" title={activeNode?.path ?? '/Workspace'}>
           <span>/</span>
           {activeNode?.path
@@ -352,10 +388,19 @@ export default function WorkspaceWorkbench({
             ))}
         </div>
         <div className="workspace-contextbar-actions">
+          {fullscreen && canZoom && (
+            <div className="workspace-zoom-controls" aria-label="预览缩放">
+              <button type="button" aria-label="缩小" title="缩小" disabled={zoom <= 50} onClick={() => setZoom(zoom - 25)}><Minus size={17} /></button>
+              <span>{zoom}%</span>
+              <button type="button" aria-label="放大" title="放大" disabled={zoom >= 200} onClick={() => setZoom(zoom + 25)}><ZoomIn size={17} /></button>
+              <button type="button" aria-label="适应页面" title="适应页面" disabled={zoom === 100} onClick={() => setZoom(100)}>适应</button>
+            </div>
+          )}
           {activeNode && (activeNode.size || activeNode.updatedAt) && (
             <span>{[activeNode.size, activeNode.updatedAt].filter(Boolean).join(' · ')}</span>
           )}
           {activeTab && renderActions?.(activeTab, activeNode)}
+          {isOutput && <button ref={fullscreen ? exitButtonRef : fullscreenButtonRef} type="button" aria-label={fullscreen ? '退出全屏' : '全屏预览'} title={fullscreen ? '退出全屏' : '全屏预览'} onClick={() => setFullscreen((value) => !value)}>{fullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}</button>}
           <button
             className={navigatorOpen ? 'active' : ''}
             type="button"
@@ -373,7 +418,7 @@ export default function WorkspaceWorkbench({
         <section className="workspace-workbench-canvas">
           {activeTab && (
             <div className={`workspace-document-content workspace-document-content--${activeTab.mode} workspace-document-content--${activeTab.kind}`}>
-              {renderTab(activeTab, activeNode)}
+              <div className="workspace-document-zoom" style={canZoom ? { zoom: `${zoom}%` } : undefined}>{renderTab(activeTab, activeNode)}</div>
             </div>
           )}
 

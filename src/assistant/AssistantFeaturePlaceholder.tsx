@@ -77,7 +77,7 @@ const featureDefinitions: Record<AssistantFeatureId, FeatureDefinition> = {
   },
   a2a: {
     eyebrow: 'A2A',
-    title: 'A2A 任务',
+    title: 'A2A 会话',
     description: '查看跨分身协作的任务状态与待确认事项。',
     icon: <Bot size={26} />,
     items: [],

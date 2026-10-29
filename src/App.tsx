@@ -1,3 +1,8 @@
+import { useProductState } from './assistant/localProductStore'
+import { issueOf, issueOptions, type CollaborationIssue } from './assistant/a2aIssues'
+import type { A2AGroupInput } from './assistant/CreateA2AGroupDialog'
+import { DEMO_ACCOUNTS, CURRENT_USER as activeDemoUser } from './role-center/demoAccount'
+import { completeA2A, canManageA2A, completionQuestion } from './assistant/a2aLifecycle'
 import { useDemoAccount } from "./role-center/demoAccount";
 import { useCallback, useEffect, useMemo, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import {
@@ -21,9 +26,7 @@ import {
   LayoutPanelLeft,
   LayoutGrid,
   Layers3,
-  Maximize2,
   Mic,
-  Minimize2,
   Paperclip,
   Plus,
   Presentation,
@@ -39,15 +42,17 @@ import type { AppMode } from './app/appTypes'
 import AdminWorkspace from './admin/AdminWorkspace'
 import AutomationWorkspace from './automation/AutomationWorkspace'
 import AssistantWorkspace from './assistant/AssistantWorkspace'
+import TaskWorkspace from './assistant/TaskWorkspace'
+import { seedTaskChat, type TaskChat } from './assistant/taskProductModel'
 import A2AConversationView, { type ConversationActivityPatch } from './assistant/A2AConversationView'
 import AssistantModeSidebar, { type AssistantDestination } from './assistant/AssistantModeSidebar'
 import AssistantFeaturePlaceholder from './assistant/AssistantFeaturePlaceholder'
 import {
   buildA2ACommand,
-  seedA2AConversations,
   type A2ACommandResult,
   type A2AConversation,
   type A2AConversationCommand,
+  type A2AConversationMessage,
 } from './assistant/a2aConversationTypes'
 import type { CollaborationItem } from './assistant/mockCollaboration'
 import NotificationCenter from './assistant/NotificationCenter'
@@ -59,8 +64,9 @@ import {
 import WorkspaceWorkbench, { WorkspaceHeaderControls, type WorkspaceOutputItem } from './workspace/WorkspaceWorkbench'
 import ExternalAgentWorkspace from './external-agent/ExternalAgentWorkspace'
 import OrganizationWorkbench from './organization/OrganizationWorkbench'
-import { projectConversations, projects, conversationIdFor } from './organization/projectData'
-import DigitalTwinTrainingWorkspace, { A2ATaskBoard } from './digital-twin/DigitalTwinTrainingWorkspace'
+import { projectConversations } from './organization/projectData'
+import { a2aDemoScenarios } from './assistant/a2aDemoScenarios'
+import DigitalTwinTrainingWorkspace from './digital-twin/DigitalTwinTrainingWorkspace'
 import { useWorkspaceWorkbench, type WorkspaceTab } from './workspace/useWorkspaceWorkbench'
 import type { WorkspaceTreeNode } from './workspace/workspaceTypes'
 import {
@@ -199,24 +205,14 @@ h1{margin:0;color:#182334;font-size:46px;letter-spacing:-1.5px}p{margin:14px 0 2
 
 function HtmlBrowserPreview({ artifact, onOpenSource }: { artifact: Artifact; onOpenSource: () => void }) {
   const [refreshKey, setRefreshKey] = useState(0)
-  const [expanded, setExpanded] = useState(false)
-  useEffect(() => {
-    if (!expanded) return undefined
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setExpanded(false)
-    }
-    document.addEventListener('keydown', closeOnEscape)
-    return () => document.removeEventListener('keydown', closeOnEscape)
-  }, [expanded])
   return (
-    <div className={`workspace-browser-view ${expanded ? 'workspace-browser-view--expanded' : ''}`}>
+    <div className="workspace-browser-view">
       <div className="workspace-browser-toolbar">
         <button type="button" aria-label="后退" title="后退" disabled><ArrowLeft size={17} /></button>
         <button type="button" aria-label="前进" title="前进" disabled><ArrowRight size={17} /></button>
         <div className="workspace-browser-address"><FileCode2 size={16} /><span>comac://workspace/outputs/{artifact.name}</span></div>
         <button type="button" aria-label="刷新" title="刷新" onClick={() => setRefreshKey((value) => value + 1)}><RefreshCw size={17} /></button>
         <button className="workspace-browser-source" type="button" title="查看源文件" onClick={onOpenSource}><FileCode2 size={17} /><span>源文件</span></button>
-        <button type="button" aria-label={expanded ? '退出全屏预览' : '全屏预览'} title={expanded ? '退出全屏预览' : '全屏预览'} onClick={() => setExpanded((value) => !value)}>{expanded ? <Minimize2 size={17} /> : <Maximize2 size={17} />}</button>
       </div>
       <iframe key={refreshKey} sandbox="" title={`${artifact.name} 运行预览`} srcDoc={generatedHtmlDocument} />
     </div>
@@ -380,7 +376,7 @@ function TaskRow({ task, onOpen, onDelete }: { task: Task; onOpen: (task: Task) 
 
 function App() {
   const demoAccount = useDemoAccount()
-  const [appMode, setAppMode] = useState<AppMode>(()=>new URLSearchParams(location.search).get('view')==='admin'?'admin':['twin','assistant'].includes(new URLSearchParams(location.search).get('view')||'')?'assistant':'task')
+  const [appMode, setAppMode] = useState<AppMode>(()=>new URLSearchParams(location.search).get('view')==='admin'?'admin':['twin','assistant','a2a'].includes(new URLSearchParams(location.search).get('view')||'')?'assistant':'task')
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [taskSidebarOpenBeforeAssistant, setTaskSidebarOpenBeforeAssistant] = useState(true)
   const [sidebarMode, setSidebarMode] = useState<'default' | 'notifications'>('default')
@@ -399,16 +395,39 @@ function App() {
   const [assistantDestination, setAssistantDestination] = useState<AssistantDestination>(() => {
     const view = new URLSearchParams(location.search).get('view')
     if (view === 'twin') return { type: 'feature', featureId: 'training' }
-    if (view === 'a2a') return { type: 'feature', featureId: 'a2a' }
+    if (view === 'a2a') {
+      const conversationId = new URLSearchParams(location.search).get('conversation')
+      return conversationId ? {type:'conversation',conversationId} : {type:'feature',featureId:'a2a'}
+    }
     return { type: 'assistant' }
   })
-  const [a2aConversations, setA2AConversations] = useState<A2AConversation[]>(() => [...seedA2AConversations, ...projectConversations])
+  const [delegatedTasks,setDelegatedTasks] = useProductState<CollaborationIssue[]>('delegated-tasks',[])
+  const [taskWorkspaceFocus,setTaskWorkspaceFocus] = useState<{id:string;serial:number;conversationId?:string}>()
+  const [taskCreationRequest,setTaskCreationRequest] = useState<{serial:number}>()
+  const [a2aRecords, setA2ARecords] = useState<Record<string, A2AConversationMessage[]>>({})
+  const [taskHistory, setTaskHistory] = useProductState<Record<string,TaskChat[]>>('task-history',{})
+  const [a2aConversations, setA2AConversations] = useProductState<A2AConversation[]>('conversations',() => [...a2aDemoScenarios, ...projectConversations])
+  // Existing links and notifications now resolve inside the parent task.
+  useEffect(() => {
+    if (assistantDestination.type !== 'conversation') return
+    const c = a2aConversations.find(c => c.id === assistantDestination.conversationId)
+    if (!c) return
+    setTaskWorkspaceFocus({id:issueOf(c).id, conversationId:c.id, serial:Date.now()})
+    setAssistantDestination({type:'feature',featureId:'a2a'})
+  }, [assistantDestination, a2aConversations])
+  const reportTaskFeedback = (conversationId:string, content:string) => {
+    const c = a2aConversations.find(c => c.id === conversationId)
+    if (!c) return
+    const issue = issueOf(c)
+    const task = {...issue, items:a2aConversations.filter(item => issueOf(item).id === issue.id)}
+    setTaskHistory(current => ({...current,[issue.id]:[...(current[issue.id] ?? seedTaskChat(task)), {id:crypto.randomUUID(),role:'assistant',content,conversationIds:[c.id],time:new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}]}))
+  }
   // Refresh observer scripts after edits without retaining the previous initiator identity.
   useEffect(() => {
     setA2AConversations(current => current.map(conversation =>
       projectConversations.find(seed => seed.id === conversation.id && seed.demo?.readOnly) ?? conversation,
     ))
-  }, [projectConversations])
+  }, [setA2AConversations])
   const [a2aCommands, setA2ACommands] = useState<A2AConversationCommand[]>([])
   const [notifications, setNotifications] = useState<AssistantNotification[]>(createSeedNotifications)
   const [selectedNotificationId, setSelectedNotificationId] = useState<string | null>(null)
@@ -418,7 +437,7 @@ function App() {
   const taskWorkbench = useWorkspaceWorkbench()
 
   const hasQueuedNotifications = notifications.length > 0
-  const hasPendingA2AConfirmation = a2aConversations.some((conversation) => Boolean(conversation.pendingCurrentUserConfirmation))
+  const hasPendingA2AConfirmation = a2aConversations.some((conversation) => conversation.status !== 'completed' && Boolean(conversation.pendingCurrentUserConfirmation))
   const selectedNotification = notifications.find((notification) => notification.id === selectedNotificationId) ?? null
 
   const receiveNotification = (notification: AssistantNotification) => {
@@ -699,18 +718,54 @@ function App() {
     '--artifact-drawer-width': `${artifactDrawerWidth}px`,
   } as CSSProperties
 
+  const createA2AGroup = (input: A2AGroupInput) => {
+    const id = `a2a-manual-${crypto.randomUUID()}`
+    const conversation: A2AConversation = {
+      id, issue: input.issue ?? {id:`issue-${id}`,title:input.title,goal:input.goal}, sourceTask: input.sourceTask, title: input.title, scope:input.members.length === 1 ? 'direct' : 'group', mechanism:'collaboration', status:'waiting_replies',
+      hostUserId:'current-user', hostName:DEMO_ACCOUNTS.find(account => account.id === activeDemoUser)?.name ?? '当前用户',
+      members:input.members, speakingOrder:input.members.map(member => member.userId), goal:input.goal,
+      maxRounds:input.maxRounds, round:1, expectedReplyCount:input.members.length, repliedCount:0,
+      createdAt:'刚刚', updatedAt:'刚刚', preview:input.goal,
+    }
+    setA2AConversations(current => [conversation,...current])
+    setA2ACommands(current => [...current,{id:`a2a-opening-${id}`,conversationId:id,action:'send',content:input.goal,createdAt:'刚刚'}])
+    if (!input.stayInTask) setAssistantDestination({type:'conversation',conversationId:id})
+    return id
+  }
+
   const runA2ACommand = useCallback((value: string): A2ACommandResult => {
     const result = buildA2ACommand(value, a2aConversations)
-    if (result.created) setA2AConversations((current) => [result.conversation, ...current])
+    if (result.command.action === 'complete') {
+      if (!canManageA2A(result.conversation)) throw new Error('只有群主可以确认完成本次沟通。')
+      setA2AConversations(current => current.map(conversation => conversation.id === result.conversation.id ? { ...conversation, pendingCurrentUserConfirmation: completionQuestion(conversation) } : conversation))
+      return result
+    }
+    if (result.created) {
+      const explicitIssue = issueOptions(a2aConversations).filter(issue => value.includes(`针对“${issue.title}”`) || value.includes(`针对${issue.title}事项`))
+      if (explicitIssue.length === 1) {
+        const { source, ...issue } = explicitIssue[0]
+        result.conversation = { ...result.conversation, issue, sourceTask: source }
+      } else {
+        result.conversation = { ...result.conversation, issue: issueOf(result.conversation) }
+      }
+      setA2AConversations((current) => [result.conversation, ...current])
+    }
     setA2ACommands((current) => [...current, result.command])
     return result
-  }, [a2aConversations])
+  }, [a2aConversations, setA2AConversations])
+
+  const completeConversation = (id: string) => {
+    const target = a2aConversations.find(conversation => conversation.id === id)
+    if (!target || completeA2A(target) === target) return
+    setA2ACommands(current => current.filter(command => command.conversationId !== id))
+    setA2AConversations(current => current.map(conversation => conversation.id === id ? completeA2A(conversation) : conversation))
+  }
 
   const updateA2AConversationActivity = useCallback((conversationId: string, patch: ConversationActivityPatch) => {
-    setA2AConversations((current) => current.map((conversation) => conversation.id === conversationId
+    setA2AConversations((current) => current.map((conversation) => conversation.id === conversationId && conversation.status !== 'completed'
       ? { ...conversation, ...patch }
       : conversation))
-  }, [])
+  }, [setA2AConversations])
 
   const markA2ACommandHandled = useCallback((commandId: string) => {
     setA2ACommands((current) => current.filter((command) => command.id !== commandId))
@@ -757,17 +812,16 @@ function App() {
       : appMode === 'assistant'
         ? assistantDestination.type === 'feature' && assistantDestination.featureId === 'training'
           ? 'twin'
-          : assistantDestination.type === 'feature' && assistantDestination.featureId === 'a2a'
+          : assistantDestination.type === 'conversation' || (assistantDestination.type === 'feature' && assistantDestination.featureId === 'a2a')
             ? 'a2a'
             : 'assistant'
         : 'task'
     url.searchParams.set('view', view)
+    if (appMode === 'assistant' && assistantDestination.type === 'conversation') url.searchParams.set('conversation',assistantDestination.conversationId)
+    else url.searchParams.delete('conversation')
     history.replaceState(null, '', url)
   }, [appMode, assistantDestination])
 
-  const conversationProject = assistantDestination.type === 'conversation'
-    ? projects.find(project => project.tasks.some(task => conversationIdFor(task) === assistantDestination.conversationId))
-    : undefined
   const surfaceMode = appMode
 
   return (
@@ -779,7 +833,7 @@ function App() {
             destination={assistantDestination}
             onClose={() => setSidebarOpen(false)}
             onSelectAssistant={() => setAssistantDestination({ type: 'assistant' })}
-            onSelectFeature={(featureId) => setAssistantDestination({ type: 'feature', featureId })}
+            onSelectFeature={(featureId) => {if(featureId === 'a2a')setTaskWorkspaceFocus({id:'',serial:Date.now()});setAssistantDestination({ type: 'feature', featureId })}}
             onEnterAdmin={enterAdminMode}
           />
         ) : surfaceMode === 'task' ? (
@@ -1103,21 +1157,31 @@ function App() {
           <div className={`app-mode-panel ${surfaceMode === 'assistant' ? '' : 'is-hidden'}`}>
             <div className={`assistant-destination-panel ${assistantDestination.type === 'assistant' ? '' : 'is-hidden'}`}>
               <AssistantWorkspace
+                isVisible={surfaceMode === 'assistant' && assistantDestination.type === 'assistant'}
+                taskCreationRequest={taskCreationRequest}
+                onCreateTask={(goal) => {const task={id:`task-${crypto.randomUUID()}`,title:goal.split(/[。；\n]/)[0].trim(),goal};setDelegatedTasks(current=>[task,...current]);return task.id}}
+                onOpenTask={(id)=>{setTaskWorkspaceFocus({id,serial:Date.now()});setAssistantDestination({type:'feature',featureId:'a2a'})}}
                 onCreateReminderAutomation={createReminderAutomation}
                 notificationToDeliver={notificationToDeliver}
                 onNotificationAccepted={acceptQueuedNotification}
                 onNotificationDelivered={finishNotificationDelivery}
                 onNotificationReceived={receiveNotification}
                 onBusyChange={setAssistantBusy}
+                viewedA2AConversationId={surfaceMode === 'assistant' && assistantDestination.type === 'conversation' ? assistantDestination.conversationId : null}
                 a2aConversations={a2aConversations}
                 onRunA2ACommand={runA2ACommand}
                 onWorkspaceVisibilityChange={setAssistantWorkspaceVisible}
+                onOpenA2AConversation={(conversationId) => setAssistantDestination({ type: 'conversation', conversationId })}
               />
             </div>
-            <div className={`assistant-destination-panel ${conversationProject ? 'org-conversation-panel' : ''} ${assistantDestination.type === 'conversation' ? '' : 'is-hidden'}`}>
-              {conversationProject && <div className="org-conversation-back"><button type="button" onClick={() => { setActiveNav('系统智能'); returnToTaskMode(); }}><ArrowLeft size={16}/>返回{conversationProject.title}项目</button><span>系统智能 · {conversationProject.title}</span></div>}
+            <div className={`assistant-destination-panel ${assistantDestination.type === 'conversation' ? '' : 'is-hidden'}`}>
               <A2AConversationView
+                onRecordsChange={setA2ARecords}
+                headless
+                onTaskFeedback={reportTaskFeedback}
                 conversations={a2aConversations}
+                onComplete={completeConversation}
+                onBack={() => {const c=a2aConversations.find(c=>assistantDestination.type === 'conversation' && c.id===assistantDestination.conversationId);setTaskWorkspaceFocus({id:c?issueOf(c).id:'',serial:Date.now()});setAssistantDestination({ type: 'feature', featureId: 'a2a' })}}
                 selectedConversationId={assistantDestination.type === 'conversation' ? assistantDestination.conversationId : null}
                 commands={a2aCommands}
                 onCommandHandled={markA2ACommandHandled}
@@ -1135,11 +1199,15 @@ function App() {
                 <AutomationWorkspace tasks={automationTasks} runs={automationRuns} setTasks={setAutomationTasks} setRuns={setAutomationRuns} />
               </div>
             )}
-            {assistantDestination.type === 'feature' && assistantDestination.featureId === 'a2a' && (
-              <div className="assistant-destination-panel">
-                <A2ATaskBoard a2aConversations={a2aConversations} onOpenA2AConversation={(conversationId) => setAssistantDestination({ type: 'conversation', conversationId })} />
-              </div>
-            )}
+            <div className={`assistant-destination-panel ${assistantDestination.type === 'feature' && assistantDestination.featureId === 'a2a' ? '' : 'is-hidden'}`}>
+              <TaskWorkspace incomingTasks={delegatedTasks} taskFocus={taskWorkspaceFocus}
+                history={taskHistory} setHistory={setTaskHistory}
+                onConversationActivity={updateA2AConversationActivity}
+                onSubmitCommand={submitA2AConversationCommand}
+                onStartTask={()=>{setTaskCreationRequest(current=>({serial:(current?.serial??0)+1}));setAssistantDestination({type:'assistant'})}}
+                onRenameIssue={(id,title) => {setA2AConversations(current => current.map(c => issueOf(c).id === id ? {...c,issue:{...issueOf(c),title}} : c));setDelegatedTasks(current=>current.map(t=>t.id===id?{...t,title}:t))}}
+                records={a2aRecords} onCreateGroup={createA2AGroup} a2aConversations={a2aConversations} />
+            </div>
             {assistantDestination.type === 'feature' && !['training', 'automation', 'a2a'].includes(assistantDestination.featureId) && (
               <div className="assistant-destination-panel">
                 <AssistantFeaturePlaceholder featureId={assistantDestination.featureId} />

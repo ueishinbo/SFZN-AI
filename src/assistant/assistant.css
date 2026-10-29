@@ -117,7 +117,9 @@
   max-width: 76%;
   padding: 12px 17px;
   border-radius: 17px 7px 17px 17px;
-  background: #edf1f5;
+  background: #edf4fa;
+  border: 1px solid #e0eaf3;
+  overflow-wrap: anywhere;
 }
 .assistant-message--user:has(.assistant-inserted-notification) .assistant-message-body {
   width: min(620px, 88%);
@@ -144,6 +146,8 @@
 .assistant-inserted-notification > small { color: #929eac; font-size: 10px; }
 .assistant-message-name { display: block; margin: 4px 0 7px; font-size: 15px; }
 .assistant-message-body > p { margin: 0; font-size: 15px; line-height: 1.7; white-space: pre-line; }
+.assistant-cbrain-link { display: inline-flex; align-items: center; gap: 4px; margin-top: 10px; color: #0969b2; font-size: 14px; font-weight: 650; text-decoration: underline; text-underline-offset: 3px; }
+.assistant-cbrain-link:hover { color: #064d86; }
 .assistant-message-streaming > span {
   margin-left: 9px;
   display: inline-flex;
@@ -334,6 +338,10 @@
   line-height: 1.6;
 }
 .assistant-composer textarea::placeholder { color: #a3adba; }
+.assistant-task-pending, .assistant-task-error { margin: 12px 6px; font-size: 12px; line-height: 1.6; }
+.assistant-task-pending { color: #74879b; }
+.assistant-task-error { color: #a26442; }
+.assistant-task-hint { margin: 0 6px 8px; color: #74879b; font-size: 12px; line-height: 1.6; }
 .assistant-composer--blocked { background: rgba(248,250,252,.98); }
 .assistant-composer-blocked-message {
   width: 100%;
@@ -898,3 +906,16 @@
   .assistant-message-streaming > span svg { animation: none; }
   .assistant-composer-blocked-message > span svg { animation: none; }
 }
+.assistant-a2a-link { display: inline; margin: 8px 0 0; padding: 0; border: 0; border-radius: 0; background: none; color: #246fa8; font: inherit; cursor: pointer; text-align: left; }
+.assistant-a2a-link:hover { background: none; text-decoration: underline; }
+.assistant-a2a-link:focus-visible { outline: 2px solid #246fa8; outline-offset: 3px; }
+
+.assistant-message--a2a-notice .assistant-message-body { margin-left:44px; }
+.assistant-a2a-reminder { padding:4px 0; }
+.assistant-a2a-reminder + .assistant-a2a-reminder { margin-top:18px; }
+.assistant-a2a-reminder > header { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:10px; }
+.assistant-a2a-source { padding:3px 8px; border-radius:4px; background:#dcf4e7; color:#23764c; font-size:12px; font-weight:600; }
+.assistant-a2a-title { color:#387959; font-size:14px; font-weight:500; overflow-wrap:anywhere; }
+.assistant-a2a-state { color:#84918e; font-size:12px; }
+.assistant-a2a-reminder > p { margin:0; }
+@media(max-width:760px) { .assistant-message--a2a-notice .assistant-message-body { margin-left:0; } }

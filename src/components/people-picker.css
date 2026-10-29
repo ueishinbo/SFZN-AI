@@ -1,0 +1,20 @@
+.people-picker { position:relative; }
+.people-picker-field { display:flex; align-items:center; flex-wrap:wrap; gap:8px; min-height:44px; border:1px solid #d9e2ec; border-radius:8px; background:white; padding:7px 10px; }
+.people-picker-chips { display:contents; }
+.people-picker-chip { display:inline-flex; align-items:center; gap:6px; padding:5px 8px; border-radius:5px; font-size:13px; color:#356b97; background:#eaf3fb; }
+.people-picker-chip button { border:0; padding:0; display:grid; place-items:center; background:none; color:inherit; cursor:pointer; }
+.people-picker-trigger { display:flex; align-items:center; gap:7px; flex:1; min-width:130px; border:0; padding:3px; background:none; color:#7b8b9d; cursor:pointer; text-align:left; }
+.people-picker-trigger span { flex:1; }
+.people-picker-panel { margin-top:7px; border:1px solid #dce5ee; border-radius:10px; background:white; box-shadow:0 5px 18px #1f3e5710; overflow:hidden; }
+.people-picker-search { display:flex; align-items:center; gap:8px; margin:10px; border:1px solid #e0e6ee; border-radius:7px; padding:0 10px; color:#8a9aad; }
+.people-picker-search input { width:100%; min-width:0; border:0 !important; box-shadow:none !important; outline:none; padding:9px 0 !important; font-size:13px; }
+.people-picker-options { max-height:220px; overflow:auto; padding:0 6px; }
+.people-picker-options > button { display:flex; align-items:center; gap:10px; width:100%; padding:10px; border:0; border-radius:6px; background:white; color:#395771; cursor:pointer; text-align:left; }
+.people-picker-options > button:hover,.people-picker-options > button[aria-selected=true] { background:#f0f6fc; }
+.people-picker-options i { width:30px; height:30px; display:grid; place-items:center; border-radius:50%; background:#e8f1f7; font-style:normal; }
+.people-picker-options span { flex:1; display:grid; gap:4px; }
+.people-picker-options strong { font-size:13px; }
+.people-picker-options small { font-size:11px; color:#8594a3; }
+.people-picker-panel footer { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border-top:1px solid #ecf0f4; color:#8291a0; font-size:12px; }
+.people-picker-panel footer button { border:0; padding:5px 10px; border-radius:5px; background:#eaf3fb; color:#356b97; cursor:pointer; }
+.people-picker-empty { padding:16px; color:#8a99a8; font-size:13px; text-align:center; }
